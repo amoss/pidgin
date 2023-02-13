@@ -1,0 +1,157 @@
+# Brackets
+
+Any of (), [], {} or <> may be used interchangably in places where brackets are required.
+i.e. u[xx] and u(xx) are the same.
+
+
+# Types
+
+T : {
+    integer
+    unicode
+    boolean
+    enum
+    [T1 T2 ...]
+    ord<T>
+    set<T>
+    map<T:T>                c( object = map<u[]:T> )
+}
+
+Type names may be abbreviated to a unique prefix, i.e.
+
+some_map = map{ 2:1, 3:3, 4:1 }
+a_dict = m{ u[hello] : 2, u(a [) : 7 }
+int[1,2,3]
+uni[hello world]
+uni<hello [world]>
+strings = [u[hello] u[world]]
+u[Using (] * u([) * u[()]
+tags = { u[unicode] u[integer] u[boolean] u[comment] }
+
+Commas between elements are optional.
+
+
+# Patterns
+
+modifier = enum{ Any Optional Some Just }
+atom<T> : [ seq<T> modifier ] or [ set<T> modifier ]
+atom<T> : modifier seq<T> | modifier set<T> | modifier atom<T>
+pattern<T> : seq<atom[T]>
+
+
+# Operators
+
+s1 = s2      c[ equality ]
+len(s1)
+set(s)       c[ alphabet ]
+set([s])     c[ how to make a set with a single string? ]
+
+-. :: ord<T> ord<T> -> ord<T> boolean       c[ head ]
+.- :: ord<T> ord<T> -> ord<T> boolean       c[ pop ]
+.+ :: ord<T> ord<T> -> ord<T>               c[ push ]
++. :: ord<T> ord<T> -> ord<T>               c[ insert ]
+*  :: ord<T> T -> ord<T>                    c[ join / intersperse ]
+/  :: ord<T> T -> ord<ord<T>>               c[ split ]
+len :: ord<T> -> int
+=  :: T T -> boolean
+
+u[hello ] + u[world] = u[hello world]
+
+u[some fields,a string,csv] / u[,] = ord< u[some fields], u[a string], u[csv] >
+u[some\ttext to\nsplit] / { u[ ], u[\t], u[\n] } = [ u[some], u[text to], u[split] ]
+[ u[some fields], u[a string], u[csv] ] * u[,] = u[some fields,a string,csv]
+
+u[string with a suffix] .- u[a suffix] = u[string with a ]
+u[prefix on a string] -. u[prefix] = u[ on a string]
+
+            c[ what if there is not the target prefix or suffix? ]
+
+~ :: pattern<T> seq<T> -> boolean
+
+# Order indexing and slicing
+
+We need to differentiate between an access to a variable and the use of type tags in constant
+expressions, otherwise the set of excluded keywords is huge (because we allow prefixes).
+
+Either we use an explicit symbol to denote array access or the use of brackets needs to be reworked
+throughout, and we lose many nice properties.
+
+x$[3]
+uni$[2,3]
+t${7}
+slices$<2:3,7:9>
+
+# Example code
+
+anyPrefixOf(in : ord<uni>) = set{ let n = 1 .. len(in) in in[:n] }
+typeNames  = set{
+    u[integer]
+    u[unicode]
+    u[boolean]
+    u[enum]
+    u[ord]
+    u[set]
+    u[map]
+}
+flatten :: set<set{T}> -> set<T>
+typePrefixes = flatten . map (anyPrefixOf typeNames)
+operators = set{ u[.-], u[.+], u[-.], u[+.], u[*], u[/] }
+
+for each rule in state
+    if stack -. rule -> rest {
+        reduce by rule
+        break
+    }
+finally
+    shift
+
+
+if seq< Just u[header] Any set(u[+-/]) Optional u[0123456789]> ~ input {
+    ....
+}
+
+
+# Expression grammar
+
+expr : anyDeclaredVar | constant | expr binop expr | func u[(] args u[)]
+constant : Some set{012345678}                                                  c( Other bases would be nice here )
+         | anyPrefixOf(u[unicode]) u([) Any !set{u(])} u(])
+         | anyPrefixOf(u[unicode]) u[(] Any !set{u[)]} u[)]
+         | anyPrefixOf(u[unicode]) u[{] Any !set{u[}]} u[}]
+         | anyPrefixOf(u[unicode]) u[<] Any !set{u[>]} u[>]
+         | anyPrefixOf(u[true])
+         | anyPrefixOf(u[false])
+         | anyDeclaredEnum
+         | anyPrefixOf(u[ord]) u([) Any constant u(])
+         | anyPrefixOf(u[ord]) u[(] Any constant u[)]
+         | anyPrefixOf(u[ord]) u[{] Any constant u[}]
+         | anyPrefixOf(u[ord]) u[<] Any constant u[>]
+         | anyPrefixOf(u[set]) u([) Any constant u(])
+         | anyPrefixOf(u[set]) u[(] Any constant u[)]
+         | anyPrefixOf(u[set]) u[{] Any constant u[}]
+         | anyPrefixOf(u[set]) u[<] Any constant u[>]
+         | anyPrefixOf(u[map]) u([) Any (constant u[:] constant) u(])
+         | anyPrefixOf(u[map]) u[(] Any (constant u[:] constant) u[)]
+         | anyPrefixOf(u[map]) u[{] Any (constant u[:] constant) u[}]
+         | anyPrefixOf(u[map]) u[<] Any (constant u[:] constant) u[>]
+binop : set{ u[.-], u[.+], u[-.], u[+.], u[*], u[/], u[+], u[-] }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
