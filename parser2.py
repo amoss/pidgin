@@ -372,7 +372,6 @@ list <- list pair
       | pair
 pair <- ( )
       | ( list )
-'''
 g = Grammar("lst")
 lst = Rule("lst")
 lst.add([ Nonterminal("lst"), Nonterminal("pair") ])
@@ -382,6 +381,7 @@ pair.add([ Terminal("("), Terminal(")") ])
 pair.add([ Terminal("("), Nonterminal("pair","some"), Terminal(")") ])
 g.add(lst)
 g.add(pair)
+'''
 
 '''
 expr <- ( )
@@ -395,12 +395,16 @@ g.add(expr)
 '''
 
 '''
+lst <- expr+
 expr <- ( expr* )
-g = Grammar("expr")
+'''
+g = Grammar("lst")
 expr = Rule("expr")
 expr.add([ Terminal("("), Nonterminal("expr","any"), Terminal(")") ])
 g.add(expr)
-'''
+lst = Rule("lst")
+lst.add([ Nonterminal("expr","some") ])
+g.add(lst)
 
 graph = g.build()
 #graph.dump()
@@ -419,6 +423,9 @@ class Parser:
             self.chars = chars
             self.tag = tag
 
+        def __str__(self):
+            return self.chars
+
         def matches(self, other):
             if not isinstance(other, Terminal):     # Grammar.Terminal
                 return False
@@ -433,6 +440,9 @@ class Parser:
             self.children = tuple(children)
             for c in self.children:
                 assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
+
+        def __str__(self):
+            return self.tag
 
         def matches(self, other):
             if not isinstance(other, Nonterminal):  # Grammar.Nonterminal
@@ -499,40 +509,66 @@ class Parser:
     def __init__(self, graph):
         self.graph = graph
 
-    def parse(self, input):
+    @staticmethod
+    def nodeProps(*args):
+        return '[shape=none,label=< <table border="0">' + "".join([f"<tr><td>{x}</td></tr>" for x in args]) + "</table> >]";
+
+    def parse(self, input, trace=None):
+        if trace:
+            print("digraph {", file=trace)
+            counter = 0
+            nodeNames = {}
+            for n in self.graph.nodes:
+                nodeNames[n] = f"s{counter}"
+                counter += 1
         self.states = set()
         self.states.add( Parser.State(self.graph.start, input, ()) )
         done = set()        ## Stratify sets by input length to avoid memory cost, i.e. iterate on all states of same input size in one batch
         counter = 0
+        traceEdges = []
 
         while len(self.states)>0:
             next = set()
             for s in self.states:
-                print(f"State: {s.input} :: {' '.join([str(x) for x in s.stack])}")
+                #print(f"State: {s.input} :: {' '.join([str(x) for x in s.stack])}")
                 counter += 1
                 if s.terminating() and len(s.input)==0 and len(s.stack)==1:
+                    if trace:
+                        print(f"n{id(s)} [fillcolor=blue, style=filled];", file=trace)
                     print("Success!!!!")
                     s.stack[0].dump()
                 for edge in self.graph.findEdgeBySource(s.node):
                     if isinstance(edge.label, Terminal):
                         m = edge.label.match(s.input)
                         if m is not None:
-                            print(f"  Shift {m} to {edge.target}")
-                            next.add( Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),)) )
+                            #print(f"  Shift {m} to {edge.target}")
+                            ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
+                            next.add(ns)
+                            if trace:
+                                print(f'n{id(ns)} {Parser.nodeProps(ns.input,nodeNames[ns.node],"".join([str(x) for x in ns.stack]))};', file=trace)
+                                traceEdges.append( (s,ns,"shift") )
                     if isinstance(edge.label, Clause):
                         h = s.checkHandle(edge.label)
                         if h is not None:
-                            print(f"  Reduce by {edge.label} onto {' '.join([str(x) for x in h])}")
-                            next.add( Parser.State(edge.target, s.input, h) )
+                            #print(f"  Reduce by {edge.label} onto {' '.join([str(x) for x in h])}")
+                            ns = Parser.State(edge.target, s.input, h)
+                            next.add(ns)
+                            if trace:
+                                print(f'n{id(ns)} {Parser.nodeProps(ns.input,nodeNames[ns.node],"".join([str(x) for x in ns.stack]))};', file=trace)
+                                traceEdges.append( (s,ns,"reduce") )
 
             done = done.union(self.states)
             next = next.difference(done)
             self.states = next
             print(f"Iteration with {len(next)} states")
         print(f"Processed {counter} states")
+        if trace:
+            for src,tar,lab in traceEdges:
+                print(f'n{id(src)} -> n{id(tar)} [label="{lab}"];', file=trace)
+            print("}", file=trace)
 
 
 p = Parser(graph)
-p.parse("(())()((()())())")
-#p.parse("((()())())")
+#p.parse("(())()((()())())", trace=open('trace.dot','wt'))
+p.parse("()")
 
