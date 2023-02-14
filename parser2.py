@@ -412,89 +412,118 @@ while True:
     graph.fold(first)
 graph.dot()
 
-#def handleCheck(clause, stack):
-#    if len(stack) < len(clause.rhs):
-#        return None
-#    for h,s in zip(stack[-len(clause.rhs):],stack):
-#        if isinstance(h, Terminal) and not h.match(s):
-#            return None
-#        if isinstance(h, Nonterminal) and h!=s:
-#            return None
-#    return stack[:-len(clause.rhs)] + (Nonterminal(clause.lhs,"just"),)      ## MODIFIER CAN O WORMS!!!!
-
-def checkHandle(clause, stack):
-    '''Handles are as complex as regex in this system, treat variable-length modifiers as greedy and do not
-       perform backtracking. This will cause failure cases (i.e. end of a clause is a repeating symbol and
-       the same symbol/modifier is in the follows-set) but will do for now in order to investigate how this
-       works out.'''
-    s = len(stack) - 1
-    r = len(clause.rhs) - 1
-    hasMatched = False
-    while s >= 0:
-        if r<0:
-            return stack[:s+1] + (Nonterminal(clause.lhs,"just"),)
-        symbol = clause.rhs[r]
-        matching = (isinstance(symbol,Terminal) and isinstance(stack[s],str)) or \
-                   (isinstance(symbol,Nonterminal) and isinstance(stack[s],Nonterminal))
-        if matching and isinstance(symbol, Terminal) and not symbol.match(stack[s]):
-            matching = False
-        if matching and isinstance(symbol, Nonterminal) and (not isinstance(stack[s], Nonterminal) or stack[s].name!=symbol.name):
-            matching = False
-        if not matching and hasMatched:
-            r -= 1
-            hasMatched = False
-            continue
-        if not matching and symbol.modifier in ("just","some"):
-            return None
-        if not matching and symbol.modifier in ("any","optional"):
-            r -= 1
-            hasMatched = False
-        if matching and symbol.modifier in ("just","optional"):
-            s -= 1
-            r -= 1
-            hasMatched = False
-        if matching and symbol.modifier in ("any","some"):
-            s -= 1
-            hasMatched = True
-    if r<0:
-        return stack[:s+1] + (Nonterminal(clause.lhs,"just"),)
-    return None
-
 class Parser:
+
+    class Terminal:
+        def __init__(self, chars, tag=None):
+            self.chars = chars
+            self.tag = tag
+
+        def matches(self, other):
+            if not isinstance(other, Terminal):     # Grammar.Terminal
+                return False
+            return other.match(self.chars)          # Ugly, use tags
+
+        def dump(self, depth=0):
+            print(f"{'  '*depth}{self.chars}")
+
+    class Nonterminal:
+        def __init__(self, tag, children):
+            self.tag = tag
+            self.children = tuple(children)
+            for c in self.children:
+                assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
+
+        def matches(self, other):
+            if not isinstance(other, Nonterminal):  # Grammar.Nonterminal
+                return False
+            return self.tag == other.name
+
+        def dump(self, depth=0):
+            print(f"{'  '*depth}{self.tag}")
+            for c in self.children:
+                c.dump(depth+1)
+
+    class State:
+        def __init__(self, node, input, stack):
+            self.input = input
+            self.node  = node
+            self.stack = stack
+
+        def __eq__(self, other):
+            return self.input==other.input and self.node==other.node and self.stack==other.stack
+
+        def __hash__(self):
+            return hash((self.input, self.node, self.stack))
+
+        def terminating(self):
+            terminating = False
+            for config in self.node.labels:
+                if config.terminating:
+                    return True
+            return False
+
+        def checkHandle(self, clause):
+            '''Handles are as complex as regex in this system, treat variable-length modifiers as greedy and do not
+               perform backtracking. This will cause failure cases (i.e. end of a clause is a repeating symbol and
+               the same symbol/modifier is in the follows-set) but will do for now in order to investigate how this
+               works out.'''
+            s = len(self.stack) - 1
+            r = len(clause.rhs) - 1
+            hasMatched = False
+            while s >= 0:
+                if r<0:
+                    return self.stack[:s+1] + (Parser.Nonterminal(clause.lhs,self.stack[s+1:]),)
+                symbol = clause.rhs[r]
+                matching = self.stack[s].matches(symbol)
+                if not matching and hasMatched:
+                    r -= 1
+                    hasMatched = False
+                    continue
+                if not matching and symbol.modifier in ("just","some"):
+                    return None
+                if not matching and symbol.modifier in ("any","optional"):
+                    r -= 1
+                    hasMatched = False
+                if matching and symbol.modifier in ("just","optional"):
+                    s -= 1
+                    r -= 1
+                    hasMatched = False
+                if matching and symbol.modifier in ("any","some"):
+                    s -= 1
+                    hasMatched = True
+            if r<0:
+                return self.stack[:s+1] + (Parser.Nonterminal(clause.lhs,self.stack[s+1:]),)
+            return None
+
     def __init__(self, graph):
         self.graph = graph
 
     def parse(self, input):
         self.states = set()
-        self.states.add( (self.graph.start, input, ()) )
+        self.states.add( Parser.State(self.graph.start, input, ()) )
         done = set()        ## Stratify sets by input length to avoid memory cost, i.e. iterate on all states of same input size in one batch
         counter = 0
 
-        while len(self.states) >0:
+        while len(self.states)>0:
             next = set()
-            for sNode,sInput,sStack in self.states:
-                print(f"State: {sInput} :: {' '.join([str(x) for x in sStack])}")
+            for s in self.states:
+                print(f"State: {s.input} :: {' '.join([str(x) for x in s.stack])}")
                 counter += 1
-                terminating = False
-                for config in sNode.labels:
-                    if config.terminating:
-                        terminating = True
-                        print(f"  {config} (terminating)")
-                    else:
-                        print(f"  {config}")
-                if terminating and len(sInput)==0 and len(sStack)==1:
+                if s.terminating() and len(s.input)==0 and len(s.stack)==1:
                     print("Success!!!!")
-                for edge in self.graph.findEdgeBySource(sNode):
+                    s.stack[0].dump()
+                for edge in self.graph.findEdgeBySource(s.node):
                     if isinstance(edge.label, Terminal):
-                        m = edge.label.match(sInput)
+                        m = edge.label.match(s.input)
                         if m is not None:
                             print(f"  Shift {m} to {edge.target}")
-                            next.add( (edge.target, sInput[len(m):], sStack + (m,)) )
+                            next.add( Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),)) )
                     if isinstance(edge.label, Clause):
-                        h = checkHandle(edge.label, sStack)
+                        h = s.checkHandle(edge.label)
                         if h is not None:
                             print(f"  Reduce by {edge.label} onto {' '.join([str(x) for x in h])}")
-                            next.add( (edge.target, sInput, h) )
+                            next.add( Parser.State(edge.target, s.input, h) )
 
             done = done.union(self.states)
             next = next.difference(done)
