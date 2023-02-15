@@ -1,4 +1,5 @@
 from functools import total_ordering
+import html
 
 
 class OrdSet:
@@ -196,14 +197,14 @@ class Graph:
         for label in selfLoops:
             self.connect(merged, merged, label)
 
-    def dot(self):
-        print("digraph {")
+    def dot(self, output):
+        print("digraph {", file=output)
         for n in self.nodes:
             label = "\\n".join([str(l) for l in n.labels])
-            print(f'n{id(n)} [label="{label}"];')
+            print(f'n{id(n)} [label="{label}"];', file=output)
         for e in self.edges:
-            print(f'n{id(e.source)} -> n{id(e.target)} [label="{e.label}"];')
-        print("}")
+            print(f'n{id(e.source)} -> n{id(e.target)} [label="{e.label}"];', file=output)
+        print("}", file=output)
 
     def dump(self):
         for e in self.edges:
@@ -414,7 +415,7 @@ while True:
     if first is None:
       break
     graph.fold(first)
-graph.dot()
+graph.dot(open("tree.dot","wt"))
 
 class Parser:
 
@@ -502,6 +503,8 @@ class Parser:
                 if matching and symbol.modifier in ("any","some"):
                     s -= 1
                     hasMatched = True
+            if hasMatched and r==0:
+                r -= 1
             if r<0:
                 return self.stack[:s+1] + (Parser.Nonterminal(clause.lhs,self.stack[s+1:]),)
             return None
@@ -510,8 +513,11 @@ class Parser:
         self.graph = graph
 
     @staticmethod
-    def nodeProps(*args):
-        return '[shape=none,label=< <table border="0">' + "".join([f"<tr><td>{x}</td></tr>" for x in args]) + "</table> >]";
+    def stateProps(state):
+        result =  f'[shape=none,label=< <table border="0"><tr><td>{html.escape(state.input)}</td></tr><hr/>'
+        result += ''.join([f"<tr><td>{html.escape(str(x))}</td></tr>" for x in state.node.labels])
+        result += '<hr/><tr><td>' + " ".join([html.escape(str(x)) for x in state.stack]) + '</td></tr></table> >]';
+        return result
 
     def parse(self, input, trace=None):
         if trace:
@@ -522,7 +528,10 @@ class Parser:
                 nodeNames[n] = f"s{counter}"
                 counter += 1
         self.states = set()
-        self.states.add( Parser.State(self.graph.start, input, ()) )
+        initial = Parser.State(self.graph.start, input, ())
+        self.states.add(initial)
+        if trace:
+            print(f'n{id(initial)} {Parser.stateProps(initial)}', file=trace)
         done = set()        ## Stratify sets by input length to avoid memory cost, i.e. iterate on all states of same input size in one batch
         counter = 0
         traceEdges = []
@@ -545,7 +554,7 @@ class Parser:
                             ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
                             next.add(ns)
                             if trace:
-                                print(f'n{id(ns)} {Parser.nodeProps(ns.input,nodeNames[ns.node],"".join([str(x) for x in ns.stack]))};', file=trace)
+                                print(f'n{id(ns)} {Parser.stateProps(ns)}', file=trace)
                                 traceEdges.append( (s,ns,"shift") )
                     if isinstance(edge.label, Clause):
                         h = s.checkHandle(edge.label)
@@ -554,7 +563,7 @@ class Parser:
                             ns = Parser.State(edge.target, s.input, h)
                             next.add(ns)
                             if trace:
-                                print(f'n{id(ns)} {Parser.nodeProps(ns.input,nodeNames[ns.node],"".join([str(x) for x in ns.stack]))};', file=trace)
+                                print(f'n{id(ns)} {Parser.stateProps(ns)}', file=trace)
                                 traceEdges.append( (s,ns,"reduce") )
 
             done = done.union(self.states)
@@ -570,5 +579,5 @@ class Parser:
 
 p = Parser(graph)
 #p.parse("(())()((()())())", trace=open('trace.dot','wt'))
-p.parse("()")
+p.parse("()(()())()", trace=open('trace.dot','wt'))
 
