@@ -132,6 +132,13 @@ class Grammar:
             else:
                 pass # config was created as a final so already has reduce edge
         result.start = result.force(self.entry.get(0))
+
+        while True:
+            it = result.findEdgeByLabel("predict")
+            first = next(it,None)
+            if first is None:
+              break
+            result.fold(first)
         return result
 
     class Terminal:
