@@ -192,6 +192,9 @@ class Grammar:
                     return "" if allowzero else None
                 return input[:i]
 
+        def exactlyOne(self):
+            return Grammar.Terminal(self.string if self.chars is None else self.chars, "just", self.inverse)
+
     class Nonterminal:
         def __init__(self, name, modifier="just"):
             assert modifier in ["any", "just", "some", "optional"]
@@ -212,6 +215,9 @@ class Grammar:
 
         def isTerminal(self):
             return False
+
+        def exactlyOne(self):
+            return Grammar.Nonterminal(self.name, "just")
 
     class CalcTerminal:
         def __init__(self, name, modifier="just"):
