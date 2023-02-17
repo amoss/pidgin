@@ -1,3 +1,6 @@
+import functools
+import itertools
+import operator
 from graph import Graph
 from grammar import Grammar
 
@@ -10,22 +13,22 @@ def strs(iterable):
 
 class Generator:
     def __init__(self, grammar):
-        self.grammar = grammar
+        self.grammar   = grammar
         self.templates = set()
-        self.sentences = set([self.Form(grammar, [grammar.Nonterminal(grammar.start,"just")])])
-        self.done = set()
+        self.forms     = set([self.Form(grammar, [grammar.Nonterminal(grammar.start,"just")])])
+        self.done      = set()
 
     def step(self):
-        print(f"Step: templates={strs(self.templates)}")
-        print(f"      sentences={strs(self.sentences)}")
+        print(f"\nStep: templates={strs(self.templates)}")
+        print(f"      forms={strs(self.forms)}")
         next = set()
         for t in self.templates:
             print(f"Generating from template {t}")
             newForm = self.Form(self.grammar, t.next())
-            self.sentences.add(newForm)
-        for s in self.sentences:
-            print(f"Considering {s}")
-            for sub in s.substitutions():
+            self.forms.add(newForm)
+        for f in self.forms:
+            print(f"Considering {f}")
+            for sub in f.substitutions():
                 if Generator.isTemplate(sub):
                     print(f"  new Gen: {strs(sub)}")
                     self.templates.add(self.Template(self.grammar,sub))
@@ -34,7 +37,7 @@ class Generator:
                 else:
                     print(f"  new Form: {strs(sub)}")
                     next.add(self.Form(self.grammar,sub))
-        self.sentences = next
+        self.forms = next
 
     @staticmethod
     def isTemplate(symbols):
@@ -69,28 +72,7 @@ class Generator:
     #           of integers, i.e. permuations of partitions of the integers with a length up to the length of the
     #           tuple.
     #        '''
-    #
-    #        def __init__(self, sentence):
-    #            self.positions = ()
-    #            self.sentence = sentence
-    #            for i,symbol in enumerate(sentence):
-    #                if symbol.modifier=="any":
-    #                    self.positions += (i,)
-    #                if symbol.modifier=="some":
-    #                    self.positions += (i,)
-    #
-    #        def gen(self):
-    #            total = 1
-    #            while True:
-    #                for t in tuples(len(self.positions), total):
-    #                    newForm = []
-    #                    position = 0
-    #                    for p in self.positions:
-    #                        singular = 
-    #                        
-    #                    # Build new sentence with copies defined by tuple
-    #                    yield ...
-    #                total += 1
+
 
     class Template:
         '''A sentential form (sequence of *symbols* derived from the grammar) with at least one repeating modifier
@@ -151,49 +133,20 @@ class Generator:
             return f"Form({strs(self.symbols)})"
 
         def substitutions(self):
-            #print(self.symbols)
-            constant = []
-            variable = []
-            start = 0
-            for i,s in enumerate(self.symbols):
-                if s.modifier != "just" or not s.isTerminal():
-                    constant.append(self.symbols[start:i])
-                    variable.append(s)
-                    start = i+1
-            rest = self.symbols[start:]
-            #print(f"  Constant {constant}")
-            #print(f"  Variable {variable}")
-            #print(f"  Rest {rest}")
             variations = []
-            for s in variable:
-                #print(f"s {s}")
+            for s in self.symbols:
                 if s.isTerminal():
-                    variations.append( ( [s.exactlyOne()], [] ) )
-                else:
                     if s.modifier=="optional":
-                        v = [ () ]
+                        variations.append([[], [s.exactlyOne()]])
                     else:
-                        v = []
-                    for clause in self.grammar.rules[s.name].clauses:
-                        #print(f"clause {clause}")
-                        v.append(list(clause.rhs))
-                    variations.append(tuple(v))
-            #print(f"variations {variations}")
-            products = [[]]
-            for i,v in enumerate(variations):
-                next = []
-                partial = [constant[i] + variant for variant in v]
-                for prefix in products:
-                    for p in partial:
-                        next.append(prefix+p)
-                products = next;
-            if len(products)==0:
-                return [rest]
-            else:
-                result = []
-                for p in products:
-                    result.append(p+rest)
-                return result
+                        variations.append([[s]])
+                else:
+                    variations.append([list(clause.rhs) for clause in self.grammar.rules[s.name].clauses])
+
+            cart_product = itertools.product(*variations)
+            for sentenceParts in cart_product:
+                sentence = functools.reduce(operator.iconcat, sentenceParts, [])
+                yield sentence
 
         #def __eq__(self, other):
         #    return isinstance(other,Counter) and self.positions==other.positions and self.values==other.values
