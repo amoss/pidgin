@@ -18,31 +18,43 @@ class Generator:
         self.forms     = set([self.Form(grammar, [grammar.Nonterminal(grammar.start,"just")])])
         self.done      = set()
 
-    def step(self):
+    def step(self, trace=None):
+        if trace:
+            print("digraph {", file=trace)
+            if trace: self.dotForm(trace, list(self.forms)[0])
+            counter = 0
         while True:
-            #print(f"\nStep: templates={strs(self.templates)}")
-            #print(f"      forms={strs(self.forms)}")
             next = set()
             for t in self.templates:
-                #print(f"Generating from template {t}")
+                usedTuple = t.nextTuple
                 newForm = self.Form(self.grammar, t.next())
                 if not newForm in self.done:
+                    if trace:
+                        self.dotForm(trace,newForm)
+                        print(f't{id(t)} -> f{id(newForm)} [label="{usedTuple}"];', file=trace)
                     self.forms.add(newForm)
             for form in self.forms:
-                #print(f"Considering {f}")
                 for sub in form.substitutions():
                     self.done.add(form)
                     if Generator.isTemplate(sub):
-                        #print(f"  new Gen: {strs(sub)}")
-                        self.templates.add(self.Template(self.grammar,sub))
+                        newTemplate = self.Template(self.grammar,sub)
+                        self.templates.add(newTemplate)
+                        if trace:
+                            print(f'f{id(form)} -> t{id(newTemplate)};', file=trace)
+                            self.dotTemplate(trace,newTemplate)
                     elif Generator.isAllTerminal(sub):
                         yield sub
-                        #print(f"  Emit: {strs(sub)}")
+                        if trace:
+                            print(f'e{counter} [shape=rect,color=red,label="{self.dotSentence(sub)}"];', file=trace)
+                            print(f'f{id(form)} -> e{counter};', file=trace)
+                            counter += 1
                     else:
-                        #print(f"  new Form: {strs(sub)}")
                         newForm = self.Form(self.grammar,sub)
                         if not newForm in self.done:
                             next.add(newForm)
+                            if trace:
+                                self.dotForm(trace,newForm)
+                                print(f'f{id(form)} -> f{id(newForm)};', file=trace)
             self.forms = next
 
     @staticmethod
@@ -54,8 +66,40 @@ class Generator:
         return all([s.isTerminal() for s in symbols])
 
     @staticmethod
+    def dotTemplate(output, gen):
+        print(f't{id(gen)} [shape=rect,color=blue,label="{Generator.dotSentence(gen.symbols)}"];', file=output)
+
+
+    @staticmethod
+    def dotSentence(sentence):
+        label = ''
+        for i,symbol in enumerate(sentence):
+            if i!=0:
+                label += ' '
+            if isinstance(symbol,Grammar.Terminal) and symbol.string is not None:
+                label += symbol.string
+            if isinstance(symbol,Grammar.Terminal) and symbol.string is None:
+                label += '[' + symbol.chars + ']'
+            if isinstance(symbol,Grammar.Nonterminal):
+                label += symbol.name
+            if symbol.modifier=="any":
+                label += '*'
+            if symbol.modifier=="some":
+                label += '+'
+            if symbol.modifier=="optional":
+                label += '?'
+        return label
+
+    @staticmethod
+    def dotForm(output, form):
+        print(f'f{id(form)} [shape=none,color=black,label="{Generator.dotSentence(form.symbols)}"];', file=output)
+
+    @staticmethod
     def tuples(size, total):
-        '''Enumerate all integer-tuples of *size* with elements that sum to *total*.'''
+        '''Enumerate all integer-tuples of *size* with elements that sum to *total*. The implementation is a
+           recursive generator as it give a clean expression of the function, although it is equivalent to taking
+           the partitions of the integer *total, filtering them to keep those with a length of *size* and then
+           enumerating the permutations.'''
         yield (0,) * (size-1) + (total,)
         for sig in range(1,size):               # position of leading-non-zero, indexed from end
             prefix = (0,) * (size-sig-1)
@@ -63,28 +107,16 @@ class Generator:
                 for suffix in Generator.tuples(sig, total-dig):
                     yield prefix + (dig,) + suffix
 
-    #    class Counter:
-    #        '''Sentences in the generator contain symbols that can be repeated an arbitrary number of times. This
-    #           class models a fair counter over the tuple of repetition counts. It will enumerate all valid counts
-    #           of repetition giving each individual count the same rate of progress. If we consider the tuple to be
-    #           a number in an arbitrarily high base, then each count is a digit. If we simply increment the counter
-    #           then the final digit will increase forever and no other digit will change.
-    #
-    #           Fairness in the counter means that increases in digits will be evenly distributed across all digit
-    #           positions. The trick is the same enumeration order use to prove that tuples are countable, i.e. for
-    #           n-dimensions a series of (n-1)-dimensional planes at 45 degrees to the axis that cover the space.
-    #
-    #           This is equivalent to enumerating all tuples with the same total, so that the totals are the sequence
-    #           of integers, i.e. permuations of partitions of the integers with a length up to the length of the
-    #           tuple.
-    #        '''
-
-
     class Template:
         '''A sentential form (sequence of *symbols* derived from the grammar) with at least one repeating modifier
            (any or some). This can be used to generate an infinite family of sentential forms with a common shape.
            The *Template* is stateful (remembering the counts of each repeating symbol) but the comparison is done
-           over the stateless definition (just the sentential form).'''
+           over the stateless definition (just the sentential form).
+
+           The enumeration of the counts is fair - rather than increment one count indefinitely and "starve" the
+           other counts of increments. The trick here is the same as proving that tuples are in a bijection with
+           the integers by "zig zagging" through the space rather than iterating parallel to an axis. We iterate
+           over all tuples with the same sum, and then increase the sum.'''
         def __init__(self, grammar, symbols):
             self.grammar   = grammar
             self.symbols   = tuple(symbols)
@@ -173,7 +205,10 @@ class Generator:
 
 
 generator = Generator(g)
-sentences = list(itertools.islice(generator.step(), 20))
+traceFile = open('trace.dot','wt')
+sentences = list(itertools.islice(generator.step(trace=traceFile), 20))
+print("}", file=traceFile)
+traceFile.close()
 for s in sentences:
     s = [ symb.string if symb.string is not None else symb for symb in s]
     print(f"Emit {strs(s)}")
