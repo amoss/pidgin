@@ -108,21 +108,23 @@ class Generator:
                 if s.modifier=="some":
                     self.positions += (i,)
                     self.offset    += (1,)
-            self.total = -1
-            self.slice = []
+            self.total     = 0
+            self.tuples    = Generator.tuples(len(self.positions), self.total)
+            self.nextTuple = next(self.tuples)
+
 
         def __str__(self):
-            if len(self.slice)>0:
-                return f"Template({strs(self.symbols)}@{self.slice[0]})"
-            return f"Template({strs(self.symbols)}@{self.total})"
+            return f"Template({strs(self.symbols)}@{self.nextTuple})"
 
         def next(self):
-            if len(self.slice)==0:
+            result = self.instantiate(tuple(h+o for h,o in zip(self.nextTuple,self.offset)))
+            try:
+                self.nextTuple = next(self.tuples)
+            except StopIteration:
                 self.total += 1
-                self.slice = [t for t in Generator.tuples(len(self.positions),self.total)]
-            head, tail = self.slice[0], self.slice[1:]
-            self.slice = tail
-            return self.instantiate(tuple(h+o for h,o in zip(head,self.offset)))
+                self.tuples    = Generator.tuples(len(self.positions), self.total)
+                self.nextTuple = next(self.tuples)
+            return result
 
         def instantiate(self, counts):
             result = []
@@ -134,6 +136,7 @@ class Generator:
                 else:
                     result.append(s)
             return result
+
     class Form:
         '''A sentential form (sequence of *symbols* derived from the grammar) without any repeating modifiers (only
            optional or just). This can be used to generate a finite family of forms/sentences by substitution of
