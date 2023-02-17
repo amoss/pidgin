@@ -19,25 +19,27 @@ class Generator:
         self.done      = set()
 
     def step(self):
-        print(f"\nStep: templates={strs(self.templates)}")
-        print(f"      forms={strs(self.forms)}")
-        next = set()
-        for t in self.templates:
-            print(f"Generating from template {t}")
-            newForm = self.Form(self.grammar, t.next())
-            self.forms.add(newForm)
-        for f in self.forms:
-            print(f"Considering {f}")
-            for sub in f.substitutions():
-                if Generator.isTemplate(sub):
-                    print(f"  new Gen: {strs(sub)}")
-                    self.templates.add(self.Template(self.grammar,sub))
-                elif Generator.isAllTerminal(sub):
-                    print(f"  Emit: {strs(sub)}")
-                else:
-                    print(f"  new Form: {strs(sub)}")
-                    next.add(self.Form(self.grammar,sub))
-        self.forms = next
+        while True:
+            print(f"\nStep: templates={strs(self.templates)}")
+            print(f"      forms={strs(self.forms)}")
+            next = set()
+            for t in self.templates:
+                #print(f"Generating from template {t}")
+                newForm = self.Form(self.grammar, t.next())
+                self.forms.add(newForm)
+            for f in self.forms:
+                #print(f"Considering {f}")
+                for sub in f.substitutions():
+                    if Generator.isTemplate(sub):
+                        #print(f"  new Gen: {strs(sub)}")
+                        self.templates.add(self.Template(self.grammar,sub))
+                    elif Generator.isAllTerminal(sub):
+                        yield sub
+                        #print(f"  Emit: {strs(sub)}")
+                    else:
+                        #print(f"  new Form: {strs(sub)}")
+                        next.add(self.Form(self.grammar,sub))
+            self.forms = next
 
     @staticmethod
     def isTemplate(symbols):
@@ -162,8 +164,10 @@ class Generator:
 
 
 generator = Generator(g)
-for i in range(6):
-    generator.step()
+sentences = list(itertools.islice(generator.step(), 20))
+for s in sentences:
+    s = [ symb.string if symb.string is not None else symb for symb in s]
+    print(f"Emit {strs(s)}")
 
 #// 0 1 2 3 4 5
 #// 0,0  0,1  1,0  0,2  1,1  2,0  3,0  2,1  1,2 0,3 ...
