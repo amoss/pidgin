@@ -20,16 +20,18 @@ class Generator:
 
     def step(self):
         while True:
-            print(f"\nStep: templates={strs(self.templates)}")
-            print(f"      forms={strs(self.forms)}")
+            #print(f"\nStep: templates={strs(self.templates)}")
+            #print(f"      forms={strs(self.forms)}")
             next = set()
             for t in self.templates:
                 #print(f"Generating from template {t}")
                 newForm = self.Form(self.grammar, t.next())
-                self.forms.add(newForm)
-            for f in self.forms:
+                if not newForm in self.done:
+                    self.forms.add(newForm)
+            for form in self.forms:
                 #print(f"Considering {f}")
-                for sub in f.substitutions():
+                for sub in form.substitutions():
+                    self.done.add(form)
                     if Generator.isTemplate(sub):
                         #print(f"  new Gen: {strs(sub)}")
                         self.templates.add(self.Template(self.grammar,sub))
@@ -38,7 +40,9 @@ class Generator:
                         #print(f"  Emit: {strs(sub)}")
                     else:
                         #print(f"  new Form: {strs(sub)}")
-                        next.add(self.Form(self.grammar,sub))
+                        newForm = self.Form(self.grammar,sub)
+                        if not newForm in self.done:
+                            next.add(newForm)
             self.forms = next
 
     @staticmethod
@@ -78,7 +82,9 @@ class Generator:
 
     class Template:
         '''A sentential form (sequence of *symbols* derived from the grammar) with at least one repeating modifier
-           (any or some). This can be used to generate an infinite family of sentential forms with a common shape.'''
+           (any or some). This can be used to generate an infinite family of sentential forms with a common shape.
+           The *Template* is stateful (remembering the counts of each repeating symbol) but the comparison is done
+           over the stateless definition (just the sentential form).'''
         def __init__(self, grammar, symbols):
             self.grammar   = grammar
             self.symbols   = tuple(symbols)
@@ -92,13 +98,19 @@ class Generator:
                 if s.modifier=="some":
                     self.positions += (i,)
                     self.offset    += (1,)
+
             self.total     = 0
             self.tuples    = Generator.tuples(len(self.positions), self.total)
             self.nextTuple = next(self.tuples)
 
-
         def __str__(self):
             return f"Template({strs(self.symbols)}@{self.nextTuple})"
+
+        def __eq__(self, other):
+            return isinstance(other,Template) and self.symbols==other.symbols
+
+        def __hash__(self):
+            return hash(self.symbols)
 
         def next(self):
             result = self.instantiate(tuple(h+o for h,o in zip(self.nextTuple,self.offset)))
@@ -121,13 +133,14 @@ class Generator:
                     result.append(s)
             return result
 
+
     class Form:
         '''A sentential form (sequence of *symbols* derived from the grammar) without any repeating modifiers (only
            optional or just). This can be used to generate a finite family of forms/sentences by substitution of
            non-terminals.'''
         def __init__(self, grammar, symbols):
             self.grammar = grammar
-            self.symbols = symbols
+            self.symbols = tuple(symbols)
             for s in symbols:
                 assert s.modifier in ('just', 'optional'), s.modifier
 
@@ -150,15 +163,11 @@ class Generator:
                 sentence = functools.reduce(operator.iconcat, sentenceParts, [])
                 yield sentence
 
-        #def __eq__(self, other):
-        #    return isinstance(other,Counter) and self.positions==other.positions and self.values==other.values
+        def __eq__(self, other):
+            return isinstance(other,Form) and self.symbols==other.symbols
 
-        #def __hash__(self):
-        #    return hash(self.positions + self.values)
-
-        #def __str__(self):
-        #    pairs = [f"{i}:{v}" for i,v in zip(self.positions, self.values)]
-        #    return ",".join(pairs)
+        def __hash__(self):
+            return hash(self.symbols)
 
 
 
