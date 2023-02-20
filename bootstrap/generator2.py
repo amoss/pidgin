@@ -25,7 +25,6 @@ class Generator:
             counter = 0
         while True:
             next = set()
-            print(f"Step: {len(self.templates)} {len(self.forms)}")
             for t in self.templates:
                 usedTuple = t.nextTuple
                 newForm = self.Form(self.grammar, t.next())
@@ -140,7 +139,7 @@ class Generator:
             return f"Template({strs(self.symbols)}@{self.nextTuple})"
 
         def __eq__(self, other):
-            return isinstance(other,Template) and self.symbols==other.symbols
+            return isinstance(other,Generator.Template) and self.symbols==other.symbols
 
         def __hash__(self):
             return hash(self.symbols)
