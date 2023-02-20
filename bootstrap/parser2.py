@@ -10,10 +10,7 @@ def prefixesOf(s) :
         yield s[:i]
 
 
-graph.dot(open("tree.dot","wt"))
-
 class Parser:
-
     def __init__(self, graph):
         self.graph = graph
 
@@ -44,18 +41,17 @@ class Parser:
         while len(self.states)>0:
             next = set()
             for s in self.states:
-                #print(f"State: {s.input} :: {' '.join([str(x) for x in s.stack])}")
                 counter += 1
                 if s.terminating() and len(s.input)==0 and len(s.stack)==1:
                     if trace:
                         print(f"n{id(s)} [fillcolor=blue, style=filled];", file=trace)
-                    print("Success!!!!")
-                    s.stack[0].dump()
+                    yield s.stack[0]
+                    #print("Success!!!!")
+                    #s.stack[0].dump()
                 for edge in self.graph.findEdgeBySource(s.node):
                     if edge.label.isTerminal():
                         m = edge.label.match(s.input)
                         if m is not None:
-                            #print(f"  Shift {m} to {edge.target}")
                             ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
                             next.add(ns)
                             if trace:
@@ -64,7 +60,6 @@ class Parser:
                     else:
                         h = s.checkHandle(edge.label)
                         if h is not None:
-                            #print(f"  Reduce by {edge.label} onto {' '.join([str(x) for x in h])}")
                             ns = Parser.State(edge.target, s.input, h)
                             next.add(ns)
                             if trace:
@@ -74,8 +69,6 @@ class Parser:
             done = done.union(self.states)
             next = next.difference(done)
             self.states = next
-            print(f"Iteration with {len(next)} states")
-        print(f"Processed {counter} states")
         if trace:
             for src,tar,lab in traceEdges:
                 print(f'n{id(src)} -> n{id(tar)} [label="{lab}"];', file=trace)
@@ -170,8 +163,3 @@ class Parser:
             if r<0:
                 return self.stack[:s+1] + (Parser.Nonterminal(clause.lhs,self.stack[s+1:]),)
             return None
-
-p = Parser(graph)
-#p.parse("(())()((()())())", trace=open('trace.dot','wt'))
-p.parse("()(()())()", trace=open('trace.dot','wt'))
-
