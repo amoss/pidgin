@@ -17,7 +17,7 @@ def build():
     '''
     g = Grammar("lst")
     lst = g.addRule("lst", [g.Nonterminal("lst"), g.Nonterminal("pair")])
-    lst.add(               [g.Nonterminal("lst")])
+    lst.add(               [g.Nonterminal("pair")])
     pair = g.addRule("pair", [g.Terminal("("), g.Terminal(")")])
     pair.add(                [g.Terminal("("), g.Nonterminal("lst"), g.Terminal(")")])
     graph = g.build()
