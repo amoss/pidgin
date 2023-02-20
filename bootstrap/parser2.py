@@ -1,3 +1,6 @@
+# Copyright (C) 2003 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
+#                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import html
 from .graph import Graph
 from .grammar import Grammar

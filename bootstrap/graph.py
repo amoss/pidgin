@@ -1,3 +1,6 @@
+# Copyright (C) 2003 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
+#                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 def partition(predicate, iterable):
     inside, outside = [], []
     for x in iterable:
