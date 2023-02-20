@@ -1,3 +1,5 @@
 **/*.pdf
 **/*.dot
 **/.*.swp
+**/__pycache__
+results/**

@@ -1,5 +1,5 @@
 from functools import total_ordering
-from graph import Graph
+from .graph import Graph
 
 class OrdSet:
     def __init__(self):
@@ -90,6 +90,7 @@ class Grammar:
         rule = Rule(name)
         rule.add(initialClause)
         self.rules[name] = rule
+        return rule
 
     def build(self):
         result = Graph()

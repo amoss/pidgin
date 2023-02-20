@@ -1,12 +1,12 @@
 import functools
 import itertools
 import operator
-from graph import Graph
-from grammar import Grammar
+from .graph import Graph
+from .grammar import Grammar
 
-g = Grammar("lst")
-g.addRule("expr", [g.Terminal("("), g.Nonterminal("expr","any"), g.Terminal(")")])
-g.addRule("lst",  [g.Nonterminal("expr","some")])
+#g = Grammar("lst")
+#g.addRule("expr", [g.Terminal("("), g.Nonterminal("expr","any"), g.Terminal(")")])
+#g.addRule("lst",  [g.Nonterminal("expr","some")])
 
 def strs(iterable):
     return " ".join([str(x) for x in iterable])
@@ -25,6 +25,7 @@ class Generator:
             counter = 0
         while True:
             next = set()
+            print(f"Step: {len(self.templates)} {len(self.forms)}")
             for t in self.templates:
                 usedTuple = t.nextTuple
                 newForm = self.Form(self.grammar, t.next())
@@ -196,7 +197,7 @@ class Generator:
                 yield sentence
 
         def __eq__(self, other):
-            return isinstance(other,Form) and self.symbols==other.symbols
+            return isinstance(other,Generator.Form) and self.symbols==other.symbols
 
         def __hash__(self):
             return hash(self.symbols)
@@ -204,14 +205,14 @@ class Generator:
 
 
 
-generator = Generator(g)
-traceFile = open('trace.dot','wt')
-sentences = list(itertools.islice(generator.step(trace=traceFile), 20))
-print("}", file=traceFile)
-traceFile.close()
-for s in sentences:
-    s = [ symb.string if symb.string is not None else symb for symb in s]
-    print(f"Emit {strs(s)}")
+#generator = Generator(g)
+#traceFile = open('trace.dot','wt')
+#sentences = list(itertools.islice(generator.step(trace=traceFile), 20))
+#print("}", file=traceFile)
+#traceFile.close()
+#for s in sentences:
+#    s = [ symb.string if symb.string is not None else symb for symb in s]
+#    print(f"Emit {strs(s)}")
 
 #// 0 1 2 3 4 5
 #// 0,0  0,1  1,0  0,2  1,1  2,0  3,0  2,1  1,2 0,3 ...

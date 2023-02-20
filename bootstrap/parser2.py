@@ -1,65 +1,12 @@
 import html
-from graph import Graph
-from grammar import Grammar
+from .graph import Graph
+from .grammar import Grammar
 
 def prefixesOf(s) :
     for i in range(1,len(s)+1):
         yield s[:i]
 
 
-'''
-list <- x+
-g = Grammar("lst")
-lst = Rule("lst")
-lst.add([ Terminal("x","some") ])
-g.add(lst)
-'''
-
-'''
-list <- list x
-      | x
-g = Grammar("lst")
-lst = Rule("lst")
-lst.add([ Nonterminal("lst"), Terminal("x") ])
-lst.add([ Terminal("x") ])
-g.add(lst)
-'''
-
-'''
-list <- list pair
-      | pair
-pair <- ( )
-      | ( list )
-g = Grammar("lst")
-lst = Rule("lst")
-lst.add([ Nonterminal("lst"), Nonterminal("pair") ])
-lst.add([ Nonterminal("pair") ])
-pair = Rule("pair")
-pair.add([ Terminal("("), Terminal(")") ])
-pair.add([ Terminal("("), Nonterminal("pair","some"), Terminal(")") ])
-g.add(lst)
-g.add(pair)
-'''
-
-'''
-expr <- ( )
-      | ( expr+ )
-
-g = Grammar("expr")
-expr = Rule("expr")
-expr.add([ Terminal("("), Terminal(")") ])
-expr.add([ Terminal("("), Nonterminal("expr","some"), Terminal(")") ])
-g.add(expr)
-'''
-
-'''
-lst <- expr+
-expr <- ( expr* )
-'''
-g = Grammar("lst")
-g.addRule("expr", [g.Terminal("("), g.Nonterminal("expr","any"), g.Terminal(")")])
-g.addRule("lst",  [g.Nonterminal("expr","some")])
-graph = g.build()
 graph.dot(open("tree.dot","wt"))
 
 class Parser:
