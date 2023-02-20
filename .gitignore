@@ -1,5 +1,5 @@
 **/*.pdf
 **/*.dot
-**/.*.swp
+**/.*.sw[op]
 **/__pycache__
 results/**

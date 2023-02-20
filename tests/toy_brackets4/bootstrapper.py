@@ -12,14 +12,16 @@ from bootstrap.grammar import Grammar
 
 def build():
     '''
-    Variation with explicit recursion on bottom rule, recursive form is bounded.
-    lst  <- expr+
-    expr <- ( ) | ( expr )
+    Variation with explicit recursion on both rules, left-recursive form.
+    lst <- lst pair
+          | pair
+    pair <- ( )
+          | ( lst )
     '''
     g = Grammar("lst")
-    lst = g.addRule("lst", [g.Nonterminal("expr","some")])
-    expr = g.addRule("expr", [g.Terminal("("), g.Terminal(")")])
-    expr.add(                [g.Terminal("("), g.Nonterminal("expr","any"), g.Terminal(")")])
+    lst = g.addRule("lst", [g.Nonterminal("lst"), g.Nonterminal("pair")])
+    lst.add(               [g.Nonterminal("pair")])
+    pair = g.addRule("pair", [g.Terminal("("), g.Terminal(")")])
+    pair.add(                [g.Terminal("("), g.Nonterminal("lst"), g.Terminal(")")])
     graph = g.build()
     return g, graph
-
