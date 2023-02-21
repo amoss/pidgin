@@ -14,12 +14,12 @@ def build():
     '''
     Variation with explicit recursion on bottom rule, recursive form is bounded.
     lst  <- expr+
-    expr <- ( ) | ( expr )
+    expr <- ( ) | ( list )
     '''
     g = Grammar("lst")
     lst = g.addRule("lst", [g.Nonterminal("expr","some")])
     expr = g.addRule("expr", [g.Terminal("("), g.Terminal(")")])
-    expr.add(                [g.Terminal("("), g.Nonterminal("expr","any"), g.Terminal(")")])
+    expr.add(                [g.Terminal("("), g.Nonterminal("lst","just"), g.Terminal(")")])
     graph = g.build()
     return g, graph
 
