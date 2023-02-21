@@ -98,7 +98,10 @@ class Parser:
         def matches(self, other):
             if not other.isTerminal():
                 return False
-            return other.match(self.chars)          # Ugly, use tags
+            m = other.match(self.chars)
+            r = m is not None and len(m)>0          # Ugly as performs match again, use tags instead
+            # Called during handle checking: do not accept zero-length matches
+            return r
 
         def dump(self, depth=0):
             print(f"{'  '*depth}{self.chars}")
@@ -149,10 +152,18 @@ class Parser:
             return False
 
         def checkHandle(self, clause):
-            '''Handles are as complex as regex in this system, treat variable-length modifiers as greedy and do not
-               perform backtracking. This will cause failure cases (i.e. end of a clause is a repeating symbol and
-               the same symbol/modifier is in the follows-set) but will do for now in order to investigate how this
-               works out.'''
+            '''Handles are as complex as regex in this system, and so the choice of greediness is very important.
+               From experimentation it seems that non-greedy matching on repeating modifiers works better, and
+               avoids the need for backtracking. THIS CODE IS NOT YET CORRECT. We match handles backwards on the
+               stack for simplicity. This adds a constraint to sequences of symbols in clause right-hand-sides as
+               the non-greedy match must work both forwards and backwards on the string of symbols. This needs a 
+               bit more study before fixing properly. Currently handled in the pidgin grammar by excluding both
+               brackets from the character class between them. It is unclear if this restriction is too strong in
+               other situation, or reasonable and then this can be fixed properly by checking if can we match the
+               symbol after the repeating modifier (i.e. before it in reading order) and use it as a terminator.'''
+            def strs(iterable):
+                return " ".join([str(x) for x in iterable])
+            print(f"checkHandle {strs(self.stack)} == {strs(clause.rhs)}")
             s = len(self.stack) - 1
             r = len(clause.rhs) - 1
             hasMatched = False
