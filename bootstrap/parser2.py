@@ -50,7 +50,10 @@ class Parser:
                     if edge.label.isTerminal():
                         m = edge.label.match(s.input)
                         if m is not None:
-                            ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
+                            if len(m)==0:
+                                ns = Parser.State(edge.target, s.input, s.stack)
+                            else:
+                                ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
                             if not ns in done:
                                 next.add(ns)
                                 done[ns] = ns

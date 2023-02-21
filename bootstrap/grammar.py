@@ -195,6 +195,7 @@ class Grammar:
                 if i==0:
                     return "" if allowzero else None
                 return input[:i]
+            assert False
 
         def exactlyOne(self):
             return Grammar.Terminal(self.string if self.chars is None else self.chars, "just", self.inverse)
