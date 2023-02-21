@@ -10,7 +10,7 @@ from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
 
 def anyPrefixOf(s):
-    for i in range(1, len(s)):
+    for i in range(1, len(s)+1):
         yield s[:i]
 
 brackets = ( ("(",")"), ("[","]"), ("{","}"), ("<",">") )
@@ -33,4 +33,4 @@ if __name__=="__main__":
     grammar, graph = build()
     from bootstrap.parser2 import Parser
     parser = Parser(graph)
-    print(list(parser.parse("uni[abc]")))
+    print(list(parser.parse("unicode[öäå123]")))

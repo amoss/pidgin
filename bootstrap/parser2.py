@@ -163,7 +163,6 @@ class Parser:
                symbol after the repeating modifier (i.e. before it in reading order) and use it as a terminator.'''
             def strs(iterable):
                 return " ".join([str(x) for x in iterable])
-            print(f"checkHandle {strs(self.stack)} == {strs(clause.rhs)}")
             s = len(self.stack) - 1
             r = len(clause.rhs) - 1
             hasMatched = False
