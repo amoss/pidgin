@@ -34,7 +34,7 @@ class Parser:
         self.states.add(initial)
         if trace:
             print(f'n{id(initial)} {Parser.stateProps(initial)}', file=trace)
-        done = set()        ## Stratify sets by input length to avoid memory cost, i.e. iterate on all states of same input size in one batch
+        done = {}        ## Stratify sets by input length to avoid memory cost, i.e. iterate on all states of same input size in one batch
         counter = 0
         traceEdges = []
 
@@ -46,14 +46,16 @@ class Parser:
                     if trace:
                         print(f"n{id(s)} [fillcolor=blue, style=filled];", file=trace)
                     yield s.stack[0]
-                    #print("Success!!!!")
-                    #s.stack[0].dump()
                 for edge in self.graph.findEdgeBySource(s.node):
                     if edge.label.isTerminal():
                         m = edge.label.match(s.input)
                         if m is not None:
                             ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
-                            next.add(ns)
+                            if not ns in done:
+                                next.add(ns)
+                                done[ns] = ns
+                            else:
+                                ns = done[ns]   # Canonical instance of state
                             if trace:
                                 print(f'n{id(ns)} {Parser.stateProps(ns)}', file=trace)
                                 traceEdges.append( (s,ns,"shift") )
@@ -61,13 +63,15 @@ class Parser:
                         h = s.checkHandle(edge.label)
                         if h is not None:
                             ns = Parser.State(edge.target, s.input, h)
-                            next.add(ns)
+                            if not ns in done:
+                                next.add(ns)
+                                done[ns] = ns
+                            else:
+                                ns = done[ns]   # Canonical instance of state
                             if trace:
                                 print(f'n{id(ns)} {Parser.stateProps(ns)}', file=trace)
                                 traceEdges.append( (s,ns,"reduce") )
 
-            done = done.union(self.states)
-            next = next.difference(done)
             self.states = next
         if trace:
             for src,tar,lab in traceEdges:
@@ -81,6 +85,12 @@ class Parser:
 
         def __str__(self):
             return self.chars
+
+        def __eq__(self, other):
+            return isinstance(other,Parser.Terminal) and self.chars==other.chars and self.tag==other.tag
+
+        def __hash__(self):
+            return hash((self.chars,self.tag))
 
         def matches(self, other):
             if not other.isTerminal():
@@ -99,6 +109,12 @@ class Parser:
 
         def __str__(self):
             return self.tag
+
+        def __eq__(self, other):
+            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag
+
+        def __hash__(self):
+            return hash(self.tag)
 
         def matches(self, other):
             if other.isTerminal():
