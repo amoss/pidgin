@@ -5,6 +5,7 @@ rootDir= os.path.dirname(os.path.dirname(__file__))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
 
+import argparse
 import ctypes
 import importlib.util
 import itertools
@@ -45,10 +46,23 @@ def generateWhileProductive(grammar, targetPath, numSentences=20):
         print("}", file=traceFile)
     with open(os.path.join(target, "generated.txt"),"wt") as outputFile:
         for s in sentences:
-            s = [ symb.string if symb.string is not None else symb for symb in s]
+            s = [ symb.string if symb.string is not None else str(symb) for symb in s]
             outputFile.write(" ".join(s))
             outputFile.write("\n")
     return succeeded
+
+def parseQuickly(parser, input, trace=None):
+    result = []
+    def wrapParse():
+        result.extend(list(parser.parse(line,trace=trace)))
+    thread = threading.Thread(target=wrapParse)
+    thread.start()
+    thread.join(timeout=2)
+    if thread.is_alive():
+        exception = ctypes.py_object(Timeout)
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(thread.ident), exception)
+        thread.join()
+    return result
 
 def testcases(dir, filename):
     try:
@@ -57,6 +71,12 @@ def testcases(dir, filename):
         return
     for line in testFile.readlines():
        yield line.rstrip("\n")
+
+
+argParser = argparse.ArgumentParser()
+argParser.add_argument("-f","--filter")
+argParser.add_argument("-t","--traces", action="store_true")
+args = argParser.parse_args()
 
 # Clean old results
 target = os.path.join(rootDir,"results")
@@ -68,6 +88,7 @@ for name in os.listdir(target):
 
 # Generate new result set
 for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
+    if args.filter is not None and args.filter not in name: continue
     dir = os.path.join(rootDir,"tests",name)
     spec = importlib.util.spec_from_file_location(name, os.path.join(dir,"bootstrapper.py"))
     module = importlib.util.module_from_spec(spec)
@@ -85,21 +106,32 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
         else:
             print(f"{RED}Failed to generate from {name}{END}")
 
+        traceCounter = 1
         parser = Parser(graph)
         for line in testcases(dir, "positive.txt"):
-            results = list(parser.parse(line))
+            if args.traces:
+                trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
+            else:
+                trace = None
+            results = parseQuickly(parser,line,trace=trace)
             if len(results)==1:
                 print(f"{GREEN}Parsed positive example {line}{END}")
             elif len(results)>1:
                 print(f"{YELLOW}Ambiguous result for positive {line}{END}")
             else:
+                traceCounter += 1
                 print(f"{RED}Failed to parse positive example {line}{END}")
 
         for line in testcases(dir, "negative.txt"):
-            results = list(parser.parse(line))
+            if args.traces:
+                trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
+            else:
+                trace = None
+            results = parseQuickly(parser,line,trace=trace)
             if len(results)==0:
                 print(f"{GREEN}Failed to parse negative example {line}{END}")
             else:
+                traceCounter += 1
                 print(f"{RED}Parsed negative example {line}{END}")
     except:
         print(f"{RED}Failed on {name}{GRAY}")

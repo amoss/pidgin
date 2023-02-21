@@ -82,7 +82,7 @@ class Generator:
             if isinstance(symbol,Grammar.Terminal) and symbol.string is not None:
                 label += symbol.string
             if isinstance(symbol,Grammar.Terminal) and symbol.string is None:
-                label += '[' + symbol.chars + ']'
+                label += '[' + str(symbol.chars) + ']'
             if isinstance(symbol,Grammar.Nonterminal):
                 label += symbol.name
             if symbol.modifier=="any":

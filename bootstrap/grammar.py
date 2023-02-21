@@ -152,7 +152,7 @@ class Grammar:
                 self.string = match
                 self.chars  = None
             else:
-                self.chars  = set(match)
+                self.chars  = frozenset(match)
                 self.string = None
             self.modifier = modifier
             self.inverse = inverse
