@@ -107,7 +107,7 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             print(f"{RED}Failed to generate from {name}{END}")
 
         traceCounter = 1
-        parser = Parser(graph)
+        parser = Parser(graph, discard=grammar.discard)
         for line in testcases(dir, "positive.txt"):
             if args.traces:
                 trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")

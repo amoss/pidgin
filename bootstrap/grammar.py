@@ -87,6 +87,7 @@ class Grammar:
         self.rules    = dict()
         self.start    = start
         self.worklist = OrdSet()
+        self.discard  = None
 
     def addRule(self, name, initialClause):
         assert not name in self.rules.keys()
@@ -94,6 +95,9 @@ class Grammar:
         rule.add(initialClause)
         self.rules[name] = rule
         return rule
+
+    def setDiscard(self, terminal):
+        self.discard = terminal
 
     def build(self):
         result = Graph()
@@ -146,7 +150,7 @@ class Grammar:
         return result
 
     class Terminal:
-        def __init__(self, match, modifier="just", inverse=False):
+        def __init__(self, match, modifier="just", inverse=False, sticky=False):
             assert modifier in ["any", "just", "some", "optional"]
             if isinstance(match, str):
                 self.string = match
@@ -155,7 +159,8 @@ class Grammar:
                 self.chars  = frozenset(match)
                 self.string = None
             self.modifier = modifier
-            self.inverse = inverse
+            self.inverse  = inverse
+            self.sticky   = sticky
 
         def __str__(self):
             if self.string is not None:

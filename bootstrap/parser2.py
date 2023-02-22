@@ -11,8 +11,9 @@ def prefixesOf(s) :
 
 
 class Parser:
-    def __init__(self, graph):
+    def __init__(self, graph, discard=None):
         self.graph = graph
+        self.discard = discard
 
     @staticmethod
     def stateProps(state):
@@ -53,7 +54,12 @@ class Parser:
                             if len(m)==0:
                                 ns = Parser.State(edge.target, s.input, s.stack)
                             else:
-                                ns = Parser.State(edge.target, s.input[len(m):], s.stack + (Parser.Terminal(m),))
+                                remaining = s.input[len(m):]
+                                if not edge.label.sticky and self.discard is not None:
+                                    drop = self.discard.match(remaining)
+                                    if drop is not None and len(drop)>0:
+                                        remaining = remaining[len(drop):]
+                                ns = Parser.State(edge.target, remaining, s.stack + (Parser.Terminal(m),))
                             if not ns in done:
                                 next.add(ns)
                                 done[ns] = ns

@@ -22,22 +22,24 @@ def build():
     expr <- ( expr* )
     '''
     g = Grammar("const")
+    g.setDiscard(g.Terminal(set(" \t\r\n"), "some"))
     const = g.addRule("const", [g.Terminal(set("0123456789"),"some")])
     for p in anyPrefixOf("unicode"):
         for l,r in brackets:
-            const.add(         [g.Terminal(p), g.Terminal(l), g.Terminal(set([l,r]), "any", inverse=True), g.Terminal(r)])
+            const.add(         [g.Terminal(p, sticky=True), g.Terminal(l, sticky=True),
+                                g.Terminal(set([l,r]), "any", inverse=True, sticky=True), g.Terminal(r)])
 
     for p in anyPrefixOf("order"):
         for l,r in brackets:
-            const.add(         [g.Terminal(p), g.Terminal(l), g.Nonterminal("const", "any"), g.Terminal(r)])
+            const.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("const", "any"), g.Terminal(r)])
 
     for p in anyPrefixOf("set"):
         for l,r in brackets:
-            const.add(         [g.Terminal(p), g.Terminal(l), g.Nonterminal("const", "any"), g.Terminal(r)])
+            const.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("const", "any"), g.Terminal(r)])
 
     for p in anyPrefixOf("map"):
         for l,r in brackets:
-            const.add(         [g.Terminal(p), g.Terminal(l), g.Nonterminal("const_kv", "any"), g.Terminal(r)])
+            const.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("const_kv", "any"), g.Terminal(r)])
 
     const_kv = g.addRule("const_kv", [g.Nonterminal("const"), g.Terminal(":"), g.Nonterminal("const")])
 
@@ -45,21 +47,22 @@ def build():
     return g, graph
 
 # The spot for manual testing of the parser
-# if __name__=="__main__":
-#    grammar, graph = build()
-#    from bootstrap.parser2 import Parser
-#    parser = Parser(graph)
-#    print(list(parser.parse("unicode[öäå123]")))
+if __name__=="__main__":
+    grammar, graph = build()
+    from bootstrap.parser2 import Parser
+    parser = Parser(graph, discard=grammar.discard)
+    res = (list(parser.parse("unicode[\n öäå123	]")))
+    res[0].dump()
 
 # The spot for manual testing of the generator
-if __name__=="__main__":
-    import itertools
-    from bootstrap.generator2 import Generator
-    grammar, graph = build()
-    generator = Generator(grammar)
-    sentences = list(itertools.islice(generator.step(), 2000))
-    with open("generated.txt","wt") as outputFile:
-        for s in sentences:
-            s = [ symb.string if symb.string is not None else list(symb.chars)[0] for symb in s]
-            outputFile.write("".join(s))
-            outputFile.write("\n")
+#if __name__=="__main__":
+#    import itertools
+#    from bootstrap.generator2 import Generator
+#    grammar, graph = build()
+#    generator = Generator(grammar)
+#    sentences = list(itertools.islice(generator.step(), 2000))
+#    with open("generated.txt","wt") as outputFile:
+#        for s in sentences:
+#            s = [ symb.string if symb.string is not None else list(symb.chars)[0] for symb in s]
+#            outputFile.write("".join(s))
+#            outputFile.write("\n")
