@@ -59,7 +59,7 @@ class Parser:
                                     drop = self.discard.match(remaining)
                                     if drop is not None and len(drop)>0:
                                         remaining = remaining[len(drop):]
-                                ns = Parser.State(edge.target, remaining, s.stack + (Parser.Terminal(m),))
+                                ns = Parser.State(edge.target, remaining, s.stack + (Parser.Terminal(m,edge.label),))
                             if not ns in done:
                                 next.add(ns)
                                 done[ns] = ns
@@ -88,9 +88,10 @@ class Parser:
             print("}", file=trace)
 
     class Terminal:
-        def __init__(self, chars, tag=None):
-            self.chars = chars
-            self.tag = tag
+        def __init__(self, chars, original, tag=None):
+            self.chars    = chars
+            self.tag      = tag
+            self.original = original
 
         def __str__(self):
             return self.chars
@@ -102,19 +103,14 @@ class Parser:
             return hash((self.chars,self.tag))
 
         def matches(self, other):
-            if not other.isTerminal():
-                return False
-            m = other.match(self.chars)
-            r = m is not None and len(m)>0          # Ugly as performs match again, use tags instead
-            # Called during handle checking: do not accept zero-length matches
-            return r
+            return id(other)==id(self.original)
 
         def dump(self, depth=0):
             print(f"{'  '*depth}{self.chars}")
 
     class Nonterminal:
-        def __init__(self, tag, children):
-            self.tag = tag
+        def __init__(self, tag, children ):
+            self.tag      = tag
             self.children = tuple(children)
             for c in self.children:
                 assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
@@ -159,14 +155,10 @@ class Parser:
 
         def checkHandle(self, clause):
             '''Handles are as complex as regex in this system, and so the choice of greediness is very important.
-               From experimentation it seems that non-greedy matching on repeating modifiers works better, and
-               avoids the need for backtracking. THIS CODE IS NOT YET CORRECT. We match handles backwards on the
-               stack for simplicity. This adds a constraint to sequences of symbols in clause right-hand-sides as
-               the non-greedy match must work both forwards and backwards on the string of symbols. This needs a 
-               bit more study before fixing properly. Currently handled in the pidgin grammar by excluding both
-               brackets from the character class between them. It is unclear if this restriction is too strong in
-               other situation, or reasonable and then this can be fixed properly by checking if can we match the
-               symbol after the repeating modifier (i.e. before it in reading order) and use it as a terminator.'''
+               It seems that greedy non-backtracking works on handles as long as we perform the match at the symbol
+               level, and not the character-level. For terminals each Parser.Terminal on the stack contains a
+               reference to the Grammar.Terminal it matched. For non-terminals we use the name.'''
+
             def strs(iterable):
                 return " ".join([str(x) for x in iterable])
             s = len(self.stack) - 1

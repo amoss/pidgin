@@ -134,7 +134,7 @@ constant : Some set{012345678}                                                  
          | anyPrefixOf(u[map]) u[(] Any (constant u[:] constant) u[)]
          | anyPrefixOf(u[map]) u[{] Any (constant u[:] constant) u[}]
          | anyPrefixOf(u[map]) u[<] Any (constant u[:] constant) u[>]
-binop : set{ u[.-], u[.+], u[-.], u[+.], u[*], u[/], u[+], u[-] }
+binop : set{ u[.-], u[.+], u[-.], u[+.], u[*], u[/], u[+], u[-], u[@] }
 
 
 
