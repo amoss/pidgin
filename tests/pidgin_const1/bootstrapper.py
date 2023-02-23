@@ -29,7 +29,8 @@ def build():
     for p in anyPrefixOf("unicode"):
         for l,r in brackets:
             expr.add(         [g.Terminal(p, sticky=True), g.Terminal(l, sticky=True),
-                               g.Terminal(set([l,r]), "any", inverse=True, sticky=True), g.Terminal(r)])
+                               g.Terminal(set([l,r]), "some", inverse=True, sticky=True, external="optional"),
+                               g.Terminal(r)])
 
     for p in anyPrefixOf("order"):
         for l,r in brackets:
@@ -43,14 +44,18 @@ def build():
         for l,r in brackets:
             expr.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("expr_kv", "any"), g.Terminal(r)])
 
-    const_kv = g.addRule("expr_kv",  [g.Nonterminal("expr"), g.Terminal(":"), g.Nonterminal("expr"), g.Terminal(",", "optional")])
-    expr_lst = g.addRule("expr_lst", [g.Nonterminal("expr"), g.Terminal(",", "optional")])
+    const_kv = g.addRule("expr_kv",  [g.Nonterminal("expr"),
+                                      g.Terminal(":"),
+                                      g.Nonterminal("expr"),
+                                      g.Terminal(",", external="optional")])
+    expr_lst = g.addRule("expr_lst", [g.Nonterminal("expr"), g.Terminal(",", external="optional")])
 
     for op in (".-", "-.", ".+", "+.", "*", "/", "+", "-", "@"):
         expr.add([g.Nonterminal("expr"), g.Terminal(op), g.Nonterminal("expr")])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True), g.Terminal(set("_"+letters+string.digits), "any")])
+    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
+                                g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
 
 
     graph = g.build()
@@ -61,9 +66,9 @@ if __name__=="__main__":
     grammar, graph = build()
     from bootstrap.parser2 import Parser
     parser = Parser(graph, discard=grammar.discard)
-    res = (list(parser.parse("a+b+c+d+e+f",trace=open("trace.dot","wt"))))
-    print(res)
-    res[0].dump()
+    res = (list(parser.parse("uni[true]+true",trace=open("trace.dot","wt"))))
+    for r in res:
+        r.dump()
 
 # The spot for manual testing of the generator
 #if __name__=="__main__":

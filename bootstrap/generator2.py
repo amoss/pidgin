@@ -28,6 +28,7 @@ class Generator:
             counter = 0
         while True:
             next = set()
+            if len(self.templates)+len(self.forms)==0:  return
             for t in self.templates:
                 usedTuple = t.nextTuple
                 newForm = self.Form(self.grammar, t.next())

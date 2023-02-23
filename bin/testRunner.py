@@ -32,7 +32,10 @@ def generateWhileProductive(grammar, targetPath, numSentences=20):
     with open(os.path.join(target, "gentrace.dot"),"wt") as traceFile:
         iterator = generator.step(trace=traceFile)
         def emitOne():
-            sentences.append(next(iterator))
+            try:
+                sentences.append(next(iterator))
+            except StopIteration:
+                pass
         for i in range(numSentences):
             thread = threading.Thread(target=emitOne)
             thread.start()
@@ -133,6 +136,20 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             else:
                 traceCounter += 1
                 print(f"{RED}Parsed negative example {line}{END}")
+
+        for line in testcases(dir, "ambiguous.txt"):
+            if args.traces:
+                trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
+            else:
+                trace = None
+            results = parseQuickly(parser,line,trace=trace)
+            if len(results)>1:
+                print(f"{GREEN}Parsed ambiguous example {line}{END}")
+            elif len(results)==1:
+                print(f"{YELLOW}Single result for ambiguous {line}{END}")
+            else:
+                traceCounter += 1
+                print(f"{RED}Failed to parse ambiguous example {line}{END}") 
     except:
         print(f"{RED}Failed on {name}{GRAY}")
         traceback.print_exc()

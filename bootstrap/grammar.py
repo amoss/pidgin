@@ -150,15 +150,23 @@ class Grammar:
         return result
 
     class Terminal:
-        def __init__(self, match, modifier="just", inverse=False, sticky=False):
-            assert modifier in ["any", "just", "some", "optional"]
+        def __init__(self, match, internal="just", external="just", inverse=False, sticky=False):
+            '''The *internal* modifier is applied to matching character classes within the span of
+               text that the Terminal matches. The *external* modifier is used to allow repetitions
+               of the Terminal in the same manner as Nonterminals. Example:
+                 Terminal("x","some") would match "x", "xx" ... -> T("x"), T("xx")...
+                 Terminal("x","just","some") would match "x" -> T("x"), "xx" -> [T("x"),T("x")]...
+               '''
+            assert internal in ["just", "some"]
+            assert external in ["any", "just", "some", "optional"]
             if isinstance(match, str):
                 self.string = match
                 self.chars  = None
             else:
                 self.chars  = frozenset(match)
                 self.string = None
-            self.modifier = modifier
+            self.internal = internal
+            self.modifier = external
             self.inverse  = inverse
             self.sticky   = sticky
 
@@ -186,8 +194,8 @@ class Grammar:
             return True
 
         def match(self, input):
-            allowzero = self.modifier in ("any","optional")
-            limit = len(input) if self.modifier in ("any","some") else 1
+            allowzero = self.internal in ("any","optional")
+            limit = len(input) if self.internal in ("any","some") else 1
             if self.string is not None:
                 i = 0
                 n = len(self.string)

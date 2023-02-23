@@ -119,7 +119,7 @@ class Parser:
             return self.tag
 
         def __eq__(self, other):
-            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag
+            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag and self.children==other.children
 
         def __hash__(self):
             return hash(self.tag)

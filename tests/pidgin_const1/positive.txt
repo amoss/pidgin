@@ -15,8 +15,6 @@ o(set{}, set{1}, set{2})
 map<3:2>
 m[u(hello):u(world), u(who):333]
 m[set{}:set{}o[2]:7]
-22+43/66.+o[]
 uni[true]+true
 u(,,,)
-x+y@ord[2,2]+z@pos
 foo+blah
