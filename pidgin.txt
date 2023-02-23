@@ -140,7 +140,39 @@ binop : set{ u[.-], u[.+], u[-.], u[+.], u[*], u[/], u[+], u[-], u[@] }
 
 
 
+# Representing grammars in pidgin
 
+Grammars are an interesting artifact to represent in a data-structure because they mix
+text and structure. Looking at two possible syntaxes:
+
+
+```
+{u[expr]:{[T!u[(]NA!u[expr]T!u[)]]}u[lst]:{[NP!u[expr]]}}
+{"expr":{[T!"("NA!"expr"T!")"]} "lst":{[NP!"expr"]}}
+```
+
+The first keeps the tagged bracketing style for strings, and the second uses standard
+double quotes. In both cases the [] {} and {:} symbols have the same meaning, and the
+! should be read as application of a function.
+
+A difficulty in reading the second can be seen in `"("NA!"expr"T!` where the single
+symbol meaning both "start of a string" and "end of a string" makes it difficult to
+read from the middle outwards. For complex structures we end up reading middle-out
+because of skimming and skipping.
+
+Although the first form is longer, and we get some collision of symbols because the bounding
+brackets for the string occur with other meanings nearby, it is still easier to read
+the string/non-string division in `u[(]NA!u[expr]T!`. Using parenthesis for the strings
+would avoid the collision with the set/orders in the declaration, but is awkward in this
+particular case because of the () within the grammar itself.
+
+A tempting solution is to use “” but they are difficult to type on most keyboards and the
+difference is too subtle in most programming fonts. An alternative would be to force the
+use of `x´ but this may be awkward to type / remember which order vs ´x`.
+
+```
+{`expr´:{[T!`(´NA!`expr´T!`)´]} `lst´:{[NP!`expr´]}}
+```
 
 
 
