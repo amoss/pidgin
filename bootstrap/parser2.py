@@ -175,7 +175,7 @@ class Parser:
                     hasMatched = False
                     continue
                 if not matching and symbol.modifier in ("just","some"):
-                    print(f"checkHandle fail1 on {s} {r} {clause.lhs} <- {strs(self.stack)} vs {strs(clause.rhs)}")
+                    #print(f"checkHandle fail1 on {s} {r} {clause.lhs} <- {strs(self.stack)} vs {strs(clause.rhs)}")
                     return None
                 if not matching and symbol.modifier in ("any","optional"):
                     r -= 1
@@ -191,5 +191,5 @@ class Parser:
                 r -= 1
             if r<0:
                 return self.stack[:s+1] + (Parser.Nonterminal(clause.lhs,self.stack[s+1:]),)
-            print(f"checkHandle fail2 on {clause.lhs} <- {self.stack}")
+            #print(f"checkHandle fail2 on {clause.lhs} <- {self.stack}")
             return None

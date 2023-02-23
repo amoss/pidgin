@@ -196,10 +196,11 @@ class Grammar:
                and self.chars==other.chars \
                and self.internal==other.internal \
                and self.modifier==other.modifier \
-               and self.inverse==other.inverse
+               and self.inverse==other.inverse \
+               and self.sticky==other.sticky
 
         def __hash__(self):
-            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse))
+            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse, self.sticky))
 
         def isTerminal(self):
             return True
