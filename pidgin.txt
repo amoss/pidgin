@@ -171,7 +171,13 @@ difference is too subtle in most programming fonts. An alternative would be to f
 use of `x´ but this may be awkward to type / remember which order vs ´x`.
 
 ```
-{`expr´:{[T!`(´NA!`expr´T!`)´]} `lst´:{[NP!`expr´]}}
+{`expr´:{[T!`(´NA!`expr´T!`)´]}`lst´:{[NP!`expr´]}}
+```
+
+Another alternative is to use both ' and ", as in:
+```
+{'expr":{[T!'("NA!'expr"T!')"]}'lst":{[NP!'expr"]}}
+{'expr": {[ T!'(" NA!'expr" T!')" ]}  'lst": {[ NP!'expr" ]}}
 ```
 
 
