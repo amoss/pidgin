@@ -26,12 +26,14 @@ class OrdSet:
             yield x
 
 class Rule:
-    def __init__(self, name):
+    def __init__(self, name, grammar):
         self.name = name
+        self.grammar = grammar
         self.clauses = set()
 
     def add(self, body):
-        self.clauses.add( Clause(self.name, body) )
+        canonicalBody = [ symbol if not symbol.isTerminal() else self.grammar.canonical(symbol) for symbol in body]
+        self.clauses.add( Clause(self.name, canonicalBody) )
 
 
 @total_ordering
@@ -88,11 +90,19 @@ class Grammar:
         self.start    = start
         self.worklist = OrdSet()
         self.discard  = None
+        self.canonicalTerminals = dict()
+
+    def canonical(self, terminal):
+        assert isinstance(terminal, Grammar.Terminal), terminal
+        if not terminal in self.canonicalTerminals:
+            self.canonicalTerminals[terminal] = terminal
+        return self.canonicalTerminals[terminal]
 
     def addRule(self, name, initialClause):
         assert not name in self.rules.keys()
-        rule = Rule(name)
-        rule.add(initialClause)
+        rule = Rule(name, self)
+        canonicalClause = [ symbol if not symbol.isTerminal() else self.canonical(symbol) for symbol in initialClause]
+        rule.add(canonicalClause)
         self.rules[name] = rule
         return rule
 
@@ -184,11 +194,12 @@ class Grammar:
             return isinstance(other,Grammar.Terminal) \
                and self.string==other.string \
                and self.chars==other.chars \
+               and self.internal==other.internal \
                and self.modifier==other.modifier \
                and self.inverse==other.inverse
 
         def __hash__(self):
-            return hash((self.string,self.chars))
+            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse))
 
         def isTerminal(self):
             return True
