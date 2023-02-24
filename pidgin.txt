@@ -180,6 +180,60 @@ Another alternative is to use both ' and ", as in:
 {'expr": {[ T!'(" NA!'expr" T!')" ]}  'lst": {[ NP!'expr" ]}}
 ```
 
+# Self-hosting the pidgin grammar
+
+Assuming that we have:
+```
+T  :: string -> structure
+TA :: set(string) -> structure
+TAN:: set(string) -> structure       c(Inverse of a character-class any number of times)
+TS :: set(string) -> structure
+TO :: string -> structure
+N  :: string -> structure
+NA :: string -> structure
+NS :: string -> structure
+```
+
+Allowing both the `'"` form and `u()` as an alternative to avoid any escaping rules within strings:
+```
+pidgin = {
+    'expr": { [T!'true"]
+              [T!'false"]
+              [N!'ident"]
+              [N!'number"]
+              [N!'str_lit"]
+              [N!'set"]
+              [N!'map"]
+              [N!'order"]
+              [N!'bin_op1"]
+            }
+    'ident": { [T!{'_"'a"'b"'c" ... 'z"'A" ... 'Z"}, TA!{'_"'a"'b"'c" ... 'z"'A" ... 'Z"'0" ... '9"}] }
+    'number": { [TS!{'0"...'9"}] }
+    'str_list": { [T!u('), TAN!u("), T!u(")]
+                  [T!'u(", TAN!')",  T!')"]
+                }
+    'set":   { [T!'{",  NA!'expr_lst",  T!'}”] }
+    'order": { [T!'[",  NA!'expr_lst",  T!']"] }
+    'map":   { [T!'{",  NA!'expr_kv",   T!'}"] }
+    'expr_lst": { [N!'expr",  TO!',"] }
+    'expr_kv":  { [N!'expr",  T':",  N!'expr",  TO!',"] }
+    'binop1":     { [N!'binop2",  NS!'binop1_lst"] }
+    'binop1_lst": { [T!'.+",  N!'binop2"]
+                    [T!'+.",  N!'binop2"]
+                    [T!'.-",  N!'binop2"]
+                    [T!'-.",  N!'binop2"]
+                    [T!'-",   N!'binop2"]
+                    [T!'+",   N!'binop2"]
+                  }
+    'binop2":     { [N!'binop3", NS!'binop2_lst"] }
+    'binop2_lst": { [T!'*",      NS!'binop3"]
+                    [T!'/",      NS!'binop3"]
+                  }
+    'binop3:      { [N!'expr",   NA!'binop3_lst"] }
+    'binop3_lst": { [T!'@",      N!'expr"] }
+
+}
+```
 
 
 
