@@ -57,7 +57,8 @@ if __name__=="__main__":
     graph.dot(open("tree.dot","wt"))
     from bootstrap.parser2 import Parser
     parser = Parser(graph, discard=grammar.discard)
-    res = (list(parser.parse("{ {},{1} }",trace=open("trace.dot","wt"))))
+    where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost.g")
+    res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
 
