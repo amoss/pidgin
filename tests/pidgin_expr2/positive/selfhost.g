@@ -1,4 +1,4 @@
-pidgin = {
+{
     'expr": { [N!'atom"]
               [N!'bin_op1"]
             }

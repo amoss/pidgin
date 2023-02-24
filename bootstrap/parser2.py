@@ -17,7 +17,10 @@ class Parser:
 
     @staticmethod
     def stateProps(state):
-        result =  f'[shape=none,label=< <table border="0"><tr><td>{html.escape(state.input)}</td></tr><hr/>'
+        if len(state.input)>30:
+            result =  f'[shape=none,label=< <table border="0"><tr><td>{html.escape(state.input[:30])}...</td></tr><hr/>'
+        else:
+            result =  f'[shape=none,label=< <table border="0"><tr><td>{html.escape(state.input)}</td></tr><hr/>'
         result += ''.join([f"<tr><td>{html.escape(str(x))}</td></tr>" for x in state.node.labels])
         result += '<hr/><tr><td>' + " ".join([html.escape(str(x)) for x in state.stack]) + '</td></tr></table> >]';
         return result

@@ -201,9 +201,7 @@ NS :: string -> structure
 Allowing both the `'"` form and `u()` as an alternative to avoid any escaping rules within strings:
 ```
 pidgin = {
-    'expr": { [N!'atom"]
-              [N!'bin_op1"]
-            }
+    'expr": { [N!'binop1"] }
     'binop1":     { [N!'binop2",  NS!'binop1_lst"] }
     'binop1_lst": { [T!'.+",  N!'binop2"]
                     [T!'+.",  N!'binop2"]
@@ -216,8 +214,9 @@ pidgin = {
     'binop2_lst": { [T!'*",      NS!'binop3"]
                     [T!'/",      NS!'binop3"]
                   }
-    'binop3":     { [N!'binop4",   NA!'binop3_lst"] }
-    'binop3_lst": { [T!'@",        N!'binop4"] }
+    'binop3":     { [N!'atom",   NA!'binop3_lst"] }
+    'binop3_lst": { [T!'@",        N!'atom"] }
+    'binop3_lst": { [T!'!",        N!'atom"] }
     'binop4":     { [N!'ident",    T!'!",   N!'atom"]
                     [N!'atom"]
                   }
@@ -238,7 +237,9 @@ pidgin = {
                 }
     'set":   { [T!'{",  NA!'expr_lst",  T!'}”] }
     'order": { [T!'[",  NA!'expr_lst",  T!']"] }
-    'map":   { [T!'{",  NA!'expr_kv",   T!'}"] }
+    'map":   { [T!'{",  NA!'expr_kv",   T!'}"]
+               [T!'{",  T!':",          T!'}"]
+             }
     'expr_lst": { [N!'expr",  TO!',"] }
     'expr_kv":  { [N!'expr",  T':",  N!'expr",  TO!',"] }
 

@@ -18,21 +18,41 @@ def build():
     '''
     g = Grammar("expr")
     g.setDiscard(g.Terminal(set(" \t\r\n"), "some"))
-    expr = g.addRule("expr", [g.Terminal(set("0123456789"),"some")])
-    expr.add([g.Terminal("true")])
-    expr.add([g.Terminal("false")])
-    expr.add([g.Nonterminal("ident")])
-    for l,r in brackets:
-        expr.add( [g.Terminal('u', sticky=True), g.Terminal(l, sticky=True),
-                   g.Terminal(set([l,r]), "some", inverse=True, sticky=True, external="optional"),
-                   g.Terminal(r)])
+
+    expr = g.addRule("expr", [g.Nonterminal("binop1")])
+
+    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst","some")])
+    binop1_lst = g.addRule("binop1_lst", [g.Terminal(".+"), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("+."), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal(".-"), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("-."), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("+"),  g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("-"),  g.Nonterminal("binop2")])
+
+    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst","some")])
+    binop2_lst = g.addRule("binop2_lst", [g.Terminal("*"), g.Nonterminal("binop3")])
+    binop2_lst.add(                      [g.Terminal("/"), g.Nonterminal("binop3")])
+
+    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst","some")])
+    binop3_lst = g.addRule("binop3_lst", [g.Terminal("@"), g.Nonterminal("binop4")])
+
+    binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
+    binop4.add(                  [g.Nonterminal("atom")])
+
+    atom = g.addRule("atom", [g.Terminal(set("0123456789"),"some")])
+    atom.add(                [g.Terminal("true")])
+    atom.add(                [g.Terminal("false")])
+    atom.add(                [g.Nonterminal("ident")])
+    atom.add(                [g.Nonterminal("str_lit")])
+    atom.add(                [g.Nonterminal("set")])
+    atom.add(                [g.Nonterminal("map")])
+    atom.add(                [g.Nonterminal("order")])
+    atom.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
 
     aset = g.addRule("set",   [g.Terminal('{'), g.Nonterminal("expr_lst", "any"), g.Terminal('}')])
-    expr.add([g.Nonterminal("set")])
     aord = g.addRule("order", [g.Terminal('['), g.Nonterminal("expr_lst", "any"), g.Terminal(']')])
-    expr.add([g.Nonterminal("order")])
-    amap = g.addRule("map",   [g.Terminal('{'), g.Nonterminal("expr_kv",  "some"),  g.Terminal('}')]) # No syntax for an empty map, {:}?
-    expr.add([g.Nonterminal("map")])
+    amap = g.addRule("map",   [g.Terminal('{'), g.Nonterminal("expr_kv",  "some"),  g.Terminal('}')])
+    amap.add(                 [g.Terminal('{'), g.Terminal(':'), g.Terminal('}')])
 
     g.addRule("expr_kv",  [g.Nonterminal("expr"),
                            g.Terminal(":"),
@@ -40,8 +60,12 @@ def build():
                            g.Terminal(",", external="optional")])
     g.addRule("expr_lst", [g.Nonterminal("expr"), g.Terminal(",", external="optional")])
 
-    for op in (".-", "-.", ".+", "+.", "*", "/", "+", "-", "@"):
-        expr.add([g.Nonterminal("expr"), g.Terminal(op), g.Nonterminal("expr")])
+    str_lit = g.addRule("str_lit", [g.Terminal("'", sticky=True),
+                                    g.Terminal(set('"'), "some", inverse=True, sticky=True, external="optional"),
+                                    g.Terminal('"')])
+    str_lit.add(                   [g.Terminal("u(", sticky=True),
+                                    g.Terminal(set(')'), "some", inverse=True, sticky=True, external="optional"),
+                                    g.Terminal(')')])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
     ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
