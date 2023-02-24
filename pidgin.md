@@ -201,26 +201,9 @@ NS :: string -> structure
 Allowing both the `'"` form and `u()` as an alternative to avoid any escaping rules within strings:
 ```
 pidgin = {
-    'expr": { [T!'true"]
-              [T!'false"]
-              [N!'ident"]
-              [N!'number"]
-              [N!'str_lit"]
-              [N!'set"]
-              [N!'map"]
-              [N!'order"]
+    'expr": { [N!'atom"]
               [N!'bin_op1"]
             }
-    'ident": { [T!{'_"'a"'b"'c" ... 'z"'A" ... 'Z"}, TA!{'_"'a"'b"'c" ... 'z"'A" ... 'Z"'0" ... '9"}] }
-    'number": { [TS!{'0"...'9"}] }
-    'str_list": { [T!u('), TAN!u("), T!u(")]
-                  [T!'u(", TAN!')",  T!')"]
-                }
-    'set":   { [T!'{",  NA!'expr_lst",  T!'}”] }
-    'order": { [T!'[",  NA!'expr_lst",  T!']"] }
-    'map":   { [T!'{",  NA!'expr_kv",   T!'}"] }
-    'expr_lst": { [N!'expr",  TO!',"] }
-    'expr_kv":  { [N!'expr",  T':",  N!'expr",  TO!',"] }
     'binop1":     { [N!'binop2",  NS!'binop1_lst"] }
     'binop1_lst": { [T!'.+",  N!'binop2"]
                     [T!'+.",  N!'binop2"]
@@ -233,17 +216,37 @@ pidgin = {
     'binop2_lst": { [T!'*",      NS!'binop3"]
                     [T!'/",      NS!'binop3"]
                   }
-    'binop3:      { [N!'expr",   NA!'binop3_lst"] }
-    'binop3_lst": { [T!'@",      N!'expr"] }
+    'binop3":     { [N!'binop4",   NA!'binop3_lst"] }
+    'binop3_lst": { [T!'@",        N!'binop4"] }
+    'binop4":     { [N!'ident",    T!'!",   N!'atom"]
+                    [N!'atom"]
+                  }
+    'atom": { [T!'true"]
+              [T!'false"]
+              [N!'ident"]
+              [N!'number"]
+              [N!'str_lit"]
+              [N!'set"]
+              [N!'map"]
+              [N!'order"]
+              [T!'(",  N!'expr",  T!')"]
+            }
+    'ident": { [T!{'_"'a"'b"'c" ... 'z"'A" ... 'Z"}, TA!{'_"'a"'b"'c" ... 'z"'A" ... 'Z"'0" ... '9"}] }
+    'number": { [TS!{'0"...'9"}] }
+    'str_lit": { [T!u('), TAN!u("), T!u(")]
+                  [T!'u(", TAN!')",  T!')"]
+                }
+    'set":   { [T!'{",  NA!'expr_lst",  T!'}”] }
+    'order": { [T!'[",  NA!'expr_lst",  T!']"] }
+    'map":   { [T!'{",  NA!'expr_kv",   T!'}"] }
+    'expr_lst": { [N!'expr",  TO!',"] }
+    'expr_kv":  { [N!'expr",  T':",  N!'expr",  TO!',"] }
 
 }
 ```
 
 Currently there are at least these issues with the self-hosting grammar:
 
-1. The number of arguments is not specified anywhere.
-1. The functors and their application symbol `!` are not in the grammar.
-1. Parenthesis in expression are not defined yet.
 1. The keywords `true` and `false` are not excluded from the set of identifiers.
 1. There is no record type yet.
 
