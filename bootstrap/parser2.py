@@ -21,7 +21,10 @@ class Parser:
             result =  f'[shape=none,label=< <table border="0"><tr><td>{html.escape(state.input[:30])}...</td></tr><hr/>'
         else:
             result =  f'[shape=none,label=< <table border="0"><tr><td>{html.escape(state.input)}</td></tr><hr/>'
-        result += ''.join([f"<tr><td>{html.escape(str(x))}</td></tr>" for x in state.node.labels])
+        if len(state.node.labels)<5:
+            result += ''.join([f"<tr><td>{html.escape(str(x))}</td></tr>" for x in state.node.labels])
+        else:
+            result += f"<tr><td>{len(state.node.labels)} configs</td></tr>"
         result += '<hr/><tr><td>' + " ".join([html.escape(str(x)) for x in state.stack]) + '</td></tr></table> >]';
         return result
 
@@ -69,8 +72,8 @@ class Parser:
                             else:
                                 ns = done[ns]   # Canonical instance of state
                             if trace:
-                                print(f'n{id(ns)} {Parser.stateProps(ns)}', file=trace)
-                                traceEdges.append( (s,ns,"shift") )
+                                print(f'n{id(ns)} {Parser.stateProps(ns)};', file=trace)
+                                print(f'n{id(s)} -> n{id(ns)} [label="shift"];', file=trace)
                     else:
                         h = s.checkHandle(edge.label)
                         if h is not None:
@@ -81,13 +84,11 @@ class Parser:
                             else:
                                 ns = done[ns]   # Canonical instance of state
                             if trace:
-                                print(f'n{id(ns)} {Parser.stateProps(ns)}', file=trace)
-                                traceEdges.append( (s,ns,"reduce") )
+                                print(f'n{id(ns)} {Parser.stateProps(ns)};', file=trace)
+                                print(f'n{id(s)} -> n{id(ns)} [label="reduce"];', file=trace)
 
             self.states = next
         if trace:
-            for src,tar,lab in traceEdges:
-                print(f'n{id(src)} -> n{id(tar)} [label="{lab}"];', file=trace)
             print("}", file=trace)
 
     class Terminal:

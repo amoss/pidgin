@@ -21,7 +21,7 @@ def build():
 
     expr = g.addRule("expr", [g.Nonterminal("binop1")])
 
-    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst","some")])
+    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst","any")])
     binop1_lst = g.addRule("binop1_lst", [g.Terminal(".+"), g.Nonterminal("binop2")])
     binop1_lst.add(                      [g.Terminal("+."), g.Nonterminal("binop2")])
     binop1_lst.add(                      [g.Terminal(".-"), g.Nonterminal("binop2")])
@@ -29,11 +29,11 @@ def build():
     binop1_lst.add(                      [g.Terminal("+"),  g.Nonterminal("binop2")])
     binop1_lst.add(                      [g.Terminal("-"),  g.Nonterminal("binop2")])
 
-    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst","some")])
+    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst","any")])
     binop2_lst = g.addRule("binop2_lst", [g.Terminal("*"), g.Nonterminal("binop3")])
     binop2_lst.add(                      [g.Terminal("/"), g.Nonterminal("binop3")])
 
-    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst","some")])
+    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst","any")])
     binop3_lst = g.addRule("binop3_lst", [g.Terminal("@"), g.Nonterminal("binop4")])
 
     binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
@@ -81,7 +81,7 @@ if __name__=="__main__":
     graph.dot(open("tree.dot","wt"))
     from bootstrap.parser2 import Parser
     parser = Parser(graph, discard=grammar.discard)
-    where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost.g")
+    where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
     res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
