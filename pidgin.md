@@ -1,11 +1,6 @@
-# Brackets
-
-Any of (), [], {} or <> may be used interchangably in places where brackets are required.
-i.e. u[xx] and u(xx) are the same.
-
-
 # Types
 
+```
 T : {
     integer
     unicode
@@ -16,9 +11,10 @@ T : {
     set<T>
     map<T:T>                c( object = map<u[]:T> )
 }
-
+```
 Type names may be abbreviated to a unique prefix, i.e.
 
+```
 some_map = map{ 2:1, 3:3, 4:1 }
 a_dict = m{ u[hello] : 2, u(a [) : 7 }
 int[1,2,3]
@@ -27,20 +23,23 @@ uni<hello [world]>
 strings = [u[hello] u[world]]
 u[Using (] * u([) * u[()]
 tags = { u[unicode] u[integer] u[boolean] u[comment] }
+```
 
 Commas between elements are optional.
 
 
 # Patterns
 
+```
 modifier = enum{ Any Optional Some Just }
 atom<T> : [ seq<T> modifier ] or [ set<T> modifier ]
 atom<T> : modifier seq<T> | modifier set<T> | modifier atom<T>
 pattern<T> : seq<atom[T]>
-
+```
 
 # Operators
 
+```
 s1 = s2      c[ equality ]
 len(s1)
 set(s)       c[ alphabet ]
@@ -54,7 +53,10 @@ set([s])     c[ how to make a set with a single string? ]
 /  :: ord<T> T -> ord<ord<T>>               c[ split ]
 len :: ord<T> -> int
 =  :: T T -> boolean
+```
 
+Random examples:
+```
 u[hello ] + u[world] = u[hello world]
 
 u[some fields,a string,csv] / u[,] = ord< u[some fields], u[a string], u[csv] >
@@ -67,6 +69,7 @@ u[prefix on a string] -. u[prefix] = u[ on a string]
             c[ what if there is not the target prefix or suffix? ]
 
 ~ :: pattern<T> seq<T> -> boolean
+```
 
 # Order indexing and slicing
 
@@ -76,13 +79,16 @@ expressions, otherwise the set of excluded keywords is huge (because we allow pr
 Either we use an explicit symbol to denote array access or the use of brackets needs to be reworked
 throughout, and we lose many nice properties.
 
+```
 x$[3]
 uni$[2,3]
 t${7}
 slices$<2:3,7:9>
+```
 
 # Example code
 
+```
 anyPrefixOf(in : ord<uni>) = set{ let n = 1 .. len(in) in in[:n] }
 typeNames  = set{
     u[integer]
@@ -109,10 +115,11 @@ finally
 if seq< Just u[header] Any set(u[+-/]) Optional u[0123456789]> ~ input {
     ....
 }
-
+```
 
 # Expression grammar
 
+```
 expr : anyDeclaredVar | constant | expr binop expr | func u[(] args u[)]
 constant : Some set{012345678}                                                  c( Other bases would be nice here )
          | anyPrefixOf(u[unicode]) u([) Any !set{u(])} u(])
@@ -135,10 +142,7 @@ constant : Some set{012345678}                                                  
          | anyPrefixOf(u[map]) u[{] Any (constant u[:] constant) u[}]
          | anyPrefixOf(u[map]) u[<] Any (constant u[:] constant) u[>]
 binop : set{ u[.-], u[.+], u[-.], u[+.], u[*], u[/], u[+], u[-], u[@] }
-
-
-
-
+```
 
 # Representing grammars in pidgin
 
@@ -235,6 +239,12 @@ pidgin = {
 }
 ```
 
+Currently there are at least these issues with the self-hosting grammar:
+
+1. The number of arguments is not specified anywhere.
+1. The functors and their application symbol `!` are not in the grammar.
+1. Parenthesis are not in expression yet.
+1. The keywords `true` and `false` are not excluded from the set of identifiers.
 
 
 
