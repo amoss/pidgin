@@ -243,8 +243,9 @@ Currently there are at least these issues with the self-hosting grammar:
 
 1. The number of arguments is not specified anywhere.
 1. The functors and their application symbol `!` are not in the grammar.
-1. Parenthesis are not in expression yet.
+1. Parenthesis in expression are not defined yet.
 1. The keywords `true` and `false` are not excluded from the set of identifiers.
+1. There is no record type yet.
 
 
 
