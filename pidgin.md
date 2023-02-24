@@ -248,9 +248,39 @@ pidgin = {
 Currently there are at least these issues with the self-hosting grammar:
 
 1. The keywords `true` and `false` are not excluded from the set of identifiers.
-1. There is no record type yet.
 
+Currently the `{}` brackets are overloaded for maps and sets by a syntactic difference in
+the sequence of symbols within. There could be a similar approach for using `[]` brackets
+for both orders (arbitrary length sequences of instances of the same type) and records (fixed
+length sequences of instances of any type).
 
+```
+[:true 22 'hello":]
+```
+
+This would give definitions such as these:
+```
+enum Symbol = [Terminal Nonterminal]
+def T string  = [:Terminal    string {}  Just     false:]
+def TA set    = [:Terminal    '"     set Any      false:]
+def TS set    = [:Terminal    '"     set Some     false:]
+def TAN set   = [:Terminal    '"     set Any      true :]
+def TO string = [:Terminal    string {}  Optional false:]
+def N name    = [:Nonterminal name   {}  Just     false:]
+def NA name   = [:Nonterminal name   {}  Any      false:]
+def NO name   = [:Nonterminal name   {}  Optional false:]
+def NS name   = [:Nonterminal name   {}  Some     false:]
+```
+
+These are simpler than sum types as we do not have alternative body definitions with
+class constructor labels. Instead we are using enumerated labels as a tag type in the
+first position.
+
+It's too early to define functions yet, but when we do the application will work the
+same way with a single value. The value may be an order for vararg functions or a record
+for multiple arguments of different types. This suggests that it would be useful to
+define accessors for records easily, and perhaps combine this with default values to
+allow simple constructors?
 
 
 
