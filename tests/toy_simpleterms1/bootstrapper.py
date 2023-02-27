@@ -17,7 +17,8 @@ def build():
     term <- x | ( expr )
 
     '''
-    g = Grammar("expr")
+    g = Grammar("input")
+    g.addRule("input", [g.Nonterminal("expr")])
     expr = g.addRule("expr", [g.Nonterminal("term")])
     expr.add(                [g.Nonterminal("expr"), g.Terminal("+"), g.Nonterminal("term")])
     term = g.addRule("term", [g.Terminal("x")])

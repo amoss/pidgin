@@ -109,6 +109,25 @@ class Grammar:
     def setDiscard(self, terminal):
         self.discard = terminal
 
+    # This builds something very strange. The speculation on which non-terminal clause to jump to is deliberate,
+    # but it also speculates on where to return to in the grammar after successfully reducing a non-terminal.
+    # Unlike an LR parser it does not keep states on the stack - only sentential forms / partial parse-trees.
+    # So after a reduction it does not know how it reached a particular state and just tries all the possible
+    # returns - this is why we are seeing the expr_lst / expr_kv branch in the trace of the pidgin grammar.
+
+    # The second weirdness is the way that the epsilon-closure is calculated: we are performing a partition of
+    # the set of reachable configurations in the grammar. This differs from LR, which is happy to duplicate
+    # configurations in different states, i.e. the folding along predict edges is local in LR only finding
+    # configurations that are reachable from the state-set, while here it is a global partitioning process.
+
+    # Removing the second weirdness will split the "mega-state" that appears in the automaton and leave more
+    # structure.
+
+    # Fixing the first weirdness will improve the efficiency by pruning large sections of unreachable tree in
+    # the parsing trace. An obvious way to do it is to put the states on the stack of each state so that it
+    # works similarly to an LR parser - but this will break the "parsing as chasing a frontier over the graph"
+    # approach that is the interesting part. A different way to do it would be to guard each transition with
+    # "look-behind", i.e. the last few terminals processed in the input by that point...
     def build(self):
         result = Graph()
         self.entry = Clause("<outside>", [self.Nonterminal(self.start)], terminating=True)
