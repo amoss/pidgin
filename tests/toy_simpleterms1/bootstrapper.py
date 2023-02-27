@@ -23,7 +23,7 @@ def build():
     expr.add(                [g.Nonterminal("expr"), g.Terminal("+"), g.Nonterminal("term")])
     term = g.addRule("term", [g.Terminal("x")])
     term.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
-    graph = g.build()
+    graph = g.build2()
     return g, graph
 
 # The spot for manual testing of the parser

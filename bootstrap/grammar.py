@@ -5,9 +5,13 @@ from functools import total_ordering
 from .graph import Graph
 
 class OrdSet:
-    def __init__(self):
+    '''This class differs from collections.OrderedDict because we can mutate it while iterating over it. The
+       add method returns the value to allow canonical values.'''
+    def __init__(self, initial=[]):
         self.set = {}
         self.ord = []
+        for x in initial:
+            self.add(x)
 
     def add(self, v):
         if not v in self.set:
@@ -64,7 +68,6 @@ class Configuration:
         assert -1 <= position and position <= len(self.clause.rhs)
         self.terminating = clause.terminating and (position==len(self.clause.rhs))
         self.position = position
-        self.succs = set()
 
     def __str__(self):
         result = f"{self.clause.lhs} <- "
@@ -83,6 +86,15 @@ class Configuration:
 
     def __hash__(self):
         return hash((self.clause.lhs, str(self.clause.rhs), self.position))
+
+    def next(self):
+        if self.position==len(self.clause.rhs):
+            return None
+        return self.clause.rhs[self.position]
+
+    def succ(self):
+        assert self.position < len(self.clause.rhs)
+        return Configuration(self.clause, self.position+1)
 
 class Grammar:
     def __init__(self, start):
@@ -177,6 +189,44 @@ class Grammar:
               break
             result.fold(first)
         return result
+
+
+    def epsilonClosure(self, configs):
+        result = OrdSet(configs)
+        for c in result:
+            sym = c.next()
+            if sym is not None and not sym.isTerminal():
+                rule = self.rules[sym.name]
+                for clause in rule.clauses:
+                    result.add(clause.get(0))
+        return frozenset(result.set)
+
+    def build2(self):
+        '''Build a standard LR(0) automaton'''
+        result = Graph()
+        self.entry = Clause("<outside>", [self.Nonterminal(self.start)], terminating=True)
+        state = self.epsilonClosure([self.entry.get(0)])
+        result.start = result.force(state)
+        worklist = OrdSet([state])
+
+        for state in worklist:
+            node = result.force(state)
+            nextSymbols = set( config.next() for config in state)
+            reducing = None in nextSymbols
+            nextSymbols.discard(None)
+            for sym in nextSymbols:
+                possibleConfigs = [ c.succ() for c in state if c.next()==sym ]
+                nextState = self.epsilonClosure(possibleConfigs)
+                nextNode = result.force(nextState)
+                worklist.add(nextState)
+                result.connect(node, nextNode, sym)
+            if reducing:
+                reducingConfigs = [ c for c in state if c.next() is None ]
+                for r in reducingConfigs:
+                    result.connect(node, None, r.clause)
+
+        return result
+
 
     class Terminal:
         def __init__(self, match, internal="just", external="just", inverse=False, sticky=False):

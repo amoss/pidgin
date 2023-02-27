@@ -14,7 +14,7 @@ def partition(predicate, iterable):
 class Graph:
     class Node:
         def __init__(self, label):
-            if isinstance(label,set):
+            if isinstance(label,set) or isinstance(label,frozenset):
                 self.labels = label
             else:
                 self.labels = set([label])
@@ -78,7 +78,7 @@ class Graph:
 
     def connect(self, source, target, label):
         assert isinstance(source,Graph.Node) and source in self.nodes, str(source)
-        assert isinstance(target,Graph.Node) and target in self.nodes, str(target)
+        assert target is None or (isinstance(target,Graph.Node) and target in self.nodes), str(target)
         self.edges.add( Graph.Edge(source,target,label) )
 
     def fold(self, edge):
@@ -121,7 +121,10 @@ class Graph:
             label = "\\n".join([str(l) for l in n.labels])
             print(f'n{id(n)} [label="{label}"];', file=output)
         for e in self.edges:
-            print(f'n{id(e.source)} -> n{id(e.target)} [label="{e.label}"];', file=output)
+            if e.target is not None:
+                print(f'n{id(e.source)} -> n{id(e.target)} [label="{e.label}"];', file=output)
+            else:
+                print(f'n{id(e.source)} [shape=rect];', file=output)
         print("}", file=output)
 
     def dump(self):
