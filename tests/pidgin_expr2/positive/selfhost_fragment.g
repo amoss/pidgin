@@ -1,7 +1,6 @@
 {
-    'expr": { [N!'atom"]
-              [N!'bin_op1"]
+    'expr": { 
             }
-    'binop1":     { [N!'binop2",  NS!'binop1_lst"] }
+    'binop1":     { }
 }
 
