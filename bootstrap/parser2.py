@@ -24,10 +24,13 @@ class AState:
         result = OrdSet(configs)
         for c in result:
             symbol = c.next()
-            if symbol is not None and not symbol.isTerminal():
+            if symbol is None: continue
+            if not symbol.isTerminal():
                 rule = self.grammar.rules[symbol.name]
                 for clause in rule.clauses:
                     result.add(clause.get(0))
+            if symbol.modifier in ("optional","any"):
+                result.add(c.succ())
         return frozenset(result.set)
 
     def connect(self, symbol, next):
@@ -157,6 +160,8 @@ class Parser2:
                 next = AState(grammar, possibleConfigs)
                 next = worklist.add(next)
                 state.connect(symbol, next)
+                #if symbol.modifier in ("any","some"):
+                #    state.connect(symbol, state)
             if reducing:
                 reducingConfigs = [ c for c in state.configurations if c.next() is None ]
                 for r in reducingConfigs:
