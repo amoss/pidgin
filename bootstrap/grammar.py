@@ -4,30 +4,7 @@
 from functools import total_ordering
 from .graph import Graph
 
-class OrdSet:
-    '''This class differs from collections.OrderedDict because we can mutate it while iterating over it. The
-       add method returns the value to allow canonical values.'''
-    def __init__(self, initial=[]):
-        self.set = {}
-        self.ord = []
-        for x in initial:
-            self.add(x)
 
-    def add(self, v):
-        if not v in self.set:
-            self.set[v] = v
-            self.ord.append(v)
-        return self.set[v]
-
-    def __len__(self):
-        return len(self.set)
-
-    def __contains__(self, v):
-        return v in self.set
-
-    def __iter__(self) :
-        for x in self.ord:
-            yield x
 
 class Rule:
     def __init__(self, name, grammar):
@@ -82,7 +59,8 @@ class Configuration:
     def __eq__(self, other):
         if not isinstance(other,Configuration):
             return False
-        return self.clause.lhs==other.clause.lhs and self.position==other.position and self.clause.rhs==other.clause.rhs
+        return self.clause.lhs==other.clause.lhs and self.position==other.position and\
+               self.clause.rhs==other.clause.rhs
 
     def __hash__(self):
         return hash((self.clause.lhs, str(self.clause.rhs), self.position))
@@ -100,7 +78,6 @@ class Grammar:
     def __init__(self, start):
         self.rules    = dict()
         self.start    = start
-        self.worklist = OrdSet()
         self.discard  = None
         self.canonicalTerminals = dict()
 
@@ -120,112 +97,6 @@ class Grammar:
 
     def setDiscard(self, terminal):
         self.discard = terminal
-
-    # This builds something very strange. The speculation on which non-terminal clause to jump to is deliberate,
-    # but it also speculates on where to return to in the grammar after successfully reducing a non-terminal.
-    # Unlike an LR parser it does not keep states on the stack - only sentential forms / partial parse-trees.
-    # So after a reduction it does not know how it reached a particular state and just tries all the possible
-    # returns - this is why we are seeing the expr_lst / expr_kv branch in the trace of the pidgin grammar.
-
-    # The second weirdness is the way that the epsilon-closure is calculated: we are performing a partition of
-    # the set of reachable configurations in the grammar. This differs from LR, which is happy to duplicate
-    # configurations in different states, i.e. the folding along predict edges is local in LR only finding
-    # configurations that are reachable from the state-set, while here it is a global partitioning process.
-
-    # Removing the second weirdness will split the "mega-state" that appears in the automaton and leave more
-    # structure.
-
-    # Fixing the first weirdness will improve the efficiency by pruning large sections of unreachable tree in
-    # the parsing trace. An obvious way to do it is to put the states on the stack of each state so that it
-    # works similarly to an LR parser - but this will break the "parsing as chasing a frontier over the graph"
-    # approach that is the interesting part. A different way to do it would be to guard each transition with
-    # "look-behind", i.e. the last few terminals processed in the input by that point...
-    def build(self):
-        result = Graph()
-        self.entry = Clause("<outside>", [self.Nonterminal(self.start)], terminating=True)
-        self.worklist = OrdSet()
-        self.worklist.add(self.entry.get(0))
-        nodes = {}
-
-        for config in self.worklist:
-            configNode = result.force(config)
-            if config.position < len(config.clause.rhs):
-                sym = config.clause.rhs[config.position]
-                if isinstance(sym, self.Terminal):
-                    succ = config.clause.get(config.position+1)
-                    succNode = result.force(succ)
-                    result.connect(configNode,succNode,sym) # "shift")
-                    self.worklist.add(succ)
-                    if sym.modifier in ("any","optional"):
-                        result.connect(configNode, succNode, "predict")     # Match zero instancees
-                    if sym.modifier in ("any","some"):
-                        result.connect(configNode, configNode, sym) #  "shift")    # Back-edge for loop
-                if isinstance(sym, self.Nonterminal):
-                    rule = self.rules[sym.name]
-                    ret = config.clause.get(config.position+1)
-                    retNode = result.force(ret)
-                    for clause in rule.clauses:
-                        succ  = clause.get(0)
-                        succNode = result.force(succ)
-                        final = clause.get(len(clause.rhs))
-                        finalNode = result.force(final)
-                        result.connect(configNode, succNode, "predict")
-                        result.connect(finalNode, retNode, clause) # "reduce")
-                        self.worklist.add(succ)
-                        self.worklist.add(final)
-                        self.worklist.add(ret)
-                        if sym.modifier in ("any","optional"):
-                            result.connect(configNode, retNode, "predict")     # Match zero instancees
-                        if sym.modifier in ("any","some"):
-                            result.connect(finalNode, configNode, clause) # "reduce")    # Back-edge for loop
-            else:
-                pass # config was created as a final so already has reduce edge
-        result.start = result.force(self.entry.get(0))
-
-        while True:
-            it = result.findEdgeByLabel("predict")
-            first = next(it,None)
-            if first is None:
-              break
-            result.fold(first)
-        return result
-
-
-    def epsilonClosure(self, configs):
-        result = OrdSet(configs)
-        for c in result:
-            sym = c.next()
-            if sym is not None and not sym.isTerminal():
-                rule = self.rules[sym.name]
-                for clause in rule.clauses:
-                    result.add(clause.get(0))
-        return frozenset(result.set)
-
-    def build2(self):
-        '''Build a standard LR(0) automaton'''
-        result = Graph()
-        self.entry = Clause("<outside>", [self.Nonterminal(self.start)], terminating=True)
-        state = self.epsilonClosure([self.entry.get(0)])
-        result.start = result.force(state)
-        worklist = OrdSet([state])
-
-        for state in worklist:
-            node = result.force(state)
-            nextSymbols = set( config.next() for config in state)
-            reducing = None in nextSymbols
-            nextSymbols.discard(None)
-            for sym in nextSymbols:
-                possibleConfigs = [ c.succ() for c in state if c.next()==sym ]
-                nextState = self.epsilonClosure(possibleConfigs)
-                nextNode = result.force(nextState)
-                worklist.add(nextState)
-                result.connect(node, nextNode, sym)
-            if reducing:
-                reducingConfigs = [ c for c in state if c.next() is None ]
-                for r in reducingConfigs:
-                    result.connect(node, None, r.clause)
-
-        return result
 
 
     class Terminal:

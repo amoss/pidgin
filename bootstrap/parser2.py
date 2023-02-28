@@ -4,36 +4,7 @@
 import html
 from .graph import Graph
 from .grammar import Grammar, Clause
-
-def prefixesOf(s) :
-    for i in range(1,len(s)+1):
-        yield s[:i]
-
-class OrdSet:
-    '''This class differs from collections.OrderedDict because we can mutate it while iterating over it. The
-       add method returns the value to allow canonical values.'''
-    def __init__(self, initial=[]):
-        self.set = {}
-        self.ord = []
-        for x in initial:
-            self.add(x)
-
-    def add(self, v):
-        if not v in self.set:
-            self.set[v] = v
-            self.ord.append(v)
-        return self.set[v]
-
-    def __len__(self):
-        return len(self.set)
-
-    def __contains__(self, v):
-        return v in self.set
-
-    def __iter__(self) :
-        for x in self.ord:
-            yield x
-
+from .util import OrdSet, strs
 
 class AState:
     '''A state in the LR(0) automaton'''
@@ -70,9 +41,6 @@ class AState:
 
     def addReducer(self, clause):
         self.byClause.add(clause)
-
-def strs(iterable):
-    return " ".join([str(x) for x in iterable])
 
 class PState:
     '''A state of the parser (i.e. a stack and input position). In a convention GLR parser this would
@@ -175,6 +143,21 @@ class Parser2:
 
         self.states = worklist.set
         assert isinstance(self.states, dict)
+
+    def dotAutomaton(self, output):
+        print("digraph {", file=output)
+        for s in self.states:
+            label = "\\n".join([str(c).replace('"','\\"') for c in s.configurations])
+            if len(s.byClause)>0:
+                print(f's{id(s)} [label="{label}",shape=rect];', file=output)
+            else:
+                print(f's{id(s)} [label="{label}"];', file=output)
+            for t,next in s.byTerminal.items():
+                label = str(t).replace('"','\\"')
+                print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
+            for name,next in s.byNonterminal.items():
+                print(f's{id(s)} -> s{id(next)} [label="NT({name})"];', file=output)
+        print("}", file=output)
 
     def parse(self, input, trace=None):
         pstates = [PState([self.start], 0)]

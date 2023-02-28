@@ -30,6 +30,7 @@ if __name__=="__main__":
     #graph.dot(open("tree.dot","wt"))
     from bootstrap.parser2 import Parser2
     parser = Parser2(grammar, discard=grammar.discard)
+    parser.dotAutomaton(open("lr0.dot","wt"))
     res = (list(parser.parse("x+(x+x)",trace=open("trace.dot","wt"))))
     for r in res:
         print("Result:")
