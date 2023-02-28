@@ -6,7 +6,7 @@ rootDir= os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
 
-from bootstrap.graph import Graph
+#from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
 
 
@@ -17,21 +17,20 @@ def build():
     term <- x | ( expr )
 
     '''
-    g = Grammar("input")
-    g.addRule("input", [g.Nonterminal("expr")])
+    g = Grammar("expr")
     expr = g.addRule("expr", [g.Nonterminal("term")])
     expr.add(                [g.Nonterminal("expr"), g.Terminal("+"), g.Nonterminal("term")])
     term = g.addRule("term", [g.Terminal("x")])
     term.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
-    graph = g.build2()
-    return g, graph
+    return g
 
 # The spot for manual testing of the parser
 if __name__=="__main__":
-    grammar, graph = build()
-    graph.dot(open("tree.dot","wt"))
-    from bootstrap.parser2 import Parser
-    parser = Parser(graph, discard=grammar.discard)
+    grammar = build()
+    #graph.dot(open("tree.dot","wt"))
+    from bootstrap.parser2 import Parser2
+    parser = Parser2(grammar, discard=grammar.discard)
     res = (list(parser.parse("x+(x+x)",trace=open("trace.dot","wt"))))
     for r in res:
+        print("Result:")
         r.dump()
