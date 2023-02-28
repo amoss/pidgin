@@ -6,7 +6,6 @@ rootDir= os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
 
-from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
 
 
@@ -19,5 +18,4 @@ def build():
     lst = g.addRule("lst", [g.Terminal("x")])
     lst.add(               [g.Terminal("x"), g.Nonterminal("lst","any")])
 
-    graph = g.build()
-    return g, graph
+    return g

@@ -7,7 +7,6 @@ if rootDir not in sys.path:
     sys.path.append(rootDir)
 
 import string
-from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
 
 def anyPrefixOf(s):
@@ -57,15 +56,13 @@ def build():
     ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
 
-
-    graph = g.build()
-    return g, graph
+    return g
 
 # The spot for manual testing of the parser
 if __name__=="__main__":
-    grammar, graph = build()
-    from bootstrap.parser2 import Parser
-    parser = Parser(graph, discard=grammar.discard)
+    grammar = build()
+    from bootstrap.parser2 import Parser2
+    parser = Parser2(grammar, discard=grammar.discard)
     res = (list(parser.parse("uni[true]+true",trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()

@@ -4,15 +4,8 @@
 import functools
 import itertools
 import operator
-from .graph import Graph
 from .grammar import Grammar
-
-#g = Grammar("lst")
-#g.addRule("expr", [g.Terminal("("), g.Nonterminal("expr","any"), g.Terminal(")")])
-#g.addRule("lst",  [g.Nonterminal("expr","some")])
-
-def strs(iterable):
-    return " ".join([str(x) for x in iterable])
+from .util import strs
 
 class Generator:
     def __init__(self, grammar):

@@ -6,7 +6,6 @@ rootDir= os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
 
-from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
 
 
@@ -19,14 +18,13 @@ def build():
     lst = g.addRule("expr", [g.Terminal("x")])
     lst.add(                [g.Nonterminal("expr"), g.Terminal("+"), g.Nonterminal("expr")])
 
-    graph = g.build()
-    return g, graph
+    return g
 
 # The spot for manual testing of the parser
 if __name__=="__main__":
-    grammar, graph = build()
-    from bootstrap.parser2 import Parser
-    parser = Parser(graph, discard=grammar.discard)
+    grammar = build()
+    from bootstrap.parser2 import Parser2
+    parser = Parser2(grammar, discard=grammar.discard)
     res = (list(parser.parse("x+x+x+x",trace=open("trace.dot","wt"))))
     print(res)
     res[0].dump()

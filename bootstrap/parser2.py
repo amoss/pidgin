@@ -58,7 +58,6 @@ class PState:
         for t,nextState in astate.byTerminal.items():
             match = t.match(input[self.position:])
             if match is not None:
-                print(f"Shift {t} @ {self.position}")
                 result.append(PState(self.stack + [Parser2.Terminal(match,t),nextState], self.position+len(match)))
         return result
 
@@ -66,11 +65,8 @@ class PState:
         result = []
         astate = self.stack[-1]
         for clause in astate.byClause:
-            print(f"Check {strs(self.stack)} for reduction by {clause}")
             newStack = self.checkHandle(clause)
             if newStack is not None:
-                print(f"Reduced to {newStack}")
-                print(f"Reduced to {strs(newStack)}")
                 result.append(PState(newStack, self.position))
         return result
 

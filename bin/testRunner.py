@@ -15,7 +15,7 @@ import threading
 import traceback
 
 from bootstrap.generator2 import Generator
-from bootstrap.parser2 import Parser
+from bootstrap.parser2 import Parser2
 
 GRAY = "\033[0;37m"
 RED = "\033[1;31m"
@@ -100,9 +100,8 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
     try:
         spec.loader.exec_module(module)
         print(f"Loaded {name}")
-        grammar, graph = module.build()
+        grammar = module.build()
         print(f"{GREEN}Initialized {name}{END}")
-        graph.dot(open(os.path.join(target, "tree.dot"),"wt"))
         sentences = []
         if generateWhileProductive(grammar, target):
             print(f"{GREEN}Generated from {name}{END}")
@@ -110,7 +109,8 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             print(f"{RED}Failed to generate from {name}{END}")
 
         traceCounter = 1
-        parser = Parser(graph, discard=grammar.discard)
+        parser = Parser2(grammar, discard=grammar.discard)
+        parser.dotAutomaton(open(os.path.join(target, "lr0.dot"),"wt"))
         for line in testcases(dir, "positive.txt"):
             if args.traces:
                 trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")

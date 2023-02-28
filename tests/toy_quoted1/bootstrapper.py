@@ -6,12 +6,7 @@ rootDir= os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
 
-from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
-
-def anyPrefixOf(s):
-    for i in range(1, len(s)):
-        yield s[:i]
 
 def build():
     '''
@@ -21,14 +16,13 @@ def build():
     quoted = g.addRule("quoted", [g.Terminal('"'),
                                   g.Terminal(set(['"']), internal="some", external="optional", inverse=True),
                                   g.Terminal('"')])
-    graph = g.build()
-    return g, graph
+    return g
 
 # The spot for manual testing of the parser
 #if __name__=="__main__":
-#    grammar, graph = build()
-#    from bootstrap.parser2 import Parser
-#    parser = Parser(graph, discard=grammar.discard)
+#    grammar = build()
+#    from bootstrap.parser2 import Parser2
+#    parser = Parser2(grammar, discard=grammar.discard)
 #    res = (list(parser.parse('"hello"',trace=open("trace.dot","wt"))))
 #    for r in res:
 #        r.dump()
@@ -37,7 +31,7 @@ def build():
 if __name__=="__main__":
     import itertools
     from bootstrap.generator2 import Generator
-    grammar, graph = build()
+    grammar = build()
     generator = Generator(grammar)
     sentences = list(generator.step(trace=open("trace.dot","wt")))
     with open("generated.txt","wt") as outputFile:

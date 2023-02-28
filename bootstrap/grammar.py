@@ -104,8 +104,8 @@ class Grammar:
                  Terminal("x","some") would match "x", "xx" ... -> T("x"), T("xx")...
                  Terminal("x","just","some") would match "x" -> T("x"), "xx" -> [T("x"),T("x")]...
                '''
-            assert internal in ["just", "some"]
-            assert external in ["any", "just", "some", "optional"]
+            assert internal in ["just", "some"], internal
+            assert external in ["any", "just", "some", "optional"], external
             if isinstance(match, str):
                 self.string = match
                 self.chars  = None
@@ -169,7 +169,7 @@ class Grammar:
             assert False
 
         def exactlyOne(self):
-            return Grammar.Terminal(self.string if self.chars is None else self.chars, "just", self.inverse)
+            return Grammar.Terminal(self.string if self.chars is None else self.chars, "just", inverse=self.inverse)
 
     class Nonterminal:
         def __init__(self, name, modifier="just"):

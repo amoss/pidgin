@@ -7,7 +7,6 @@ if rootDir not in sys.path:
     sys.path.append(rootDir)
 
 import string
-from bootstrap.graph import Graph
 from bootstrap.grammar import Grammar
 
 brackets = ( ("(",")"), ("[","]"), ("{","}"), ("<",">") )
@@ -70,17 +69,14 @@ def build():
     letters = string.ascii_lowercase + string.ascii_uppercase
     ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
-
-
-    graph = g.build()
-    return g, graph
+    return g
 
 # The spot for manual testing of the parser
 if __name__=="__main__":
-    grammar, graph = build()
-    graph.dot(open("tree.dot","wt"))
+    grammar = build()
     from bootstrap.parser2 import Parser
     parser = Parser(graph, discard=grammar.discard)
+    parser.dotAutomaton(open("lr0.dot","wt"))
     where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
     res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
     for r in res:
