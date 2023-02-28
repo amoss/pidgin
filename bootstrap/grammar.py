@@ -2,9 +2,6 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from functools import total_ordering
-from .graph import Graph
-
-
 
 class Rule:
     def __init__(self, name, grammar):

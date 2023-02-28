@@ -2,7 +2,6 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import html
-from .graph import Graph
 from .grammar import Grammar, Clause
 from .util import OrdSet, strs
 
