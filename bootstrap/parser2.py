@@ -12,6 +12,7 @@ class AState:
         self.configurations = self.epsilonClosure(configs)
         self.byTerminal = {}
         self.byNonterminal = {}
+        self.repeats = {}           # Flags for both terminals/non-terminals
         self.byClause = set()
 
     def __eq__(self, other):
@@ -33,13 +34,15 @@ class AState:
                 result.add(c.succ())
         return frozenset(result.set)
 
-    def connect(self, symbol, next):
+    def connect(self, symbol, next, repeats=False):
         assert isinstance(symbol,Grammar.Terminal) or isinstance(symbol,Grammar.Nonterminal), symbol
         assert isinstance(next,AState), next
         if symbol.isTerminal():
             self.byTerminal[symbol] = next
+            self.repeats[symbol] = repeats
         else:
             self.byNonterminal[symbol.name] = next
+            self.repeats[symbol.name] = repeats
 
     def addReducer(self, clause):
         self.byClause.add(clause)
@@ -62,6 +65,8 @@ class PState:
             match = t.match(input[self.position:])
             if match is not None:
                 result.append(PState(self.stack + [Parser2.Terminal(match,t),nextState], self.position+len(match)))
+                if astate.repeats[t]:
+                    result.append(PState(self.stack + [Parser2.Terminal(match,t),astate], self.position+len(match)))
         return result
 
     def reductions(self):
@@ -70,7 +75,14 @@ class PState:
         for clause in astate.byClause:
             newStack = self.checkHandle(clause)
             if newStack is not None:
+                returnState = newStack[-2]
+                if clause.lhs is None:
+                    result.append(PState(newStack, self.position))
+                    continue
+                newStack.append(returnState.byNonterminal[clause.lhs])
                 result.append(PState(newStack, self.position))
+                if returnState.repeats[clause.lhs]:
+                    result.append(PState(newStack[:-1]+[returnState], self.position))
         return result
 
     def checkHandle(self, clause):
@@ -86,8 +98,6 @@ class PState:
             def prepare():
                 preHandle = self.stack[:s+1]
                 preHandle.append(Parser2.Nonterminal(clause.lhs,()))
-                if clause.lhs is not None:
-                    preHandle.append(preHandle[-2].byNonterminal[clause.lhs])
                 return preHandle
 
             if r<0:
@@ -159,9 +169,7 @@ class Parser2:
                 possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
                 next = AState(grammar, possibleConfigs)
                 next = worklist.add(next)
-                state.connect(symbol, next)
-                #if symbol.modifier in ("any","some"):
-                #    state.connect(symbol, state)
+                state.connect(symbol, next, repeats=(symbol.modifier in ("any","some")))
             if reducing:
                 reducingConfigs = [ c for c in state.configurations if c.next() is None ]
                 for r in reducingConfigs:
@@ -181,8 +189,12 @@ class Parser2:
             for t,next in s.byTerminal.items():
                 label = str(t).replace('"','\\"')
                 print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
+                if s.repeats[t]:
+                    print(f's{id(s)} -> s{id(s)} [label="{label}"];', file=output)
             for name,next in s.byNonterminal.items():
                 print(f's{id(s)} -> s{id(next)} [label="NT({name})"];', file=output)
+                if s.repeats[name]:
+                    print(f's{id(s)} -> s{id(s)} [label="NT({name})"];', file=output)
         print("}", file=output)
 
     def parse(self, input, trace=None):
