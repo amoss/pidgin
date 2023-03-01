@@ -63,7 +63,8 @@ if __name__=="__main__":
     grammar = build()
     from bootstrap.parser2 import Parser2
     parser = Parser2(grammar, discard=grammar.discard)
-    res = (list(parser.parse("uni[true]+true",trace=open("trace.dot","wt"))))
+    parser.dotAutomaton(open("lr0.dot","wt"))
+    res = (list(parser.parse("order(1 2 3 4 5)",trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
 

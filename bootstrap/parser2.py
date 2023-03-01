@@ -52,10 +52,11 @@ class PState:
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position):
+    def __init__(self, stack, position, discard=None):
         self.stack = stack
         self.position = position
         self.id = PState.counter
+        self.discard = discard
         PState.counter += 1
 
     def shifts(self, input):
@@ -64,9 +65,14 @@ class PState:
         for t,nextState in astate.byTerminal.items():
             match = t.match(input[self.position:])
             if match is not None:
-                result.append(PState(self.stack + [Parser2.Terminal(match,t),nextState], self.position+len(match)))
+                remaining = self.position+len(match)
+                if not t.sticky and self.discard is not None:
+                    drop = self.discard.match(input[remaining:])
+                    if drop is not None and len(drop)>0:
+                        remaining += len(drop)
+                result.append(PState(self.stack + [Parser2.Terminal(match,t),nextState], remaining, discard=self.discard))
                 if astate.repeats[t]:
-                    result.append(PState(self.stack + [Parser2.Terminal(match,t),astate], self.position+len(match)))
+                    result.append(PState(self.stack + [Parser2.Terminal(match,t),astate], remaining, discard=self.discard))
         return result
 
     def __hash__(self):
@@ -84,12 +90,12 @@ class PState:
             if newStack is not None:
                 returnState = newStack[-2]
                 if clause.lhs is None:
-                    result.append(PState(newStack, self.position))
+                    result.append(PState(newStack, self.position, discard=self.discard))
                     continue
                 newStack.append(returnState.byNonterminal[clause.lhs])
-                result.append(PState(newStack, self.position))
+                result.append(PState(newStack, self.position, discard=self.discard))
                 if returnState.repeats[clause.lhs] and newStack[-1]!=returnState:
-                    result.append(PState(newStack[:-1]+[returnState], self.position))
+                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard))
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
@@ -210,7 +216,7 @@ class Parser2:
 
     def parse(self, input, trace=None):
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
-        pstates = [PState([self.start], 0)]
+        pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
             next = []
             for p in pstates:
