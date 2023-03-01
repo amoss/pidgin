@@ -112,7 +112,8 @@ class PState:
         while s >= 1:
             def prepare():
                 preHandle = self.stack[:s+1]
-                preHandle.append(Parser2.Nonterminal(clause.lhs,()))
+                onlySymbols = ( s for s in self.stack[s+1:] if not isinstance(s,AState) )
+                preHandle.append(Parser2.Nonterminal(clause.lhs,onlySymbols))
                 return preHandle
 
             if r<0:
@@ -257,7 +258,7 @@ class Parser2:
             self.tag      = tag
             self.children = tuple(children)
             for c in self.children:
-                assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
+                assert isinstance(c,Parser2.Terminal) or isinstance(c,Parser2.Nonterminal), repr(c)
 
         def __str__(self):
             return str(self.tag)
