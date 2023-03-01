@@ -79,7 +79,7 @@ if __name__=="__main__":
     parser.dotAutomaton(open("lr0.dot","wt"))
     #where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
     #res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
-    res = (list(parser.parse("u(abc)",trace=open("trace.dot","wt"))))
+    res = (list(parser.parse("22+43/66.+[]",trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
 

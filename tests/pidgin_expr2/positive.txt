@@ -19,8 +19,10 @@ u( 	)
 [ {} {1} {2} ]
 [{},{1},{2}]
 {3:2}
-{u(hello):'world">, u(who):333}
+{u(hello):'world", u(who):333}
 {{}:{}[2]:7}
 u(true)+true
 u(,,,)
 foo+blah
+22+43/66.+[]
+x+y@[2,2]+z@pos
