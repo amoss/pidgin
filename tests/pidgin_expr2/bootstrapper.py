@@ -74,8 +74,8 @@ def build():
 # The spot for manual testing of the parser
 if __name__=="__main__":
     grammar = build()
-    from bootstrap.parser2 import Parser2
-    parser = Parser2(grammar, discard=grammar.discard)
+    from bootstrap.parser import Parser
+    parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
     #where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
     #res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
@@ -86,7 +86,7 @@ if __name__=="__main__":
 # The spot for manual testing of the generator
 #if __name__=="__main__":
 #    import itertools
-#    from bootstrap.generator2 import Generator
+#    from bootstrap.generator import Generator
 #    grammar, graph = build()
 #    generator = Generator(grammar)
 #    sentences = list(itertools.islice(generator.step(), 2000))

@@ -23,8 +23,8 @@ def build():
 # The spot for manual testing of the parser
 if __name__=="__main__":
     grammar = build()
-    from bootstrap.parser2 import Parser2
-    parser = Parser2(grammar, discard=grammar.discard)
+    from bootstrap.parser import Parser
+    parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
     res = (list(parser.parse('(())',trace=open("trace.dot","wt"))))
     for r in res:
@@ -33,7 +33,7 @@ if __name__=="__main__":
 ## The spot for manual testing of the generator
 #if __name__=="__main__":
 #    import itertools
-#    from bootstrap.generator2 import Generator
+#    from bootstrap.generator import Generator
 #    grammar = build()
 #    generator = Generator(grammar)
 #    sentences = list(generator.step(trace=open("trace.dot","wt")))

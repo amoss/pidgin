@@ -70,9 +70,9 @@ class PState:
                     drop = self.discard.match(input[remaining:])
                     if drop is not None and len(drop)>0:
                         remaining += len(drop)
-                result.append(PState(self.stack + [Parser2.Terminal(match,t),nextState], remaining, discard=self.discard))
+                result.append(PState(self.stack + [Parser.Terminal(match,t),nextState], remaining, discard=self.discard))
                 if astate.repeats[t]:
-                    result.append(PState(self.stack + [Parser2.Terminal(match,t),astate], remaining, discard=self.discard))
+                    result.append(PState(self.stack + [Parser.Terminal(match,t),astate], remaining, discard=self.discard))
         return result
 
     def __hash__(self):
@@ -113,7 +113,7 @@ class PState:
             def prepare():
                 preHandle = self.stack[:s+1]
                 onlySymbols = ( s for s in self.stack[s+1:] if not isinstance(s,AState) )
-                preHandle.append(Parser2.Nonterminal(clause.lhs,onlySymbols))
+                preHandle.append(Parser.Nonterminal(clause.lhs,onlySymbols))
                 return preHandle
 
             if r<0:
@@ -166,7 +166,7 @@ class PState:
 
 
 
-class Parser2:
+class Parser:
     def __init__(self, grammar, discard=None, trace=None):
         self.grammar = grammar
         self.discard = discard
@@ -258,13 +258,13 @@ class Parser2:
             self.tag      = tag
             self.children = tuple(children)
             for c in self.children:
-                assert isinstance(c,Parser2.Terminal) or isinstance(c,Parser2.Nonterminal), repr(c)
+                assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
 
         def __str__(self):
             return str(self.tag)
 
         def __eq__(self, other):
-            return isinstance(other,Parser2.Nonterminal) and self.tag==other.tag and self.children==other.children
+            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag and self.children==other.children
 
         def __hash__(self):
             return hash((self.tag,self.children))

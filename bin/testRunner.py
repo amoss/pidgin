@@ -14,8 +14,8 @@ import sys
 import threading
 import traceback
 
-from bootstrap.generator2 import Generator
-from bootstrap.parser2 import Parser2
+from bootstrap.generator import Generator
+from bootstrap.parser import Parser
 
 GRAY = "\033[0;37m"
 RED = "\033[1;31m"
@@ -109,7 +109,7 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             print(f"{RED}Failed to generate from {name}{END}")
 
         traceCounter = 1
-        parser = Parser2(grammar, discard=grammar.discard)
+        parser = Parser(grammar, discard=grammar.discard)
         parser.dotAutomaton(open(os.path.join(target, "lr0.dot"),"wt"))
         for line in testcases(dir, "positive.txt"):
             if args.traces:

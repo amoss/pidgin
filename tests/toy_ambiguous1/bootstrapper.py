@@ -23,8 +23,8 @@ def build():
 # The spot for manual testing of the parser
 if __name__=="__main__":
     grammar = build()
-    from bootstrap.parser2 import Parser2
-    parser = Parser2(grammar, discard=grammar.discard)
+    from bootstrap.parser import Parser
+    parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
     res = (list(parser.parse('xxx',trace=open("trace.dot","wt"))))
     for r in res:
