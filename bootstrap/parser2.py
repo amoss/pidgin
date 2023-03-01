@@ -49,7 +49,7 @@ class AState:
 
 class PState:
     counter = 1
-    '''A state of the parser (i.e. a stack and input position). In a convention GLR parser this would
+    '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
     def __init__(self, stack, position):
@@ -109,7 +109,6 @@ class PState:
                 hasMatched = False
                 continue
             if not matching and symbol.modifier in ("just","some"):
-                #print(f"checkHandle fail1 on {s} {r} {clause.lhs} <- {strs(self.stack)} vs {strs(clause.rhs)}")
                 return None
             if not matching and symbol.modifier in ("any","optional"):
                 r -= 1
@@ -125,7 +124,6 @@ class PState:
             r -= 1
         if r<0:
             return prepare()
-        #print(f"checkHandle fail2 on {clause.lhs} <- {self.stack}")
         return None
 
     def dotLabel(self, input):
@@ -167,9 +165,13 @@ class Parser2:
             nextSymbols.discard(None)
             for symbol in nextSymbols:
                 possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
-                next = AState(grammar, possibleConfigs)
-                next = worklist.add(next)
-                state.connect(symbol, next, repeats=(symbol.modifier in ("any","some")))
+                if symbol.modifier in ("any","optional"):
+                    assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
+                    state.connect(symbol, state)    # No repeat on any as self-loop
+                else:
+                    next = AState(grammar, possibleConfigs)
+                    next = worklist.add(next)
+                    state.connect(symbol, next, repeats=(symbol.modifier=="some"))
             if reducing:
                 reducingConfigs = [ c for c in state.configurations if c.next() is None ]
                 for r in reducingConfigs:
