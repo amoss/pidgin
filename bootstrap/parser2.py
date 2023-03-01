@@ -69,9 +69,16 @@ class PState:
                     result.append(PState(self.stack + [Parser2.Terminal(match,t),astate], self.position+len(match)))
         return result
 
+    def __hash__(self):
+        return hash((tuple(self.stack),self.position))
+
+    def __eq__(self, other):
+        return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
+
     def reductions(self):
         result = []
         astate = self.stack[-1]
+        done = set()
         for clause in astate.byClause:
             newStack = self.checkHandle(clause)
             if newStack is not None:
@@ -81,9 +88,11 @@ class PState:
                     continue
                 newStack.append(returnState.byNonterminal[clause.lhs])
                 result.append(PState(newStack, self.position))
-                if returnState.repeats[clause.lhs]:
+                if returnState.repeats[clause.lhs] and newStack[-1]!=returnState:
                     result.append(PState(newStack[:-1]+[returnState], self.position))
-        return result
+        # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
+        # in modifiers, i.e. x+ and xx*, or x and x*.
+        return list(set(result))
 
     def checkHandle(self, clause):
         '''Handles are as complex as regex in this system, and so the choice of greediness is very important.
@@ -246,6 +255,12 @@ class Parser2:
 
         def __str__(self):
             return str(self.tag)
+
+        def __eq__(self, other):
+            return isinstance(other,Parser2.Nonterminal) and self.tag==other.tag and self.children==other.children
+
+        def __hash__(self):
+            return hash((self.tag,self.children))
 
         def matches(self, other):
             if other.isTerminal():
