@@ -12,6 +12,7 @@ class AState:
         self.configurations = self.epsilonClosure(configs)
         self.byTerminal = {}
         self.byNonterminal = {}
+        self.byGlue = {}
         self.repeats = {}           # Flags for both terminals/non-terminals
         self.byClause = set()
 
@@ -26,7 +27,7 @@ class AState:
         for c in result:
             symbol = c.next()
             if symbol is None: continue
-            if not symbol.isTerminal():
+            if isinstance(symbol, Grammar.Nonterminal):
                 rule = self.grammar.rules[symbol.name]
                 for clause in rule.clauses:
                     result.add(clause.get(0))
@@ -35,11 +36,14 @@ class AState:
         return frozenset(result.set)
 
     def connect(self, symbol, next, repeats=False):
-        assert isinstance(symbol,Grammar.Terminal) or isinstance(symbol,Grammar.Nonterminal), symbol
+        assert isinstance(symbol,Grammar.Terminal) or isinstance(symbol,Grammar.Nonterminal) or\
+               isinstance(symbol,Grammar.Glue), symbol
         assert isinstance(next,AState), next
-        if symbol.isTerminal():
+        if isinstance(symbol, Grammar.Terminal):
             self.byTerminal[symbol] = next
             self.repeats[symbol] = repeats
+        elif isinstance(symbol, Grammar.Glue):
+            self.byGlue[symbol] = next
         else:
             self.byNonterminal[symbol.name] = next
             self.repeats[symbol.name] = repeats
@@ -52,27 +56,31 @@ class PState:
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position, discard=None):
+    def __init__(self, stack, position, discard=None, keep=False):
         self.stack = stack
         self.position = position
         self.id = PState.counter
         self.discard = discard
+        self.keep = keep
         PState.counter += 1
 
     def shifts(self, input):
         result = []
         astate = self.stack[-1]
+        remaining = self.position
+        if not self.keep and self.discard is not None:
+            drop = self.discard.match(input[remaining:])
+            if drop is not None and len(drop)>0:
+                remaining += len(drop)
         for t,nextState in astate.byTerminal.items():
-            match = t.match(input[self.position:])
+            match = t.match(input[remaining:])
             if match is not None:
-                remaining = self.position+len(match)
-                if not t.sticky and self.discard is not None:
-                    drop = self.discard.match(input[remaining:])
-                    if drop is not None and len(drop)>0:
-                        remaining += len(drop)
-                result.append(PState(self.stack + [Parser.Terminal(match,t),nextState], remaining, discard=self.discard))
+                result.append(PState(self.stack + [Parser.Terminal(match,t),nextState], remaining+len(match), discard=self.discard))
                 if astate.repeats[t]:
-                    result.append(PState(self.stack + [Parser.Terminal(match,t),astate], remaining, discard=self.discard))
+                    result.append(PState(self.stack + [Parser.Terminal(match,t),astate], remaining+len(match), discard=self.discard))
+        if not self.keep:
+            for g,nextState in astate.byGlue.items():
+                result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=True))
         return result
 
     def __hash__(self):
@@ -90,12 +98,12 @@ class PState:
             if newStack is not None:
                 returnState = newStack[-2]
                 if clause.lhs is None:
-                    result.append(PState(newStack, self.position, discard=self.discard))
+                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
                     continue
                 newStack.append(returnState.byNonterminal[clause.lhs])
-                result.append(PState(newStack, self.position, discard=self.discard))
+                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
                 if returnState.repeats[clause.lhs] and newStack[-1]!=returnState:
-                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard))
+                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard, keep=self.keep))
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
@@ -118,6 +126,9 @@ class PState:
 
             if r<0:
                 return prepare()
+            if isinstance(clause.rhs[r],Grammar.Glue):
+                r -= 1
+                continue
             symbol = clause.rhs[r]
             matching = self.stack[s-1].matches(symbol)
             if not matching and hasMatched:
@@ -213,6 +224,8 @@ class Parser:
                 print(f's{id(s)} -> s{id(next)} [label="NT({name})"];', file=output)
                 if s.repeats[name]:
                     print(f's{id(s)} -> s{id(s)} [label="NT({name})"];', file=output)
+            for next in s.byGlue.values():
+                print(f's{id(s)} -> s{id(next)} [label="Glue"];', file=output)
         print("}", file=output)
 
     def parse(self, input, trace=None):
@@ -270,9 +283,7 @@ class Parser:
             return hash((self.tag,self.children))
 
         def matches(self, other):
-            if other.isTerminal():
-                return False
-            return self.tag == other.name
+            return isinstance(other,Grammar.Nonterminal) and self.tag == other.name
 
         def dump(self, depth=0):
             print(f"{'  '*depth}{self.tag}")

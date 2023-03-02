@@ -13,36 +13,16 @@ brackets = ( ("(",")"), ("[","]"), ("{","}"), ("<",">") )
 
 def build():
     '''
-    The subset of the pidgin expression grammar that handles expressions with mostly normal and sane bracketing.
+    The part of the pidgin grammar that describes sequences, with strings and identifiers.
     '''
     g = Grammar("expr")
     g.setDiscard(g.Terminal(set(" \t\r\n"), "some"))
 
-    expr = g.addRule("expr", [g.Nonterminal("binop1")])
+    expr = g.addRule("expr", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
+    expr.add(                [g.Nonterminal("atom")])
 
-    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst","any")])
-    binop1_lst = g.addRule("binop1_lst", [g.Terminal(".+"), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("+."), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal(".-"), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("-."), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("+"),  g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("-"),  g.Nonterminal("binop2")])
-
-    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst","any")])
-    binop2_lst = g.addRule("binop2_lst", [g.Terminal("*"), g.Nonterminal("binop3")])
-    binop2_lst.add(                      [g.Terminal("/"), g.Nonterminal("binop3")])
-
-    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst","any")])
-    binop3_lst = g.addRule("binop3_lst", [g.Terminal("@"), g.Nonterminal("binop4")])
-
-    binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
-    binop4.add(                  [g.Nonterminal("atom")])
-
-    atom = g.addRule("atom", [g.Terminal(set("0123456789"),"some")])
-    atom.add(                [g.Terminal("true")])
-    atom.add(                [g.Terminal("false")])
+    atom = g.addRule("atom", [g.Nonterminal("str_lit")])
     atom.add(                [g.Nonterminal("ident")])
-    atom.add(                [g.Nonterminal("str_lit")])
     atom.add(                [g.Nonterminal("set")])
     atom.add(                [g.Nonterminal("map")])
     atom.add(                [g.Nonterminal("order")])
@@ -57,18 +37,19 @@ def build():
                            g.Terminal(":"),
                            g.Nonterminal("expr"),
                            g.Terminal(",", external="optional")])
-    g.addRule("elem", [g.Nonterminal("expr", sticky=True), g.Terminal(set(", \r\t\n"), external="optional")] )
+    g.addRule("elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"), external="optional")] )
 
-    str_lit = g.addRule("str_lit", [g.Terminal("'", sticky=True),
-                                    g.Terminal(set('"'), "some", inverse=True, sticky=True, external="optional"),
+    str_lit = g.addRule("str_lit", [g.Terminal("'"), g.Glue(),
+                                    g.Terminal(set('"'), "some", inverse=True, external="optional"), g.Glue(),
                                     g.Terminal('"')])
-    str_lit.add(                   [g.Terminal("u(", sticky=True),
-                                    g.Terminal(set(')'), "some", inverse=True, sticky=True, external="optional"),
+    str_lit.add(                   [g.Terminal("u("), g.Glue(),
+                                    g.Terminal(set(')'), "some", inverse=True, external="optional"), g.Glue(),
                                     g.Terminal(')')])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
     ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
+
     return g
 
 # The spot for manual testing of the parser
@@ -77,9 +58,7 @@ if __name__=="__main__":
     from bootstrap.parser import Parser
     parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
-    where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
-    res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
-    #res = (list(parser.parse("{2:3}",trace=open("trace.dot","wt"))))
+    res = (list(parser.parse("[T!u ('), TAN!u(\") T!u('), TAN!u(\")]",trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
 

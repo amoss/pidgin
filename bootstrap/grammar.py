@@ -9,9 +9,10 @@ class Rule:
         self.grammar = grammar
         self.clauses = set()
 
-    def add(self, body):
-        canonicalBody = [ symbol if not symbol.isTerminal() else self.grammar.canonical(symbol) for symbol in body]
-        self.clauses.add( Clause(self.name, canonicalBody) )
+    def add(self, initialBody):
+        body = [ self.grammar.canonical(symbol) if isinstance(symbol, Grammar.Terminal) else symbol
+                 for symbol in initialBody]
+        self.clauses.add( Clause(self.name, body) )
 
 
 @total_ordering
@@ -19,6 +20,10 @@ class Clause:
     def __init__(self, name, body, terminating=False):
         self.lhs = name
         self.rhs = body
+        for i,symbol in enumerate(self.rhs):
+            if isinstance(symbol, Grammar.Glue):
+                symbol.within = self
+                symbol.position = i
         self.terminating = terminating
         self.configs = [None] * (len(body)+1)
 
@@ -84,11 +89,10 @@ class Grammar:
             self.canonicalTerminals[terminal] = terminal
         return self.canonicalTerminals[terminal]
 
-    def addRule(self, name, initialClause):
+    def addRule(self, name, body):
         assert not name in self.rules.keys()
         rule = Rule(name, self)
-        canonicalClause = [ symbol if not symbol.isTerminal() else self.canonical(symbol) for symbol in initialClause]
-        rule.add(canonicalClause)
+        rule.add(body)
         self.rules[name] = rule
         return rule
 
@@ -141,9 +145,6 @@ class Grammar:
         def __hash__(self):
             return hash((self.string, self.chars, self.internal, self.modifier, self.inverse, self.sticky))
 
-        def isTerminal(self):
-            return True
-
         def match(self, input):
             allowzero = self.internal in ("any","optional")
             limit = len(input) if self.internal in ("any","some") else 1
@@ -189,9 +190,20 @@ class Grammar:
         def __hash__(self):
             return hash((self.name, self.modifier))
 
-        def isTerminal(self):
-            return False
-
         def exactlyOne(self):
             return Grammar.Nonterminal(self.name, "just")
 
+    class Glue:
+        def __init__(self):
+            self.within = None
+            self.position = None
+            self.modifier = "just"
+
+        def __str__(self):
+            return "Glue"
+
+        def __eq__(self, other):
+            return isinstance(other,Grammar.Glue) and self.within==other.within and self.position==other.position
+
+        def __hash__(self):
+            return hash((self.within,self.position))
