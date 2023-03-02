@@ -30,7 +30,7 @@
               [T!'(",  N!'expr",  T!')"]
             }
     'ident": { [T!({'_"}+lower+upper), TA!({'_"}+lower+upper+digits)] }
-    'number": { [TS!digits}] }
+    'number": { [TS!digits] }
     'str_lit": { [T!u('), TAN!u("), T!u(")]
                  [T!'u(", TAN!')",  T!')"]
                }
