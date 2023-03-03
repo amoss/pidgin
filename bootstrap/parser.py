@@ -192,7 +192,7 @@ class Parser:
             nextSymbols.discard(None)
             for symbol in nextSymbols:
                 possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
-                if symbol.modifier in ("any","optional"):
+                if symbol.modifier=="any":
                     assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
                     state.connect(symbol, state)    # No repeat on any as self-loop
                 else:

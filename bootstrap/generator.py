@@ -60,7 +60,7 @@ class Generator:
 
     @staticmethod
     def isAllTerminal(symbols):
-        return all([s.isTerminal() for s in symbols])
+        return all([isinstance(s,Grammar.Terminal) for s in symbols])
 
     @staticmethod
     def dotTemplate(output, gen):
@@ -179,12 +179,12 @@ class Generator:
         def substitutions(self):
             variations = []
             for s in self.symbols:
-                if s.isTerminal():
+                if isinstance(s,Grammar.Terminal):
                     if s.modifier=="optional":
                         variations.append([[], [s.exactlyOne()]])
                     else:
                         variations.append([[s]])
-                else:
+                elif isinstance(s,Grammar.Nonterminal):
                     variations.append([list(clause.rhs) for clause in self.grammar.rules[s.name].clauses])
 
             cart_product = itertools.product(*variations)
