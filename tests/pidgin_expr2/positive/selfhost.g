@@ -34,11 +34,11 @@
     'str_lit": { [T!u('), TAN!u("), T!u(")]
                  [T!'u(", TAN!')",  T!')"]
                }
-    'set":   { [T!'{",  NA!'expr_lst",  T!'}”] }
+    'set":   { [T!'{",  NA!'expr_lst",  T!'}"] }
     'order": { [T!'[",  NA!'expr_lst",  T!']"] }
     'map":   { [T!'{",  NA!'expr_kv",   T!'}"] }
     'expr_lst": { [N!'expr",  TO!',"] }
-    'expr_kv":  { [N!'expr",  T':",  N!'expr",  TO!',"] }
+    'expr_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
 
 }
 

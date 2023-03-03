@@ -239,7 +239,12 @@ class Parser:
             for p in pstates:
                 if trace is not None:            print(f"s{p.id} [shape=none,label={p.dotLabel(input)}];", file=trace)
                 if not isinstance(p.stack[-1],AState):
-                    if p.position==len(input) and len(p.stack)==2:
+                    remaining = p.position
+                    if not p.keep:
+                        drop = self.discard.match(input[p.position:])
+                        if drop is not None and len(drop)>0:
+                            remaining += len(drop)
+                    if remaining==len(input) and len(p.stack)==2:
                         yield p.stack[1]
                         if trace is not None:    print(f"s{p.id} [shape=rect,label={p.dotLabel(input)}];", file=trace)
                 else:

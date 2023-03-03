@@ -1,1 +1,4 @@
-[T!u ('), TAN!u(") T!u('), TAN!u(")]
+{
+    'expr_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
+}
+
