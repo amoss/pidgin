@@ -74,14 +74,85 @@ def build():
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
     return g
 
+class StringLit:
+    def __init__(self, content):
+        assert isinstance(content,str), content
+        self.content = content
+    def __str__(self):
+        return "'"+self.content+'"'
+    def dump(self, depth):
+        print(f"{'  '*depth}{self}")
+
+class Ident:
+    def __init__(self, content):
+        assert isinstance(content,str), content
+        self.content = content
+    def __str__(self):
+        return "id("+self.content+')'
+    def dump(self, depth):
+        print(f"{'  '*depth}{self}")
+
+class Call:
+    def __init__(self, function, arg):
+        if isinstance(function, Parser.Terminal):
+            self.function = Ident(function.chars)
+        else:
+            self.function = function
+        self.arg = arg
+    def __str__(self):
+        return f"{self.function}!{self.arg}"
+    def dump(self, depth):
+        print(f"{'  '*depth}{self}")
+
+class Order:
+    def __init__(self, children):
+        self.children = children
+    def __str__(self):
+        return "[" + ", ".join([str(c) for c in self.children]) + "]"
+    def dump(self, depth):
+        print(f"{'  '*depth}{self}")
+
+class Set:
+    def __init__(self, children):
+        self.children = children
+    def __str__(self):
+        return "{" + ", ".join([str(c) for c in self.children]) + "}"
+    def dump(self, depth):
+        print(f"{'  '*depth}{self}")
+
+def transformer(node):
+    if isinstance(node, Parser.Nonterminal) and node.tag=='str_lit':
+        return StringLit(node.children[1].chars)
+    if isinstance(node, Parser.Nonterminal) and node.tag=='ident':
+        return Ident("".join([c.chars for c in node.children]))
+    if isinstance(node, Parser.Nonterminal) and node.tag=='binop4':
+        return Call(node.children[0], node.children[2])
+    if isinstance(node, Parser.Nonterminal) and node.tag=='final_elem':
+        return node.children[0]
+    if isinstance(node, Parser.Nonterminal) and node.tag=='repeat_elem':
+        return node.children[0]
+    if isinstance(node, Parser.Nonterminal) and node.tag=='order' and\
+       isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst':
+        return Order(node.children[1].children)
+    if isinstance(node, Parser.Nonterminal) and node.tag=='set' and\
+       isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst':
+        return Set(node.children[1].children)
+    return None
+
 def prune(node):
     if isinstance(node, Parser.Terminal):
-        return node
-    if len(node.children)==1:
-        return prune(node.children[0])
-    result = [ prune(c) for c in node.children]
-    node.children = tuple(result)
-    return node
+        pruned = node
+    elif len(node.children)==1:
+        pruned = prune(node.children[0])
+    else:
+        result = [ prune(c) for c in node.children]
+        node.children = tuple(result)
+        pruned = node
+
+    replacement = transformer(pruned)
+    if replacement is not None:
+        return replacement
+    return pruned
 
 argParser = argparse.ArgumentParser()
 argParser.add_argument("grammar")
