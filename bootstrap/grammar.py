@@ -101,7 +101,7 @@ class Grammar:
 
 
     class Terminal:
-        def __init__(self, match, internal="just", external="just", inverse=False, sticky=False):
+        def __init__(self, match, internal="just", external="just", inverse=False):
             '''The *internal* modifier is applied to matching character classes within the span of
                text that the Terminal matches. The *external* modifier is used to allow repetitions
                of the Terminal in the same manner as Nonterminals. Example:
@@ -119,7 +119,6 @@ class Grammar:
             self.internal = internal
             self.modifier = external
             self.inverse  = inverse
-            self.sticky   = sticky
 
         def __str__(self):
             if self.string is not None:
@@ -139,11 +138,10 @@ class Grammar:
                and self.chars==other.chars \
                and self.internal==other.internal \
                and self.modifier==other.modifier \
-               and self.inverse==other.inverse \
-               and self.sticky==other.sticky
+               and self.inverse==other.inverse
 
         def __hash__(self):
-            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse, self.sticky))
+            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse))
 
         def match(self, input):
             allowzero = self.internal in ("any","optional")

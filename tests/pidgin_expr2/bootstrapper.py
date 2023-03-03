@@ -48,8 +48,8 @@ def build():
     atom.add(                [g.Nonterminal("order")])
     atom.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
 
-    aset = g.addRule("set",   [g.Terminal('{'), g.Nonterminal("elem", "any"), g.Terminal('}')])
-    aord = g.addRule("order", [g.Terminal('['), g.Nonterminal("elem", "any"), g.Terminal(']')])
+    aset = g.addRule("set",   [g.Terminal('{'), g.Nonterminal("elem_lst", "optional"), g.Terminal('}')])
+    aord = g.addRule("order", [g.Terminal('['), g.Nonterminal("elem_lst", "optional"), g.Terminal(']')])
     amap = g.addRule("map",   [g.Terminal('{'), g.Nonterminal("elem_kv",  "some"),  g.Terminal('}')])
     amap.add(                 [g.Terminal('{'), g.Terminal(':'), g.Terminal('}')])
 
@@ -57,17 +57,19 @@ def build():
                            g.Terminal(":"),
                            g.Nonterminal("expr"),
                            g.Terminal(",", external="optional")])
-    g.addRule("elem", [g.Nonterminal("expr", sticky=True), g.Terminal(set(", \r\t\n"), external="optional")] )
+    g.addRule("elem_lst", [g.Nonterminal("repeat_elem", "any"), g.Nonterminal("final_elem")])
+    g.addRule("repeat_elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"))] )
+    g.addRule("final_elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"), external="optional")] )
 
-    str_lit = g.addRule("str_lit", [g.Terminal("'", sticky=True),
-                                    g.Terminal(set('"'), "some", inverse=True, sticky=True, external="optional"),
+    str_lit = g.addRule("str_lit", [g.Terminal("'"), g.Glue(),
+                                    g.Terminal(set('"'), "some", inverse=True, external="optional"), g.Glue(),
                                     g.Terminal('"')])
-    str_lit.add(                   [g.Terminal("u(", sticky=True),
-                                    g.Terminal(set(')'), "some", inverse=True, sticky=True, external="optional"),
+    str_lit.add(                   [g.Terminal("u("), g.Glue(),
+                                    g.Terminal(set(')'), "some", inverse=True, external="optional"), g.Glue(),
                                     g.Terminal(')')])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
+    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just"), g.Glue(),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
     return g
 
@@ -77,9 +79,9 @@ if __name__=="__main__":
     from bootstrap.parser import Parser
     parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
-    where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
-    res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
-    #res = (list(parser.parse("{2:3}",trace=open("trace.dot","wt"))))
+    #where = os.path.join(rootDir,"tests","pidgin_expr2","positive","selfhost_fragment.g")
+    #res = (list(parser.parse(open(where).read(),trace=open("trace.dot","wt"))))
+    res = (list(parser.parse("u()",trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
 

@@ -27,21 +27,21 @@ def build():
     expr.add([g.Nonterminal("ident")])
     for p in anyPrefixOf("unicode"):
         for l,r in brackets:
-            expr.add(         [g.Terminal(p, sticky=True), g.Terminal(l, sticky=True),
-                               g.Terminal(set([l,r]), "some", inverse=True, sticky=True, external="optional"),
+            expr.add(         [g.Terminal(p), g.Glue(), g.Terminal(l), g.Glue(),
+                               g.Terminal(set([l,r]), "some", inverse=True, external="optional"), g.Glue(),
                                g.Terminal(r)])
 
     for p in anyPrefixOf("order"):
         for l,r in brackets:
-            expr.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("expr_lst", "any"), g.Terminal(r)])
+            expr.add(         [g.Terminal(p), g.Glue(), g.Terminal(l), g.Nonterminal("expr_lst", "any"), g.Terminal(r)])
 
     for p in anyPrefixOf("set"):
         for l,r in brackets:
-            expr.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("expr_lst", "any"), g.Terminal(r)])
+            expr.add(         [g.Terminal(p), g.Glue(), g.Terminal(l), g.Nonterminal("expr_lst", "any"), g.Terminal(r)])
 
     for p in anyPrefixOf("map"):
         for l,r in brackets:
-            expr.add(         [g.Terminal(p, sticky=True), g.Terminal(l), g.Nonterminal("expr_kv", "any"), g.Terminal(r)])
+            expr.add(         [g.Terminal(p), g.Glue(), g.Terminal(l), g.Nonterminal("expr_kv", "any"), g.Terminal(r)])
 
     const_kv = g.addRule("expr_kv",  [g.Nonterminal("expr"),
                                       g.Terminal(":"),
@@ -53,7 +53,7 @@ def build():
         expr.add([g.Nonterminal("expr"), g.Terminal(op), g.Nonterminal("expr")])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
+    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just"), g.Glue(),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
 
     return g

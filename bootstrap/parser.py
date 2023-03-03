@@ -78,9 +78,8 @@ class PState:
                 result.append(PState(self.stack + [Parser.Terminal(match,t),nextState], remaining+len(match), discard=self.discard))
                 if astate.repeats[t]:
                     result.append(PState(self.stack + [Parser.Terminal(match,t),astate], remaining+len(match), discard=self.discard))
-        if not self.keep:
-            for g,nextState in astate.byGlue.items():
-                result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=True))
+        for g,nextState in astate.byGlue.items():
+            result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=True))
         return result
 
     def __hash__(self):
@@ -195,10 +194,14 @@ class Parser:
                 if symbol.modifier=="any":
                     assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
                     state.connect(symbol, state)    # No repeat on any as self-loop
+                elif symbol.modifier=="some":
+                    next = AState(grammar, possibleConfigs+[c for c in state.configurations if c.next()==symbol])
+                    next = worklist.add(next)
+                    state.connect(symbol, next)
                 else:
                     next = AState(grammar, possibleConfigs)
                     next = worklist.add(next)
-                    state.connect(symbol, next, repeats=(symbol.modifier=="some"))
+                    state.connect(symbol, next)
             if reducing:
                 reducingConfigs = [ c for c in state.configurations if c.next() is None ]
                 for r in reducingConfigs:

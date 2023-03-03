@@ -49,7 +49,7 @@ def build():
                                     g.Terminal(')')])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just", sticky=True),
+    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just"), g.Glue(),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
 
     return g
@@ -60,8 +60,8 @@ if __name__=="__main__":
     from bootstrap.parser import Parser
     parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
-    res = (list(parser.parse("[T!u ('), TAN!u(\") T!u('), TAN!u(\") ]",trace=open("trace.dot","wt"))))
-    #res = (list(parser.parse("[T!u('), TAN!u(\") ]",trace=open("trace.dot","wt"))))
+    #res = (list(parser.parse("[T!u ('), TAN!u(\") T!u('), TAN!u(\") ]",trace=open("trace.dot","wt"))))
+    res = (list(parser.parse("{x:x x}",trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
 
