@@ -80,8 +80,6 @@ class StringLit:
         self.content = content
     def __str__(self):
         return "'"+self.content+'"'
-    def dump(self, depth):
-        print(f"{'  '*depth}{self}")
 
 class Ident:
     def __init__(self, content):
@@ -89,8 +87,6 @@ class Ident:
         self.content = content
     def __str__(self):
         return "id("+self.content+')'
-    def dump(self, depth):
-        print(f"{'  '*depth}{self}")
 
 class Call:
     def __init__(self, function, arg):
@@ -101,24 +97,25 @@ class Call:
         self.arg = arg
     def __str__(self):
         return f"{self.function}!{self.arg}"
-    def dump(self, depth):
-        print(f"{'  '*depth}{self}")
 
 class Order:
     def __init__(self, children):
         self.children = children
     def __str__(self):
         return "[" + ", ".join([str(c) for c in self.children]) + "]"
-    def dump(self, depth):
-        print(f"{'  '*depth}{self}")
 
 class Set:
     def __init__(self, children):
         self.children = children
     def __str__(self):
         return "{" + ", ".join([str(c) for c in self.children]) + "}"
-    def dump(self, depth):
-        print(f"{'  '*depth}{self}")
+
+class KeyVal:
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+    def __str__(self):
+        return f"{self.key}:{self.value}"
 
 def transformer(node):
     if isinstance(node, Parser.Nonterminal) and node.tag=='str_lit':
@@ -134,9 +131,15 @@ def transformer(node):
     if isinstance(node, Parser.Nonterminal) and node.tag=='order' and\
        isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst':
         return Order(node.children[1].children)
+    if isinstance(node, Parser.Nonterminal) and node.tag=='order':
+        return Order(node.children[1:-1])
     if isinstance(node, Parser.Nonterminal) and node.tag=='set' and\
-       isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst':
+       isinstance(node.children[1],Parser.Nonterminal) and len(node.children)==3:
         return Set(node.children[1].children)
+    if isinstance(node, Parser.Nonterminal) and node.tag=='set':
+        return Set(node.children[1:-1])
+    if isinstance(node, Parser.Nonterminal) and node.tag=='elem_kv':
+        return KeyVal(node.children[0], node.children[2])
     return None
 
 def prune(node):
@@ -154,6 +157,12 @@ def prune(node):
         return replacement
     return pruned
 
+def dump(node, depth=0):
+    print(f"{'  '*depth}{type(node)}{node}")
+    if hasattr(node,'children'):
+        for c in node.children:
+            dump(c,depth+1)
+
 argParser = argparse.ArgumentParser()
 argParser.add_argument("grammar")
 args = argParser.parse_args()
@@ -169,7 +178,7 @@ elif len(res)>1:
     print("Result was ambiguous!")
     sys.exit(-1)
 
-prune(res[0]).dump()
+dump(prune(res[0]))
 
 
 
