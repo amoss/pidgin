@@ -231,7 +231,22 @@ class Parser:
                 print(f's{id(s)} -> s{id(next)} [label="Glue"];', file=output)
         print("}", file=output)
 
-    def parse(self, input, trace=None):
+    @staticmethod
+    def prune(node, transformer):
+        if isinstance(node, Parser.Terminal):
+            pruned = node
+        elif len(node.children)==1:
+            pruned = Parser.prune(node.children[0], transformer)
+        else:
+            result = [ Parser.prune(c,transformer) for c in node.children]
+            node.children = tuple(result)
+            pruned = node
+
+        if isinstance(pruned, Parser.Nonterminal) and pruned.tag in transformer:
+            return transformer[pruned.tag](pruned)
+        return pruned
+
+    def parse(self, input, trace=None, transformer={}):
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
         pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
@@ -245,7 +260,7 @@ class Parser:
                         if drop is not None and len(drop)>0:
                             remaining += len(drop)
                     if remaining==len(input) and len(p.stack)==2:
-                        yield p.stack[1]
+                        yield Parser.prune(p.stack[1],transformer)
                         if trace is not None:    print(f"s{p.id} [shape=rect,label={p.dotLabel(input)}];", file=trace)
                 else:
                     reduces = p.reductions()

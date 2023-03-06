@@ -117,45 +117,20 @@ class KeyVal:
     def __str__(self):
         return f"{self.key}:{self.value}"
 
-def transformer(node):
-    if isinstance(node, Parser.Nonterminal) and node.tag=='str_lit':
-        return StringLit(node.children[1].chars)
-    if isinstance(node, Parser.Nonterminal) and node.tag=='ident':
-        return Ident("".join([c.chars for c in node.children]))
-    if isinstance(node, Parser.Nonterminal) and node.tag=='binop4':
-        return Call(node.children[0], node.children[2])
-    if isinstance(node, Parser.Nonterminal) and node.tag=='final_elem':
-        return node.children[0]
-    if isinstance(node, Parser.Nonterminal) and node.tag=='repeat_elem':
-        return node.children[0]
-    if isinstance(node, Parser.Nonterminal) and node.tag=='order' and\
-       isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst':
-        return Order(node.children[1].children)
-    if isinstance(node, Parser.Nonterminal) and node.tag=='order':
-        return Order(node.children[1:-1])
-    if isinstance(node, Parser.Nonterminal) and node.tag=='set' and\
-       isinstance(node.children[1],Parser.Nonterminal) and len(node.children)==3:
-        return Set(node.children[1].children)
-    if isinstance(node, Parser.Nonterminal) and node.tag=='set':
-        return Set(node.children[1:-1])
-    if isinstance(node, Parser.Nonterminal) and node.tag=='elem_kv':
-        return KeyVal(node.children[0], node.children[2])
-    return None
+def onlyElemList(node):
+    return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
+transformer = {
+    'str_lit' :     (lambda node: StringLit(node.children[1].chars)),
+    'ident':        (lambda node: Ident("".join([c.chars for c in node.children]))),
+    'binop4':       (lambda node: Call(node.children[0], node.children[2])),
+    'final_elem':   (lambda node: node.children[0]),
+    'repeat_elem':  (lambda node: node.children[0]),
+    'order':        (lambda node: Order(node.children[1].children) if onlyElemList(node)
+                             else Order(node.children[1:-1])),
+    'set':          (lambda node: Set(node.children[1:-1])),
+    'elem_kv':      (lambda node: KeyVal(node.children[0], node.children[2]))
+}
 
-def prune(node):
-    if isinstance(node, Parser.Terminal):
-        pruned = node
-    elif len(node.children)==1:
-        pruned = prune(node.children[0])
-    else:
-        result = [ prune(c) for c in node.children]
-        node.children = tuple(result)
-        pruned = node
-
-    replacement = transformer(pruned)
-    if replacement is not None:
-        return replacement
-    return pruned
 
 def dump(node, depth=0):
     print(f"{'  '*depth}{type(node)}{node}")
@@ -170,7 +145,7 @@ args = argParser.parse_args()
 source = open(args.grammar).read()
 g = build()
 parser = Parser(g, g.discard)
-res = list(parser.parse(source))
+res = list(parser.parse(source, transformer=transformer))
 if len(res)==0:
     print("Failed to parse!")
     sys.exit(-1)
@@ -178,7 +153,7 @@ elif len(res)>1:
     print("Result was ambiguous!")
     sys.exit(-1)
 
-dump(prune(res[0]))
+dump(res[0])
 
 
 
