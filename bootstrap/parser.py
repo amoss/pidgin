@@ -233,13 +233,14 @@ class Parser:
 
     @staticmethod
     def prune(node, transformer):
-        if isinstance(node, Parser.Terminal):
-            pruned = node
-        elif len(node.children)==1:
-            pruned = Parser.prune(node.children[0], transformer)
+        if isinstance(node, Parser.Nonterminal):
+            if len(node.children)==1:
+                pruned = Parser.prune(node.children[0], transformer)
+            else:
+                result = [ Parser.prune(c,transformer) for c in node.children]
+                node.children = tuple(result)
+                pruned = node
         else:
-            result = [ Parser.prune(c,transformer) for c in node.children]
-            node.children = tuple(result)
             pruned = node
 
         if isinstance(pruned, Parser.Nonterminal) and pruned.tag in transformer:

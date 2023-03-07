@@ -99,7 +99,6 @@ def stage2(tree):
             arg = call.arg.content
         else:
             arg = set(c.content for c in call.arg.children)
-        print(f"Make symbol from {call.function.content} {arg}")
         assert isinstance(arg,str) or isinstance(arg,set), arg
         return functors[call.function.content](arg)
     for kv in tree.children:
@@ -181,15 +180,17 @@ transformer = {
 }
 
 
-if __file__=="__main__":
+# The spot for manual testing of second-stage parsers
+if __name__=="__main__":
     argParser = argparse.ArgumentParser()
     argParser.add_argument("grammar")
-    argParser.add_argument("input")
+    argParser.add_argument("-i", "--input")
+    argParser.add_argument("-f", "--file")
     args = argParser.parse_args()
 
     source = open(args.grammar).read()
-    input = open(args.input).read()
     g = stage1()
+    print("\nFirst stage:")
     g.dump()
     parser = Parser(g, g.discard)
     res = list(parser.parse(source, transformer=transformer))
@@ -201,12 +202,17 @@ if __file__=="__main__":
         sys.exit(-1)
 
     g2 = stage2(res[0])
+    print("Second stage:")
     g2.dump()
     parser = Parser(g2, g.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
-    res2 = list(parser.parse(input, trace=open('trace.dot','wt'), transformer=transformer))
-    print(res2)
-    #dump(res2[0])
+    if args.input is not None:
+        res2 = parser.parse(args.input, trace=open('trace.dot','wt'), transformer=transformer)
+    if args.file is not None:
+        res2 = parser.parse(open(args.file).read(), trace=open('trace.dot','wt'), transformer=transformer)
+    print("\nResults:")
+    for r in res2:
+        dump(r)
 
 
 
