@@ -77,7 +77,8 @@ def testcases(dir, filename):
        yield line.rstrip("\n")
 
 def testPositives(dir, parser):
-    global args, traceCounter
+    global args
+    traceCounter = 1
     for line in testcases(dir, "positive.txt"):
         if args.traces:
             trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
@@ -94,7 +95,8 @@ def testPositives(dir, parser):
             print(f"{RED}Failed to parse positive example {line}{END}")
 
 def testNegatives(dir, parser):
-    global args, traceCounter
+    global args
+    traceCounter = 1
     for line in testcases(dir, "negative.txt"):
         if args.traces:
             trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
@@ -109,7 +111,8 @@ def testNegatives(dir, parser):
             print(f"{RED}Parsed negative example {line}{END}")
 
 def testAmbiguities(dir, parser):
-    global args, traceCounter
+    global args
+    traceCounter = 1
     for line in testcases(dir, "ambiguous.txt"):
         if args.traces:
             trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
@@ -185,10 +188,10 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             print(f"{RED}Grammar {name} failed to parse{END}")
             continue
         stage2g = selfhost.stage2(res[0])
-        parser2 = Parser(stage2g, discard=grammar.discard)
-        testPositives(dir, parser)
-        testNegatives(dir, parser)
-        testAmbiguities(dir, parser)
+        parser2 = Parser(stage2g, discard=stage2g.Terminal(set(" \t\r\n"), "some"))
+        testPositives(dir, parser2)
+        testNegatives(dir, parser2)
+        testAmbiguities(dir, parser2)
 
     except FileNotFoundError:
         pass
