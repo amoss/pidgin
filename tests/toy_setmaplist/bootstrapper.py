@@ -13,7 +13,9 @@ brackets = ( ("(",")"), ("[","]"), ("{","}"), ("<",">") )
 
 def build():
     '''
-    Just the part of the pidgin grammar that describes set and map literals with numbers as atoms
+    Just the part of the pidgin grammar that describes set and map literals with numbers as atoms.
+    This is the original broken formulation (bad interaction between optional components and the
+    discard channel). The fixed version is toy_setmaplist2.
     '''
     g = Grammar("atom")
     g.setDiscard(g.Terminal(set(" \t\r\n"), "some"))

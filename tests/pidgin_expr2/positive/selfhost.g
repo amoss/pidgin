@@ -50,7 +50,7 @@
                }
     'set":   { [T!'{",  NA!'elem_lst",  T!'}"] }
     'order": { [T!'[",  NA!'elem_lst",  T!']"] }
-    'map":   { [T!'{",  NA!'elem_kv",   T!'}"]
+    'map":   { [T!'{",  NS!'elem_kv",   T!'}"]
                [T!'{",  T!':",          T!'}"] }
 
     'elem_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
