@@ -1,6 +1,6 @@
 {
     'expr": { [N!'atom"]
-              [N!'bin_op1"]
+              [N!'binop1"]
             }
     'binop1":     { [N!'binop2",  NS!'binop1_lst"] }
     'binop1_lst": { [T!'.+",  N!'binop2"]
@@ -45,14 +45,18 @@
                     '_" '0", '1", '2", '3", '4", '5", '6", '7", '8", '9"}]
              }
     'number": { [TS!{'0", '1", '2", '3", '4", '5", '6", '7", '8", '9",}] }
-    'str_lit": { [T!u('), TAN!u("), T!u(")]
-                 [T!'u(", TAN!')",  T!')"]
+    'str_lit": { [T!u('), TAN!{u(")}, T!u(")]
+                 [T!'u(", TAN!{')"},  T!')"]
                }
-    'set":   { [T!'{",  NA!'expr_lst",  T!'}"] }
-    'order": { [T!'[",  NA!'expr_lst",  T!']"] }
-    'map":   { [T!'{",  NA!'expr_kv",   T!'}"] }
-    'expr_lst": { [N!'expr",  TO!',"] }
-    'expr_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
+    'set":   { [T!'{",  NA!'elem_lst",  T!'}"] }
+    'order": { [T!'[",  NA!'elem_lst",  T!']"] }
+    'map":   { [T!'{",  NA!'elem_kv",   T!'}"]
+               [T!'{",  T!':",          T!'}"] }
+
+    'elem_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
+    'elem_lst": {[NA!'repeat_elem", N!'final_elem"]}
+    'repeat_elem": {[N!'expr", G!'", T!{' " '	" '" ',"}]}
+    'final_elem": {[N!'expr", G!'", TO!{' "  '	" '" ',"}]}
 
 }
 

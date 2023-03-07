@@ -2,6 +2,7 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from functools import total_ordering
+from .util import strs
 
 class Rule:
     def __init__(self, name, grammar):
@@ -99,6 +100,12 @@ class Grammar:
     def setDiscard(self, terminal):
         self.discard = terminal
 
+    def dump(self):
+        for rule in self.rules.values():
+            print(f"{rule.name}:")
+            for clause in rule.clauses:
+                print(f"  {strs(clause.rhs)}")
+
 
     class Terminal:
         def __init__(self, match, internal="just", external="just", inverse=False):
@@ -122,10 +129,11 @@ class Grammar:
 
         def __str__(self):
             if self.string is not None:
-                return f"T({self.modifier},{self.string})"
+                return f"T({self.internal},{self.modifier},{self.string})"
+            inv = "inv " if self.inverse else ""
             if len(self.chars)<5:
-                return f"T({self.modifier},{self.chars})"
-            return f"T({self.modifier}, {len(self.chars)} elements)"
+                return f"T({self.internal},{self.modifier},{inv}{self.chars})"
+            return f"T({self.internal},{self.modifier}, {inv}{len(self.chars)} elements)"
 
         def order(self):
             if self.chars is not None:

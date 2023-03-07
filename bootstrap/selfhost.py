@@ -83,7 +83,7 @@ def stage1():
 
 
 def stage2(tree):
-    result = Grammar(tree.children[0].key)
+    result = Grammar(tree.children[0].key.content)
     functors = { 'T':      (lambda a: result.Terminal(a)),
                  'TA':     (lambda a: result.Terminal(a,"some",external="optional")),
                  'TAN':    (lambda a: result.Terminal(a,"some",external="optional",inverse=True)),
@@ -91,7 +91,8 @@ def stage2(tree):
                  'TO':     (lambda a: result.Terminal(a,external="optional")),
                  'N':      (lambda a: result.Nonterminal(a)),
                  'NA':     (lambda a: result.Nonterminal(a,"any")),
-                 'NS':     (lambda a: result.Nonterminal(a,"some"))
+                 'NS':     (lambda a: result.Nonterminal(a,"some")),
+                 'G':      (lambda a: result.Glue())
                }
     def symbol(call):
         if isinstance(call.arg,StringLit):
@@ -102,7 +103,7 @@ def stage2(tree):
         assert isinstance(arg,str) or isinstance(arg,set), arg
         return functors[call.function.content](arg)
     for kv in tree.children:
-        rule = result.addRule(kv.key, [symbol(s) for s in kv.value.children[0].seq])
+        rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
         for clause in kv.value.children[1:]:
             rule.add([symbol(s) for s in clause.seq])
     return result
@@ -186,6 +187,7 @@ args = argParser.parse_args()
 
 source = open(args.grammar).read()
 g = stage1()
+g.dump()
 parser = Parser(g, g.discard)
 res = list(parser.parse(source, transformer=transformer))
 if len(res)==0:
@@ -195,13 +197,13 @@ elif len(res)>1:
     print("Result was ambiguous!")
     sys.exit(-1)
 
-dump(res[0])
-
-
 g2 = stage2(res[0])
+g2.dump()
 parser = Parser(g2, g.discard)
-res2 = list(parser.parse(source, transformer=transformer))
-dump(res2[0])
+parser.dotAutomaton(open("lr0.dot","wt"))
+res2 = list(parser.parse(source, trace=open('trace.dot','wt'), transformer=transformer))
+print(res2)
+#dump(res2[0])
 
 
 
