@@ -1,8 +1,6 @@
 {
-    'expr": { [N!'atom"]
-              [N!'binop1"]
-            }
-    'binop1":     { [N!'binop2",  NS!'binop1_lst"] }
+    'expr": { [N!'binop1"] }
+    'binop1":     { [N!'binop2",  NA!'binop1_lst"] }
     'binop1_lst": { [T!'.+",  N!'binop2"]
                     [T!'+.",  N!'binop2"]
                     [T!'.-",  N!'binop2"]
@@ -10,9 +8,9 @@
                     [T!'-",   N!'binop2"]
                     [T!'+",   N!'binop2"]
                   }
-    'binop2":     { [N!'binop3", NS!'binop2_lst"] }
-    'binop2_lst": { [T!'*",      NS!'binop3"]
-                    [T!'/",      NS!'binop3"]
+    'binop2":     { [N!'binop3", NA!'binop2_lst"] }
+    'binop2_lst": { [T!'*",      N!'binop3"]
+                    [T!'/",      N!'binop3"]
                   }
     'binop3":     { [N!'binop4",   NA!'binop3_lst"] }
     'binop3_lst": { [T!'@",        N!'binop4"] }
@@ -36,6 +34,7 @@
                    'k" 'l" 'm" 'n" 'o" 'p" 'q" 'r" 's" 't"
                    'u" 'v" 'w" 'x" 'y" 'z"
                    '_"},
+                G!'",
                 TA!{'A" 'B" 'C" 'D" 'E" 'F" 'G" 'H" 'I" 'J"
                     'K" 'L" 'M" 'N" 'O" 'P" 'Q" 'R" 'S" 'T"
                     'U" 'V" 'W" 'X" 'Y" 'Z"
