@@ -90,6 +90,7 @@ def stage2(tree):
                  'TS':     (lambda a: result.Terminal(a,"some")),
                  'TO':     (lambda a: result.Terminal(a,external="optional")),
                  'N':      (lambda a: result.Nonterminal(a)),
+                 'NO':     (lambda a: result.Nonterminal(a,"optional")),
                  'NA':     (lambda a: result.Nonterminal(a,"any")),
                  'NS':     (lambda a: result.Nonterminal(a,"some")),
                  'G':      (lambda a: result.Glue())
