@@ -255,7 +255,7 @@ class Parser:
                 if trace is not None:            print(f"s{p.id} [shape=none,label={p.dotLabel(input)}];", file=trace)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position
-                    if not p.keep:
+                    if not p.keep and self.discard is not None:
                         drop = self.discard.match(input[p.position:])
                         if drop is not None and len(drop)>0:
                             remaining += len(drop)

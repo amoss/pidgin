@@ -16,6 +16,7 @@ import traceback
 
 from bootstrap.generator import Generator
 from bootstrap.parser import Parser
+import bootstrap.selfhost as selfhost
 
 GRAY = "\033[0;37m"
 RED = "\033[1;31m"
@@ -54,7 +55,7 @@ def generateWhileProductive(grammar, targetPath, numSentences=20):
             outputFile.write("\n")
     return succeeded
 
-def parseQuickly(parser, input, trace=None):
+def parseQuickly(parser, line, trace=None):
     result = []
     def wrapParse():
         result.extend(list(parser.parse(line,trace=trace)))
@@ -75,8 +76,57 @@ def testcases(dir, filename):
     for line in testFile.readlines():
        yield line.rstrip("\n")
 
+def testPositives(dir, parser):
+    global args, traceCounter
+    for line in testcases(dir, "positive.txt"):
+        if args.traces:
+            trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
+        else:
+            trace = None
+        results = parseQuickly(parser,line,trace=trace)
+        if len(results)==1:
+            if args.verbose:
+                print(f"{GREEN}Parsed positive example {line}{END}")
+        elif len(results)>1:
+            print(f"{YELLOW}Ambiguous result for positive {line}{END}")
+        else:
+            traceCounter += 1
+            print(f"{RED}Failed to parse positive example {line}{END}")
+
+def testNegatives(dir, parser):
+    global args, traceCounter
+    for line in testcases(dir, "negative.txt"):
+        if args.traces:
+            trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
+        else:
+            trace = None
+        results = parseQuickly(parser,line,trace=trace)
+        if len(results)==0:
+            if args.verbose:
+                print(f"{GREEN}Failed to parse negative example {line}{END}")
+        else:
+            traceCounter += 1
+            print(f"{RED}Parsed negative example {line}{END}")
+
+def testAmbiguities(dir, parser):
+    global args, traceCounter
+    for line in testcases(dir, "ambiguous.txt"):
+        if args.traces:
+            trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
+        else:
+            trace = None
+        results = parseQuickly(parser,line,trace=trace)
+        if len(results)>1:
+            if args.verbose:
+                print(f"{GREEN}Parsed ambiguous example {line}{END}")
+        elif len(results)==1:
+            print(f"{YELLOW}Single result for ambiguous {line}{END}")
+        else:
+            traceCounter += 1
+            print(f"{RED}Failed to parse ambiguous example {line}{END}") 
 
 argParser = argparse.ArgumentParser()
+argParser.add_argument("-v","--verbose", action="store_true")
 argParser.add_argument("-f","--filter")
 argParser.add_argument("-t","--traces", action="store_true")
 args = argParser.parse_args()
@@ -90,6 +140,8 @@ for name in os.listdir(target):
     shutil.rmtree(dir)
 
 # Generate new result set
+stage1g = selfhost.stage1()
+stage1 = Parser(stage1g, stage1g.discard)
 for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
     if args.filter is not None and args.filter not in name: continue
     dir = os.path.join(rootDir,"tests",name)
@@ -104,55 +156,46 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
         print(f"{GREEN}Initialized {name}{END}")
         sentences = []
         if generateWhileProductive(grammar, target):
-            print(f"{GREEN}Generated from {name}{END}")
+            if args.verbose:
+                print(f"{GREEN}Generated from {name}{END}")
         else:
             print(f"{RED}Failed to generate from {name}{END}")
 
         traceCounter = 1
         parser = Parser(grammar, discard=grammar.discard)
         parser.dotAutomaton(open(os.path.join(target, "lr0.dot"),"wt"))
-        for line in testcases(dir, "positive.txt"):
-            if args.traces:
-                trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
-            else:
-                trace = None
-            results = parseQuickly(parser,line,trace=trace)
-            if len(results)==1:
-                print(f"{GREEN}Parsed positive example {line}{END}")
-            elif len(results)>1:
-                print(f"{YELLOW}Ambiguous result for positive {line}{END}")
-            else:
-                traceCounter += 1
-                print(f"{RED}Failed to parse positive example {line}{END}")
-
-        for line in testcases(dir, "negative.txt"):
-            if args.traces:
-                trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
-            else:
-                trace = None
-            results = parseQuickly(parser,line,trace=trace)
-            if len(results)==0:
-                print(f"{GREEN}Failed to parse negative example {line}{END}")
-            else:
-                traceCounter += 1
-                print(f"{RED}Parsed negative example {line}{END}")
-
-        for line in testcases(dir, "ambiguous.txt"):
-            if args.traces:
-                trace = open(os.path.join(target,f"failure{traceCounter}.dot"),"wt")
-            else:
-                trace = None
-            results = parseQuickly(parser,line,trace=trace)
-            if len(results)>1:
-                print(f"{GREEN}Parsed ambiguous example {line}{END}")
-            elif len(results)==1:
-                print(f"{YELLOW}Single result for ambiguous {line}{END}")
-            else:
-                traceCounter += 1
-                print(f"{RED}Failed to parse ambiguous example {line}{END}") 
+        testPositives(dir, parser)
+        testNegatives(dir, parser)
+        testAmbiguities(dir, parser)
+    except FileNotFoundError:
+        pass
     except:
         print(f"{RED}Failed on {name}{GRAY}")
         traceback.print_exc()
         print(END)
+
+    try:
+        res = list(stage1.parse( open(os.path.join(dir,"grammar.g")).read(), transformer=selfhost.transformer))
+        if len(res)==1:
+            print(f"{GREEN}Initialized grammar {name}{END}")
+        elif len(res)>1:
+            print(f"{RED}Grammar {name} was ambiguous{END}")
+            continue
+        else:
+            print(f"{RED}Grammar {name} failed to parse{END}")
+            continue
+        stage2g = selfhost.stage2(res[0])
+        parser2 = Parser(stage2g, discard=grammar.discard)
+        testPositives(dir, parser)
+        testNegatives(dir, parser)
+        testAmbiguities(dir, parser)
+
+    except FileNotFoundError:
+        pass
+    except:
+        print(f"{RED}Failed on grammar {name}{GRAY}")
+        traceback.print_exc()
+        print(END)
+
 
 print("Done.")

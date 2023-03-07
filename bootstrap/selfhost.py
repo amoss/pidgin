@@ -181,29 +181,32 @@ transformer = {
 }
 
 
-argParser = argparse.ArgumentParser()
-argParser.add_argument("grammar")
-args = argParser.parse_args()
+if __file__=="__main__":
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("grammar")
+    argParser.add_argument("input")
+    args = argParser.parse_args()
 
-source = open(args.grammar).read()
-g = stage1()
-g.dump()
-parser = Parser(g, g.discard)
-res = list(parser.parse(source, transformer=transformer))
-if len(res)==0:
-    print("Failed to parse!")
-    sys.exit(-1)
-elif len(res)>1:
-    print("Result was ambiguous!")
-    sys.exit(-1)
+    source = open(args.grammar).read()
+    input = open(args.input).read()
+    g = stage1()
+    g.dump()
+    parser = Parser(g, g.discard)
+    res = list(parser.parse(source, transformer=transformer))
+    if len(res)==0:
+        print("Failed to parse!")
+        sys.exit(-1)
+    elif len(res)>1:
+        print("Result was ambiguous!")
+        sys.exit(-1)
 
-g2 = stage2(res[0])
-g2.dump()
-parser = Parser(g2, g.discard)
-parser.dotAutomaton(open("lr0.dot","wt"))
-res2 = list(parser.parse(source, trace=open('trace.dot','wt'), transformer=transformer))
-print(res2)
-#dump(res2[0])
+    g2 = stage2(res[0])
+    g2.dump()
+    parser = Parser(g2, g.discard)
+    parser.dotAutomaton(open("lr0.dot","wt"))
+    res2 = list(parser.parse(input, trace=open('trace.dot','wt'), transformer=transformer))
+    print(res2)
+    #dump(res2[0])
 
 
 
