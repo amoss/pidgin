@@ -243,20 +243,11 @@ class Parser:
         else:
             pruned = node
 
-        def dump(node, depth=0):
-            print(f"{'  '*depth}{type(node)}{node}")
-            if hasattr(node,'children'):
-                for c in node.children:
-                    dump(c,depth+1)
-        try:
-            if isinstance(pruned, Parser.Nonterminal) and pruned.tag in ntTransformer:
-                return ntTransformer[pruned.tag](pruned)
-            if isinstance(pruned, Parser.Terminal) and pruned.tag in tTransformer:
-                return tTransformer[pruned.tag](pruned)
-            return pruned
-        except:
-            dump(pruned)
-            raise
+        if isinstance(pruned, Parser.Nonterminal) and pruned.tag in ntTransformer:
+            return ntTransformer[pruned.tag](pruned)
+        if isinstance(pruned, Parser.Terminal) and pruned.tag in tTransformer:
+            return tTransformer[pruned.tag](pruned)
+        return pruned
 
     def parse(self, input, trace=None, ntTransformer={}, tTransformer={}):
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
