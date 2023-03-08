@@ -25,13 +25,23 @@ def stage2(tree):
                  'NS':     (lambda a: result.Nonterminal(a,"some")),
                  'G':      (lambda a: result.Glue())
                }
+    functors2 = { 'T':      (lambda a: result.Terminal(a['chars'],tag=a['tag'])),
+                  'TS':     (lambda a: result.Terminal(a['chars'],"some", tag=a['tag'])),
+                }
+    def unbox(v):
+        if isinstance(v,StringLit):
+            return v.content
+        if isinstance(v,Set):
+            return set(unbox(c) for c in v.children)
+        if isinstance(v,Record):
+            return {k:unbox(v) for k,v in v.record.items()}
+        assert False, v
     def symbol(call):
-        if isinstance(call.arg,StringLit):
-            arg = call.arg.content
-        else:
-            arg = set(c.content for c in call.arg.children)
-        assert isinstance(arg,str) or isinstance(arg,set), arg
-        return functors[call.function.content](arg)
+        if isinstance(call.arg,StringLit) or isinstance(call.arg,Set):
+            return functors[call.function.content](unbox(call.arg))
+        if isinstance(call.arg,Record):
+            return functors2[call.function.content](unbox(call.arg))
+        assert False, call.arg
     for kv in tree.children:
         rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
         for clause in kv.value.children[1:]:
@@ -83,6 +93,16 @@ class Order:
         return "[" + ", ".join([str(c) for c in self.seq]) + "]"
 
 
+class Record:
+    def __init__(self, children):
+        self.children = children
+        self.record = {}
+        for c in children:
+            self.record[c.key] = c.value
+    def __str__(self):
+        return "[" + ", ".join([str(c) for c in self.children]) + "]"
+
+
 class Set:
     def __init__(self, children):
         self.children = children
@@ -105,11 +125,19 @@ class KeyVal:
         return f"{self.key}:{self.value}"
 
 
+class IdentVal:
+    def __init__(self, key, value):
+        assert isinstance(key,Ident), key
+        self.key = key.content
+        self.value = value
+    def __str__(self):
+        return f"{self.key}:{self.value}"
+
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
-transformer = {
+ntTransformer = {
     'str_lit' :     (lambda node: StringLit(node.children[1].chars)),
-    'ident':        (lambda node: Ident("".join([c.chars for c in node.children]))),
+    'ident':        (lambda node: Ident(node.children[0].content+"".join([c.chars for c in node.children[1:]]))),
     'binop4':       (lambda node: Call(node.children[0], node.children[2])),
     'final_elem':   (lambda node: node.children[0]),
     'repeat_elem':  (lambda node: node.children[0]),
@@ -118,7 +146,12 @@ transformer = {
     'set':          (lambda node: Set(node.children[1].children) if onlyElemList(node)
                              else Set(node.children[1:-1])),
     'map':          (lambda node: Map(node.children[1:-1])),
-    'elem_kv':      (lambda node: KeyVal(node.children[0], node.children[2]))
+    'record':       (lambda node: Record(node.children[1:-1])),
+    'elem_kv':      (lambda node: KeyVal(node.children[0], node.children[2])),
+    'elem_iv':      (lambda node: IdentVal(node.children[0], node.children[2]))
+}
+tTransformer = {
+    'ident':        (lambda node: Ident(node.chars)),
 }
 
 
@@ -175,13 +208,13 @@ if __name__=="__main__":
     grammar = open(os.path.join(rootDir, "tests/pidgin_selfhost/grammar.g")).read()
     stage1g = selfhost.stage1()
     parser = Parser(stage1g, stage1g.discard)
-    stage2g = stage2(list(parser.parse(grammar, transformer=transformer))[0])
+    stage2g = stage2(list(parser.parse(grammar, ntTransformer=ntTransformer, tTransformer=tTransformer))[0])
     parser = Parser(stage2g, stage1g.discard)
 
     if args.input is not None:
-        trees = list(parser.parse(args.input, trace=open('trace.dot','wt'), transformer=transformer))
+        trees = list(parser.parse(args.input, trace=open('trace.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer))
     if args.file is not None:
-        trees = list(parser.parse(open(args.file).read(), trace=open('trace.dot','wt'), transformer=transformer))
+        trees = list(parser.parse(open(args.file).read(), trace=open('trace.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer))
 
     if len(trees)==0:
         print("Parse error")
