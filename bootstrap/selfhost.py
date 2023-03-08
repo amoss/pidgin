@@ -46,22 +46,28 @@ def stage1():
     binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
     binop4.add(                  [g.Nonterminal("atom")])
 
-    atom = g.addRule("atom", [g.Terminal(set("0123456789"),"some")])
-    atom.add(                [g.Terminal("true")])
-    atom.add(                [g.Terminal("false")])
+    atom = g.addRule("atom", [g.Terminal(set("0123456789"),"some",tag="num")])
+    atom.add(                [g.Terminal("true", tag="bool")])
+    atom.add(                [g.Terminal("false", tag="bool")])
     atom.add(                [g.Nonterminal("ident")])
     atom.add(                [g.Nonterminal("str_lit")])
     atom.add(                [g.Nonterminal("set")])
     atom.add(                [g.Nonterminal("map")])
     atom.add(                [g.Nonterminal("order")])
+    atom.add(                [g.Nonterminal("record")])
     atom.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
 
-    aset = g.addRule("set",   [g.Terminal('{'), g.Nonterminal("elem_lst", "optional"), g.Terminal('}')])
-    aord = g.addRule("order", [g.Terminal('['), g.Nonterminal("elem_lst", "optional"), g.Terminal(']')])
-    amap = g.addRule("map",   [g.Terminal('{'), g.Nonterminal("elem_kv",  "some"),  g.Terminal('}')])
-    amap.add(                 [g.Terminal('{'), g.Terminal(':'), g.Terminal('}')])
+    aset = g.addRule("set",    [g.Terminal('{'), g.Nonterminal("elem_lst", "optional"), g.Terminal('}')])
+    aord = g.addRule("order",  [g.Terminal('['), g.Nonterminal("elem_lst", "optional"), g.Terminal(']')])
+    amap = g.addRule("map",    [g.Terminal('{'), g.Nonterminal("elem_kv",  "some"),  g.Terminal('}')])
+    amap.add(                  [g.Terminal('{'), g.Terminal(':'), g.Terminal('}')])
+    arec = g.addRule("record", [g.Terminal('['), g.Nonterminal("elem_iv", "some"), g.Terminal(']')])
 
     g.addRule("elem_kv",  [g.Nonterminal("expr"),
+                           g.Terminal(":"),
+                           g.Nonterminal("expr"),
+                           g.Terminal(",", external="optional")])
+    g.addRule("elem_iv",  [g.Nonterminal("ident"),
                            g.Terminal(":"),
                            g.Nonterminal("expr"),
                            g.Terminal(",", external="optional")])
@@ -77,7 +83,7 @@ def stage1():
                                     g.Terminal(')')])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just"), g.Glue(),
+    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just",tag="ident"), g.Glue(),
                                 g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
     return g
 
@@ -95,17 +101,32 @@ def stage2(tree):
                  'NS':     (lambda a: result.Nonterminal(a,"some")),
                  'G':      (lambda a: result.Glue())
                }
+    functors2 = { 'T':      (lambda a: result.Terminal(a['chars'],tag=a['tag'])),
+                  'TS':     (lambda a: result.Terminal(a['chars'],"some", tag=a['tag'])),
+                }
+    def unbox(v):
+        if isinstance(v,StringLit):
+            return v.content
+        if isinstance(v,Set):
+            return set(unbox(c) for c in v.children)
+        if isinstance(v,Record):
+            return {k:unbox(v) for k,v in v.record.items()}
+        assert False, v
+
     def symbol(call):
-        if isinstance(call.arg,StringLit):
-            arg = call.arg.content
-        else:
-            arg = set(c.content for c in call.arg.children)
-        assert isinstance(arg,str) or isinstance(arg,set), arg
-        return functors[call.function.content](arg)
+        if isinstance(call.arg,StringLit) or isinstance(call.arg,Set):
+            return functors[call.function.content](unbox(call.arg))
+        if isinstance(call.arg,Record):
+            return functors2[call.function.content](unbox(call.arg))
+        assert False, call.arg
     for kv in tree.children:
-        rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
-        for clause in kv.value.children[1:]:
-            rule.add([symbol(s) for s in clause.seq])
+        try:
+            rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
+            for clause in kv.value.children[1:]:
+                rule.add([symbol(s) for s in clause.seq])
+        except Exception as e:
+            print(f"Stage2 failed to build in {kv.key} / {kv.value}")
+            raise
     return result
 
 class StringLit:
@@ -142,6 +163,16 @@ class Order:
         return "[" + ", ".join([str(c) for c in self.seq]) + "]"
 
 
+class Record:
+    def __init__(self, children):
+        self.children = children
+        self.record = {}
+        for c in children:
+            self.record[c.key] = c.value
+    def __str__(self):
+        return "[" + ", ".join([str(c) for c in self.children]) + "]"
+
+
 class Set:
     def __init__(self, children):
         self.children = children
@@ -164,11 +195,19 @@ class KeyVal:
         return f"{self.key}:{self.value}"
 
 
+class IdentVal:
+    def __init__(self, key, value):
+        assert isinstance(key,Ident), key
+        self.key = key.content
+        self.value = value
+    def __str__(self):
+        return f"{self.key}:{self.value}"
+
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
-transformer = {
+ntTransformer = {
     'str_lit' :     (lambda node: StringLit(node.children[1].chars)),
-    'ident':        (lambda node: Ident("".join([c.chars for c in node.children]))),
+    'ident':        (lambda node: Ident(node.children[0].content+"".join([c.chars for c in node.children[1:]]))),
     'binop4':       (lambda node: Call(node.children[0], node.children[2])),
     'final_elem':   (lambda node: node.children[0]),
     'repeat_elem':  (lambda node: node.children[0]),
@@ -177,7 +216,12 @@ transformer = {
     'set':          (lambda node: Set(node.children[1].children) if onlyElemList(node)
                              else Set(node.children[1:-1])),
     'map':          (lambda node: Map(node.children[1:-1])),
-    'elem_kv':      (lambda node: KeyVal(node.children[0], node.children[2]))
+    'record':       (lambda node: Record(node.children[1:-1])),
+    'elem_kv':      (lambda node: KeyVal(node.children[0], node.children[2])),
+    'elem_iv':      (lambda node: IdentVal(node.children[0], node.children[2]))
+}
+tTransformer = {
+    'ident':        (lambda node: Ident(node.chars)),
 }
 
 
@@ -187,6 +231,7 @@ if __name__=="__main__":
     argParser.add_argument("grammar")
     argParser.add_argument("-i", "--input")
     argParser.add_argument("-f", "--file")
+    argParser.add_argument("-d", "--debug", action="store_true")
     args = argParser.parse_args()
 
     source = open(args.grammar).read()
@@ -194,7 +239,7 @@ if __name__=="__main__":
     print("\nFirst stage:")
     g.dump()
     parser = Parser(g, g.discard)
-    res = list(parser.parse(source, transformer=transformer))
+    res = list(parser.parse(source, trace=open('trace1.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer))
     if len(res)==0:
         print("Failed to parse!")
         sys.exit(-1)
@@ -202,15 +247,17 @@ if __name__=="__main__":
         print("Result was ambiguous!")
         sys.exit(-1)
 
+    if args.debug:
+        dump(res[0])
     g2 = stage2(res[0])
     print("Second stage:")
     g2.dump()
     parser = Parser(g2, g.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
     if args.input is not None:
-        res2 = parser.parse(args.input, trace=open('trace.dot','wt'), transformer=transformer)
+        res2 = parser.parse(args.input, trace=open('trace2.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer)
     if args.file is not None:
-        res2 = parser.parse(open(args.file).read(), trace=open('trace.dot','wt'), transformer=transformer)
+        res2 = parser.parse(open(args.file).read(), trace=open('trace.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer)
     print("\nResults:")
     for r in res2:
         dump(r)

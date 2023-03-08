@@ -232,22 +232,33 @@ class Parser:
         print("}", file=output)
 
     @staticmethod
-    def prune(node, transformer):
+    def prune(node, ntTransformer, tTransformer):
         if isinstance(node, Parser.Nonterminal):
             if len(node.children)==1:
-                pruned = Parser.prune(node.children[0], transformer)
+                pruned = Parser.prune(node.children[0], ntTransformer, tTransformer)
             else:
-                result = [ Parser.prune(c,transformer) for c in node.children]
+                result = [ Parser.prune(c,ntTransformer,tTransformer) for c in node.children]
                 node.children = tuple(result)
                 pruned = node
         else:
             pruned = node
 
-        if isinstance(pruned, Parser.Nonterminal) and pruned.tag in transformer:
-            return transformer[pruned.tag](pruned)
-        return pruned
+        def dump(node, depth=0):
+            print(f"{'  '*depth}{type(node)}{node}")
+            if hasattr(node,'children'):
+                for c in node.children:
+                    dump(c,depth+1)
+        try:
+            if isinstance(pruned, Parser.Nonterminal) and pruned.tag in ntTransformer:
+                return ntTransformer[pruned.tag](pruned)
+            if isinstance(pruned, Parser.Terminal) and pruned.tag in tTransformer:
+                return tTransformer[pruned.tag](pruned)
+            return pruned
+        except:
+            dump(pruned)
+            raise
 
-    def parse(self, input, trace=None, transformer={}):
+    def parse(self, input, trace=None, ntTransformer={}, tTransformer={}):
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
         pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
@@ -261,7 +272,7 @@ class Parser:
                         if drop is not None and len(drop)>0:
                             remaining += len(drop)
                     if remaining==len(input) and len(p.stack)==2:
-                        yield Parser.prune(p.stack[1],transformer)
+                        yield Parser.prune(p.stack[1],ntTransformer,tTransformer)
                         if trace is not None:    print(f"s{p.id} [shape=rect,label={p.dotLabel(input)}];", file=trace)
                 else:
                     reduces = p.reductions()
@@ -280,6 +291,7 @@ class Parser:
         def __init__(self, chars, original):
             self.chars    = chars
             self.original = original
+            self.tag = original.tag
 
         def __str__(self):
             return self.chars

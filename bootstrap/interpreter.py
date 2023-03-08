@@ -47,6 +47,15 @@ class StringLit:
     def type(self):
         return 'S'
 
+class NumberLit:
+    def __init__(self, content):
+        assert isinstance(content,str), content
+        self.content = int(content)
+    def __str__(self):
+        return str(self.content)
+    def type(self):
+        return 'N'
+
 
 class Ident:
     def __init__(self, content):

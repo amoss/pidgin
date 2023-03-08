@@ -108,7 +108,7 @@ class Grammar:
 
 
     class Terminal:
-        def __init__(self, match, internal="just", external="just", inverse=False):
+        def __init__(self, match, internal="just", external="just", inverse=False, tag=''):
             '''The *internal* modifier is applied to matching character classes within the span of
                text that the Terminal matches. The *external* modifier is used to allow repetitions
                of the Terminal in the same manner as Nonterminals. Example:
@@ -126,14 +126,17 @@ class Grammar:
             self.internal = internal
             self.modifier = external
             self.inverse  = inverse
+            self.tag      = tag
 
         def __str__(self):
+            result = f"T({self.internal},{self.modifier},"
+            tag = f",{self.tag}" if self.tag!="" else ""
             if self.string is not None:
-                return f"T({self.internal},{self.modifier},{self.string})"
+                return result+f"{self.string}{tag})"
             inv = "inv " if self.inverse else ""
             if len(self.chars)<5:
-                return f"T({self.internal},{self.modifier},{inv}{self.chars})"
-            return f"T({self.internal},{self.modifier}, {inv}{len(self.chars)} elements)"
+                return result + f" {inv}{self.chars}{tag})"
+            return result + f" {inv}{len(self.chars)} elements{tag})"
 
         def order(self):
             if self.chars is not None:
@@ -146,10 +149,11 @@ class Grammar:
                and self.chars==other.chars \
                and self.internal==other.internal \
                and self.modifier==other.modifier \
-               and self.inverse==other.inverse
+               and self.inverse==other.inverse \
+               and self.tag==other.tag
 
         def __hash__(self):
-            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse))
+            return hash((self.string, self.chars, self.internal, self.modifier, self.inverse, self.tag))
 
         def match(self, input):
             allowzero = self.internal in ("any","optional")
@@ -176,7 +180,8 @@ class Grammar:
             assert False
 
         def exactlyOne(self):
-            return Grammar.Terminal(self.string if self.chars is None else self.chars, "just", inverse=self.inverse)
+            return Grammar.Terminal(self.string if self.chars is None else self.chars, "just",
+                                    inverse=self.inverse, tag=self.tag)
 
     class Nonterminal:
         def __init__(self, name, modifier="just"):
