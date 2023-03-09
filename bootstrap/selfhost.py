@@ -11,6 +11,7 @@ import sys
 
 from bootstrap.parser import Parser
 from bootstrap.grammar import Grammar
+import bootstrap.selfhost as selfhost
 
 def dump(node, depth=0):
     print(f"{'  '*depth}{type(node)}{node}")

@@ -1,11 +1,20 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import os, sys
+rootDir= os.path.dirname(os.path.dirname(__file__))
+if rootDir not in sys.path:
+    sys.path.append(rootDir)
 
+import argparse
 import functools
 import itertools
 import operator
-from .grammar import Grammar
-from .util import strs
+import random
+import sys
+from bootstrap.grammar import Grammar
+from bootstrap.parser import Parser
+from bootstrap.util import strs
+import bootstrap.selfhost as selfhost
 
 class Generator:
     def __init__(self, grammar):
@@ -198,25 +207,39 @@ class Generator:
         def __hash__(self):
             return hash(self.symbols)
 
+if __name__=='__main__':
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("grammar")
+    argParser.add_argument("-n", "--number", type=int, default=10)
+    argParser.add_argument("-t", "--tag", action='append')
+    args = argParser.parse_args()
+    tags = {}
+    for tpair in args.tag:
+        name,value = tpair.split("=")
+        if not name in tags:
+            tags[name] = []
+        tags[name].append(value)
 
-
-
-#generator = Generator(g)
-#traceFile = open('trace.dot','wt')
-#sentences = list(itertools.islice(generator.step(trace=traceFile), 20))
-#print("}", file=traceFile)
-#traceFile.close()
-#for s in sentences:
-#    s = [ symb.string if symb.string is not None else symb for symb in s]
-#    print(f"Emit {strs(s)}")
-
-#// 0 1 2 3 4 5
-#// 0,0  0,1  1,0  0,2  1,1  2,0  3,0  2,1  1,2 0,3 ...
-#// 0,0,0  0,0,1  0,1,0  1,0,0  0,0,2  0,1,1  1,0,1  0,2,0  1,1,0
-#// 0,0,0,0  0,0,0,1  0,0,1,0  0,1,0,0  1,0,0,0  0,0,0,2  0,0,1,1 0,1,0,1  0,1,1,0  
-
-#// The zig-zagging structure is used as an argument that all countable infinities have a bijective mapping
-#// We can view it enumerating n-1 dimenional planes at 45 degrees through the space
-#// It is equivalent to permutations of the partitions of the integers
-#// It is equivalent to a counting system stratified by the sum of the digits
-
+    stage1g = selfhost.stage1()
+    stage1 = Parser(stage1g, discard=stage1g.discard)
+    res = next(stage1.parse( open(args.grammar).read(),
+                             ntTransformer=selfhost.ntTransformer, tTransformer=selfhost.tTransformer), None)
+    if res is None:
+        print(f"Failed to parse grammar from {args.grammar}")
+        sys.exit(-1)
+    grammar = selfhost.stage2(res)
+    generator = Generator(grammar)
+    for sentence in itertools.islice(generator.step(), args.number):
+        emit = []
+        for symb in sentence:
+            if symb.string is not None:
+                emit.append(symb.string)
+            elif symb.tag in tags:
+                emit.append(random.choice(tags[symb.tag]))
+            else:
+                if symb.inverse:
+                    options = [ o for o in "0aA_:!" if o not in symb.chars ]
+                    emit.append(random.choice(options))
+                else:
+                    emit.append(random.choice(list(symb.chars)))
+        print(" ".join(emit))
