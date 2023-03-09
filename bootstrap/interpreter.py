@@ -48,14 +48,55 @@ def stage2(tree):
             rule.add([symbol(s) for s in clause.seq])
     return result
 
+class Type:
+    def __init__(self, label, param1=None, param2=None):
+        self.label  = label
+        assert param1 is None or isinstance(param1,Type) or param1=="empty", param1
+        self.param1 = param1
+        self.param2 = param2
+
+    def __str__(self):
+        if self.label=='[]':
+            return f"[{self.param1}]"
+        if self.label=='{}':
+            return "{" + str(self.param1) + "}"
+        if self.label=='{:}':
+            return "{" + f"{self.param1}:{self.param2}" + "}"
+        if self.label=='[:]':
+            return "record"
+        return label
+
+    def __eq__(self, other):
+        return self.label==other.label and self.param1==other.param1 and self.param2==other.param2
+
+    def eqOrCoerce(self, other):
+        if self==other:                                            return True
+        if self.label!=other.label:                                return False
+        if self.param1=="empty" and self.param2==other.param2:     return True
+        if other.param1=="empty" and self.param2==other.param2:    return True
+        if self.param1=="empty" and self.param2=="empty":          return True
+        if other.param1=="empty" and other.param2=="empty":        return True
+        return False
+
+    def join(self, other):
+        if self==other: return self
+        param1 = None
+        if self.param1 == "empty" and other.param1 is not None:
+            param1 = other.param1
+        if self.param1 is not None and other.param1 == "empty":
+            param1 = self.param1
+        if self.param2 == "empty" and other.param2 is not None:
+            param2 = other.param2
+        if self.param2 is not None and other.param2 == "empty":
+            param2 = self.param2
+        return Type(self.label, param1, param2)
+
 class StringLit:
     def __init__(self, content):
         assert isinstance(content,str), content
         self.content = content
     def __str__(self):
         return "'"+self.content+'"'
-    def type(self):
-        return 'S'
 
 class NumberLit:
     def __init__(self, content):
@@ -63,8 +104,6 @@ class NumberLit:
         self.content = int(content)
     def __str__(self):
         return str(self.content)
-    def type(self):
-        return 'N'
 
 
 class Ident:
@@ -91,6 +130,10 @@ class Order:
         self.seq = children
     def __str__(self):
         return "[" + ", ".join([str(c) for c in self.seq]) + "]"
+    def type(self):
+        if len(self.seq)==0:
+            return '[]'
+        return f'[{self.seq[0].type()}]'
 
 
 class Record:
@@ -133,6 +176,71 @@ class IdentVal:
     def __str__(self):
         return f"{self.key}:{self.value}"
 
+
+
+
+
+class Box:
+    def __init__(self, type, raw):
+        self.type = type
+        self.raw = raw
+
+    def plusTypeCheck(left, right):
+        if not left.eqOrCoerce(right): return None
+        return lambda l,r: Box(l.type.join(r.type),l.raw+r.raw)
+
+    opTypeCheck = {
+        '+': plusTypeCheck
+    }
+
+    @staticmethod
+    def evaluateBinop1(tree):
+        accumulator = Box.fromConstantExpression(tree.children[0])
+        for c in tree.children[1:]:
+            assert isinstance(c, Parser.Nonterminal) and c.tag=="binop1_lst" and len(c.children)==2, c
+            assert isinstance(c.children[0], Parser.Terminal), c.children[0]
+            value = Box.fromConstantExpression(c.children[1])
+            op = c.children[0].chars
+            eval = Box.opTypeCheck[op](accumulator.type, value.type)
+            assert eval is not None, f"Invalid types for operation: {accumulator.type} {op} {value.type}"
+            accumulator = eval(accumulator, value)
+        return accumulator
+
+    @staticmethod
+    def evaluateOrder(tree):
+        if len(tree.seq)==0:  return Box(Type('[]','empty'))
+        result = [ Box.fromConstantExpression(tree.seq[0]) ]
+        for subtree in tree.seq[1:]:
+            element = Box.fromConstantExpression(subtree)
+            assert result[0].type.eqOrCoerce(element.type), f"Can't store {element.type} in [{result[0].type}]!"
+            result.append(element)
+        return Box(Type('[]',result[0].type), result)
+
+    @staticmethod
+    def fromConstantExpression(node):
+        if isinstance(node, NumberLit):
+            return Box(Type('N'), node.content)
+        if isinstance(node, StringLit):
+            return Box(Type('S'), node.content)
+        if isinstance(node, Order):
+            return Box.evaluateOrder(node)
+        assert not isinstance(node, Ident), f"{node} can't be in constant expression"
+        despatch = {
+            'binop1': Box.evaluateBinop1
+        }
+        assert isinstance(node, Parser.Nonterminal), node
+        assert node.tag in despatch, node.tag
+        return despatch[node.tag](node)
+
+    def unbox(self):
+        if self.type.label in ('[]','{}','[:]','{:}'):
+            raw = [box.unbox() for box in self.raw]
+        else:
+            raw = self.raw
+        return raw
+
+
+
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
 ntTransformer = {
@@ -152,6 +260,7 @@ ntTransformer = {
 }
 tTransformer = {
     'ident':        (lambda node: Ident(node.chars)),
+    'num':          (lambda node: NumberLit(node.chars)),
 }
 
 
@@ -160,39 +269,6 @@ def dump(node, depth=0):
     if hasattr(node,'children'):
         for c in node.children:
             dump(c,depth+1)
-
-def evaluateBinop1(tree):
-    accumulator = evaluate(tree.children[0])
-    for c in tree.children[1:]:
-        assert isinstance(c, Parser.Nonterminal) and c.tag=="binop1_lst" and len(c.children)==2, c
-        assert isinstance(c.children[0], Parser.Terminal), c.children[0]
-        value = evaluate(c.children[1])
-        if c.children[0].chars=='+':
-            accumulator += value
-        else:
-            assert False, c.children[0]
-    return accumulator
-
-def evaluateOrder(tree):
-    t = tree.seq[0].type()
-    result = [ evaluate(tree.seq[0]) ]
-    for element in tree.seq[1:]:
-        assert element.type()==t, f"Can't store {element.type()} in [{t}]!"
-        result.append( evaluate(element) )
-    return result
-
-def evaluate(tree):
-    dump(tree)
-    if isinstance(tree, StringLit):
-        return tree.content
-    if isinstance(tree, Order):
-        return evaluateOrder(tree)
-    despatch = {
-        'binop1': evaluateBinop1
-    }
-    assert isinstance(tree, Parser.Nonterminal), tree
-    assert tree.tag in despatch, tree.tag
-    return despatch[tree.tag](tree)
 
 
 if __name__=="__main__":
@@ -222,7 +298,5 @@ if __name__=="__main__":
     if len(trees)>1:
         print(f"Warning: input is ambiguous, had {len(tree)} distinct parses")
 
-    result = evaluate(trees[0])
-    print(result)
-    
-    
+    result = Box.fromConstantExpression(trees[0])
+    print(result.unbox())
