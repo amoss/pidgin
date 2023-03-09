@@ -64,9 +64,10 @@ class Type:
             return "{" + f"{self.param1}:{self.param2}" + "}"
         if self.label=='[:]':
             return "record"
-        return label
+        return self.label
 
     def __eq__(self, other):
+        if not isinstance(other,Type):  return False
         return self.label==other.label and self.param1==other.param1 and self.param2==other.param2
 
     def eqOrCoerce(self, other):
@@ -212,7 +213,7 @@ class Box:
         result = [ Box.fromConstantExpression(tree.seq[0]) ]
         for subtree in tree.seq[1:]:
             element = Box.fromConstantExpression(subtree)
-            assert result[0].type.eqOrCoerce(element.type), f"Can't store {element.type} in [{result[0].type}]!"
+            assert result[0].type.eqOrCoerce(element.type), f"Can't store element {element.type} inside [{result[0].type}]!"
             result.append(element)
         return Box(Type('[]',result[0].type), result)
 
