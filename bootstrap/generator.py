@@ -17,11 +17,12 @@ from bootstrap.util import strs
 import bootstrap.selfhost as selfhost
 
 class Generator:
-    def __init__(self, grammar):
-        self.grammar   = grammar
-        self.templates = set()
-        self.forms     = set([self.Form(grammar, [grammar.Nonterminal(grammar.start,"just")])])
-        self.done      = set()
+    def __init__(self, grammar, substitutions={}):
+        self.grammar       = grammar
+        self.templates     = set()
+        self.forms         = set([self.Form(grammar, [grammar.Nonterminal(grammar.start,"just")])])
+        self.done          = set()
+        self.substitutions = substitutions
 
     def step(self, trace=None):
         if trace:
@@ -40,7 +41,7 @@ class Generator:
                         print(f't{id(t)} -> f{id(newForm)} [label="{usedTuple}"];', file=trace)
                     self.forms.add(newForm)
             for form in self.forms:
-                for sub in form.substitutions():
+                for sub in form.substitutions(restrict=self.substitutions):
                     self.done.add(form)
                     if Generator.isTemplate(sub):
                         newTemplate = self.Template(self.grammar,sub)
@@ -185,7 +186,7 @@ class Generator:
         def __str__(self):
             return f"Form({strs(self.symbols)})"
 
-        def substitutions(self):
+        def substitutions(self, restrict={}):
             variations = []
             for s in self.symbols:
                 if isinstance(s,Grammar.Terminal):
@@ -193,8 +194,10 @@ class Generator:
                         variations.append([[], [s.exactlyOne()]])
                     else:
                         variations.append([[s]])
-                elif isinstance(s,Grammar.Nonterminal):
+                elif isinstance(s,Grammar.Nonterminal) and s.name not in restrict:
                     variations.append([list(clause.rhs) for clause in self.grammar.rules[s.name].clauses])
+                elif isinstance(s,Grammar.Nonterminal) and s.name in restrict:
+                    variations.append([[Grammar.Terminal(random.choice(restrict[s.name]))]])
 
             cart_product = itertools.product(*variations)
             for sentenceParts in cart_product:
@@ -212,13 +215,18 @@ if __name__=='__main__':
     argParser.add_argument("grammar")
     argParser.add_argument("-n", "--number", type=int, default=10)
     argParser.add_argument("-t", "--tag", action='append')
+    argParser.add_argument("-s", "--substitute", action='append')
     args = argParser.parse_args()
-    tags = {}
-    for tpair in args.tag:
-        name,value = tpair.split("=")
-        if not name in tags:
-            tags[name] = []
-        tags[name].append(value)
+    def flattenKvs(pairs):
+        result = {}
+        for tpair in pairs:
+            name,value = tpair.split("=")
+            if not name in result:
+                result[name] = []
+            result[name].append(value)
+        return result
+    tags = flattenKvs(args.tag)
+    substitutions = flattenKvs(args.substitute)
 
     stage1g = selfhost.stage1()
     stage1 = Parser(stage1g, discard=stage1g.discard)
@@ -228,7 +236,7 @@ if __name__=='__main__':
         print(f"Failed to parse grammar from {args.grammar}")
         sys.exit(-1)
     grammar = selfhost.stage2(res)
-    generator = Generator(grammar)
+    generator = Generator(grammar, substitutions=substitutions)
     for sentence in itertools.islice(generator.step(), args.number):
         emit = []
         for symb in sentence:
