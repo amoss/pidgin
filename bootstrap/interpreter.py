@@ -209,7 +209,7 @@ class Box:
 
     @staticmethod
     def evaluateOrder(tree):
-        if len(tree.seq)==0:  return Box(Type('[]','empty'))
+        if len(tree.seq)==0:  return Box(Type('[]','empty'),[])
         result = [ Box.fromConstantExpression(tree.seq[0]) ]
         for subtree in tree.seq[1:]:
             element = Box.fromConstantExpression(subtree)
