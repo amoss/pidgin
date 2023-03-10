@@ -305,4 +305,8 @@ if __name__=="__main__":
         print(f"Warning: input is ambiguous, had {len(tree)} distinct parses")
 
     result = Box.fromConstantExpression(trees[0])
-    print(result.unbox())
+    pyResult = result.unbox()
+    if isinstance(pyResult,str):
+        print(repr(pyResult))
+    else:
+        print(pyResult)
