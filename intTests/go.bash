@@ -2,7 +2,7 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-for file in $SCRIPT_DIR/*.pidg; do
+for file in $SCRIPT_DIR/set*.pidg; do
   while read line; do
     input=${line%|*}
     output=${line#*| }

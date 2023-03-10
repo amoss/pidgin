@@ -51,6 +51,8 @@ def stage2(tree):
 class Type:
     def __init__(self, label, param1=None, param2=None):
         self.label  = label
+        if label=='{}': assert param1 is not None
+        if label=='[]': assert param1 is not None
         assert param1 is None or isinstance(param1,Type) or param1=="empty", param1
         self.param1 = param1
         self.param2 = param2
@@ -70,30 +72,37 @@ class Type:
         if not isinstance(other,Type):  return False
         return self.label==other.label and self.param1==other.param1 and self.param2==other.param2
 
+    def __hash__(self):
+        return hash((self.label, self.param1, self.param2))
+
     def eqOrCoerce(self, other):
         if self==other:                                            return True
         if self.label!=other.label:                                return False
         if self.param2 is None:
             assert other.param2 is None,                           f"{self} ? {other}"
             if self.param1=="empty" or other.param1=="empty":      return True
-            return self.param1.eqOrCoerce(other.param1)
+            return self.param1 is not None and self.param1.eqOrCoerce(other.param1)
         else:
             assert other.param2 is not None,                       f"{self} ? {other}"
             if (self.param1=="empty" or other.param1=="empty") and \
                (self.param2=="empty" or other.param2=="empty"):    return True
-            return self.param1.eqOrCoerce(other.param1) and \
-                   self.param2.eqOrCoerce(other.param2)
+            return self.param1 is not None and self.param1.eqOrCoerce(other.param1) and \
+                   self.param2 is not None and self.param2.eqOrCoerce(other.param2)
 
     def join(self, other):
         if self==other: return self
         param1, param2 = None, None
-        if self.param1 == "empty" and other.param1 is not None:
+        if isinstance(self.param1,Type) and isinstance(other.param1,Type):
+            param1 = self.param1.join(other.param1)
+        elif self.param1 == "empty" and other.param1 is not None:
             param1 = other.param1
-        if self.param1 is not None and other.param1 == "empty":
+        elif self.param1 is not None and other.param1 == "empty":
             param1 = self.param1
-        if self.param2 == "empty" and other.param2 is not None:
+        if isinstance(self.param2,Type) and isinstance(other.param2,Type):
+            param1 = self.param1.join(other.param1)
+        elif self.param2 == "empty" and other.param2 is not None:
             param2 = other.param2
-        if self.param2 is not None and other.param2 == "empty":
+        elif self.param2 is not None and other.param2 == "empty":
             param2 = self.param2
         return Type(self.label, param1, param2)
 
@@ -156,7 +165,7 @@ class Set:
     def __init__(self, children):
         self.children = children
     def __str__(self):
-        return "{" + ", ".join([str(c) for c in self.children]) + "}"
+        return "{" + ", ".join([str(c) for c in self.elements]) + "}"
 
 
 class Map:
@@ -194,8 +203,13 @@ class Box:
     def __eq__(self, other):
         return isinstance(other,Box) and self.type==other.type and self.raw==other.raw
 
+    def __hash__(self):
+        return hash((self.type,self.raw))
+
     def plusTypeCheck(left, right):
         if not left.eqOrCoerce(right): return None
+        if left.label=='{}':
+            return lambda l,r: Box(l.type.join(r.type),l.raw | r.raw)
         return lambda l,r: Box(l.type.join(r.type),l.raw+r.raw)
 
     def postfixTypeCheck(left, right):
@@ -209,6 +223,13 @@ class Box:
         if (left.label=='[]' and right.label=='[]') or \
            (left.label=='S'  and right.label=='S'):
             return lambda l,r: Box(l.type.join(r.type), r.raw+l.raw)
+
+    def subTypeCheck(left, right):
+        if not left.eqOrCoerce(right): return None
+        if left.label=='{}':
+            return lambda l,r: Box(l.type.join(r.type),l.raw.difference(r.raw))
+        if left.label=='N':
+            return lambda l,r: Box(l.type.join(r.type),l.raw-r.raw)
 
     def postdropTypeCheck(left, right):
         if not left.eqOrCoerce(right): return None
@@ -232,6 +253,9 @@ class Box:
             return accumulator
         if left.label=='[]' and right.eqOrCoerce(left.param1):
             return splice
+        if not left.eqOrCoerce(right): return None
+        if left.label=='{}':
+            return lambda l,r: Box(l.type.join(r.type), l.raw & r.raw)
 
     def slashTypeCheck(left, right):
         if left.label=='S' and right.label=='S':
@@ -241,6 +265,7 @@ class Box:
         '+':  plusTypeCheck,
         '.+': postfixTypeCheck,
         '+.': prefixTypeCheck,
+        '-':  subTypeCheck,
         '.-': postdropTypeCheck,
         '-.': predropTypeCheck,
         '*':  starTypeCheck,
@@ -270,13 +295,26 @@ class Box:
 
     @staticmethod
     def evaluateOrder(tree):
-        if len(tree.seq)==0:  return Box(Type('[]','empty'),[])
+        if len(tree.seq)==0:  return Box(Type('[]',param1='empty'),[])
         result = [ Box.fromConstantExpression(tree.seq[0]) ]
         for subtree in tree.seq[1:]:
             element = Box.fromConstantExpression(subtree)
             assert result[0].type.eqOrCoerce(element.type), f"Can't store element {element.type} inside [{result[0].type}]!"
             result.append(element)
-        return Box(Type('[]',result[0].type), result)
+        return Box(Type('[]', param1=result[0].type), result)
+
+    @staticmethod
+    def evaluateSet(tree):
+        if len(tree.children)==0: return Box(Type('{}',param1='empty'),frozenset())
+        element = Box.fromConstantExpression(tree.children[0])
+        elementType = element.type
+        result = set([element])
+        for subtree in tree.children[1:]:
+            element = Box.fromConstantExpression(subtree)
+            assert elementType.eqOrCoerce(element.type), f"Can't store element {element.type} inside \{{elementType}}!"
+            result.add(element)
+        return Box(Type('{}', param1=elementType), frozenset(result))
+
 
     @staticmethod
     def fromConstantExpression(node):
@@ -286,6 +324,8 @@ class Box:
             return Box(Type('S'), node.content)
         if isinstance(node, Order):
             return Box.evaluateOrder(node)
+        if isinstance(node, Set):
+            return Box.evaluateSet(node)
         assert not isinstance(node, Ident), f"{node} can't be in constant expression"
         despatch = {
             'binop1': Box.evaluateBinop1,
@@ -296,7 +336,9 @@ class Box:
         return despatch[node.tag](node)
 
     def unbox(self):
-        if self.type.label in ('[]','{}','[:]','{:}'):
+        if self.type.label=='{}':
+            raw = frozenset(box.unbox() for box in self.raw)
+        elif self.type.label in ('[]','[:]','{:}'):
             raw = [box.unbox() for box in self.raw]
         else:
             raw = self.raw
