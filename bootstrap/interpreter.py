@@ -191,19 +191,67 @@ class Box:
         self.type = type
         self.raw = raw
 
+    def __eq__(self, other):
+        return isinstance(other,Box) and self.type==other.type and self.raw==other.raw
+
     def plusTypeCheck(left, right):
         if not left.eqOrCoerce(right): return None
         return lambda l,r: Box(l.type.join(r.type),l.raw+r.raw)
 
+    def postfixTypeCheck(left, right):
+        if not left.eqOrCoerce(right): return None
+        if (left.label=='[]' and right.label=='[]') or \
+           (left.label=='S'  and right.label=='S'):
+            return lambda l,r: Box(l.type.join(r.type), l.raw+r.raw)
+
+    def prefixTypeCheck(left, right):
+        if not left.eqOrCoerce(right): return None
+        if (left.label=='[]' and right.label=='[]') or \
+           (left.label=='S'  and right.label=='S'):
+            return lambda l,r: Box(l.type.join(r.type), r.raw+l.raw)
+
+    def postdropTypeCheck(left, right):
+        if not left.eqOrCoerce(right): return None
+        if (left.label=='[]' and right.label=='[]') or \
+           (left.label=='S'  and right.label=='S'):
+            return lambda l,r: Box(l.type.join(r.type), l.raw[:-len(r.raw)] if l.raw[-len(r.raw):]==r.raw else l.raw)
+
+    def predropTypeCheck(left, right):
+        if not left.eqOrCoerce(right): return None
+        if (left.label=='[]' and right.label=='[]') or \
+           (left.label=='S'  and right.label=='S'):
+            return lambda l,r: Box(l.type.join(r.type), l.raw[len(r.raw):] if l.raw[:len(r.raw)]==r.raw else l.raw)
+
+    def starTypeCheck(left, right):
+        def splice(lst,delimiter):
+            accumulator = lst.raw[0]
+            plus = lambda l,r: Box(l.type.join(r.type),l.raw+r.raw)     # Can't refer to plusTypeCheck, fix later
+            for l in lst.raw[1:]:
+                accumulator = plus(accumulator, delimiter)
+                accumulator = plus(accumulator, l)
+            return accumulator
+        if left.label=='[]' and right.eqOrCoerce(left.param1):
+            return splice
+
+    def slashTypeCheck(left, right):
+        if left.label=='S' and right.label=='S':
+            return lambda whole,delimiter: Box(Type('[]',param1=Type('S')), [Box(Type('S'),s) for s in whole.raw.split(delimiter.raw)])
+
     opTypeCheck = {
-        '+': plusTypeCheck
+        '+':  plusTypeCheck,
+        '.+': postfixTypeCheck,
+        '+.': prefixTypeCheck,
+        '.-': postdropTypeCheck,
+        '-.': predropTypeCheck,
+        '*':  starTypeCheck,
+        '/':  slashTypeCheck
     }
 
     @staticmethod
-    def evaluateBinop1(tree):
+    def evaluateBinop(tree, listTag):
         accumulator = Box.fromConstantExpression(tree.children[0])
         for c in tree.children[1:]:
-            assert isinstance(c, Parser.Nonterminal) and c.tag=="binop1_lst" and len(c.children)==2, c
+            assert isinstance(c, Parser.Nonterminal) and c.tag==listTag and len(c.children)==2, c
             assert isinstance(c.children[0], Parser.Terminal), c.children[0]
             value = Box.fromConstantExpression(c.children[1])
             op = c.children[0].chars
@@ -211,6 +259,14 @@ class Box:
             assert eval is not None, f"Invalid types for operation: {accumulator.type} {op} {value.type}"
             accumulator = eval(accumulator, value)
         return accumulator
+
+    @staticmethod
+    def evaluateBinop1(tree):
+        return Box.evaluateBinop(tree, "binop1_lst")
+
+    @staticmethod
+    def evaluateBinop2(tree):
+        return Box.evaluateBinop(tree, "binop2_lst")
 
     @staticmethod
     def evaluateOrder(tree):
@@ -232,7 +288,8 @@ class Box:
             return Box.evaluateOrder(node)
         assert not isinstance(node, Ident), f"{node} can't be in constant expression"
         despatch = {
-            'binop1': Box.evaluateBinop1
+            'binop1': Box.evaluateBinop1,
+            'binop2': Box.evaluateBinop2
         }
         assert isinstance(node, Parser.Nonterminal), node
         assert node.tag in despatch, node.tag

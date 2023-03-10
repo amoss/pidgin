@@ -13,4 +13,4 @@ u(hello ) + u(world) | 'hello world'
 'hållo there" -. 'hällo" | 'hållo there'
 'cd" +. 'ab" -. 'abc" | 'd'
 ['fee" 'fi" 'foe" 'fum"] * ', " | 'fee, fi, foe, fum'
-'fee, fi, foe, fum" / ', " | ['fee", 'fi", 'foe", 'fum"]
+'fee, fi, foe, fum" / ', " | ['fee', 'fi', 'foe', 'fum']
