@@ -73,15 +73,20 @@ class Type:
     def eqOrCoerce(self, other):
         if self==other:                                            return True
         if self.label!=other.label:                                return False
-        if self.param1=="empty" and self.param2==other.param2:     return True
-        if other.param1=="empty" and self.param2==other.param2:    return True
-        if self.param1=="empty" and self.param2=="empty":          return True
-        if other.param1=="empty" and other.param2=="empty":        return True
-        return False
+        if self.param2 is None:
+            assert other.param2 is None,                           f"{self} ? {other}"
+            if self.param1=="empty" or other.param1=="empty":      return True
+            return self.param1.eqOrCoerce(other.param1)
+        else:
+            assert other.param2 is not None,                       f"{self} ? {other}"
+            if (self.param1=="empty" or other.param1=="empty") and \
+               (self.param2=="empty" or other.param2=="empty"):    return True
+            return self.param1.eqOrCoerce(other.param1) and \
+                   self.param2.eqOrCoerce(other.param2)
 
     def join(self, other):
         if self==other: return self
-        param1 = None
+        param1, param2 = None, None
         if self.param1 == "empty" and other.param1 is not None:
             param1 = other.param1
         if self.param1 is not None and other.param1 == "empty":
