@@ -6,11 +6,79 @@ if rootDir not in sys.path:
     sys.path.append(rootDir)
 
 import argparse
+import string
 import sys
 
 from bootstrap.grammar import Grammar
 from bootstrap.parser import Parser
-import bootstrap.selfhost as selfhost
+
+def stage1():
+    '''
+    The subset of the pidgin expression grammar that handles expressions with mostly normal and sane bracketing.
+    '''
+    g = Grammar("expr")
+    g.setDiscard(g.Terminal(set(" \t\r\n"), "some"))
+
+    expr = g.addRule("expr", [g.Nonterminal("binop1")])
+
+    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst","any")])
+    binop1_lst = g.addRule("binop1_lst", [g.Terminal(".+"), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("+."), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal(".-"), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("-."), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("+"),  g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.Terminal("-"),  g.Nonterminal("binop2")])
+
+    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst","any")])
+    binop2_lst = g.addRule("binop2_lst", [g.Terminal("*"), g.Nonterminal("binop3")])
+    binop2_lst.add(                      [g.Terminal("/"), g.Nonterminal("binop3")])
+
+    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst","any")])
+    binop3_lst = g.addRule("binop3_lst", [g.Terminal("@"), g.Nonterminal("binop4")])
+
+    binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
+    binop4.add(                  [g.Nonterminal("atom")])
+
+    atom = g.addRule("atom", [g.Terminal(set("0123456789"),"some",tag="num")])
+    atom.add(                [g.Terminal("true", tag="bool")])
+    atom.add(                [g.Terminal("false", tag="bool")])
+    atom.add(                [g.Nonterminal("ident")])
+    atom.add(                [g.Nonterminal("str_lit")])
+    atom.add(                [g.Nonterminal("set")])
+    atom.add(                [g.Nonterminal("map")])
+    atom.add(                [g.Nonterminal("order")])
+    atom.add(                [g.Nonterminal("record")])
+    atom.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
+
+    aset = g.addRule("set",    [g.Terminal('{'), g.Nonterminal("elem_lst", "optional"), g.Terminal('}')])
+    aord = g.addRule("order",  [g.Terminal('['), g.Nonterminal("elem_lst", "optional"), g.Terminal(']')])
+    amap = g.addRule("map",    [g.Terminal('{'), g.Nonterminal("elem_kv",  "some"),  g.Terminal('}')])
+    amap.add(                  [g.Terminal('{'), g.Terminal(':'), g.Terminal('}')])
+    arec = g.addRule("record", [g.Terminal('['), g.Nonterminal("elem_iv", "some"), g.Terminal(']')])
+
+    g.addRule("elem_kv",  [g.Nonterminal("expr"),
+                           g.Terminal(":"),
+                           g.Nonterminal("expr"),
+                           g.Terminal(",", external="optional")])
+    g.addRule("elem_iv",  [g.Nonterminal("ident"),
+                           g.Terminal(":"),
+                           g.Nonterminal("expr"),
+                           g.Terminal(",", external="optional")])
+    g.addRule("elem_lst", [g.Nonterminal("repeat_elem", "any"), g.Nonterminal("final_elem")])
+    g.addRule("repeat_elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"))] )
+    g.addRule("final_elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"), external="optional")] )
+
+    str_lit = g.addRule("str_lit", [g.Terminal("'"), g.Glue(),
+                                    g.Terminal(set('"'), "some", inverse=True, external="optional"), g.Glue(),
+                                    g.Terminal('"')])
+    str_lit.add(                   [g.Terminal("u("), g.Glue(),
+                                    g.Terminal(set(')'), "some", inverse=True, external="optional"), g.Glue(),
+                                    g.Terminal(')')])
+
+    letters = string.ascii_lowercase + string.ascii_uppercase
+    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just",tag="ident"), g.Glue(),
+                                g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
+    return g
 
 def stage2(tree):
     result = Grammar(tree.children[0].key.content)
@@ -43,9 +111,13 @@ def stage2(tree):
             return functors2[call.function.content](unbox(call.arg))
         assert False, call.arg
     for kv in tree.children:
-        rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
-        for clause in kv.value.children[1:]:
-            rule.add([symbol(s) for s in clause.seq])
+        try:
+            rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
+            for clause in kv.value.children[1:]:
+                rule.add([symbol(s) for s in clause.seq])
+        except Exception as e:
+            print(f"Stage2 failed to build in {kv.key} / {kv.value}")
+            raise
     return result
 
 class Type:
@@ -387,7 +459,7 @@ if __name__=="__main__":
         sys.exit(-1)
 
     grammar = open(os.path.join(rootDir, "tests/pidgin_selfhost/grammar.g")).read()
-    stage1g = selfhost.stage1()
+    stage1g = stage1()
     parser = Parser(stage1g, stage1g.discard)
     stage2g = stage2(list(parser.parse(grammar, ntTransformer=ntTransformer, tTransformer=tTransformer))[0])
     parser = Parser(stage2g, stage1g.discard)
