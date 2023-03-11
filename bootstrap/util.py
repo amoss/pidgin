@@ -33,3 +33,8 @@ def prefixesOf(s) :
     for i in range(1,len(s)+1):
         yield s[:i]
 
+def dump(node, depth=0):
+    print(f"{'  '*depth}{type(node)}{node}")
+    if hasattr(node,'children'):
+        for c in node.children:
+            dump(c,depth+1)

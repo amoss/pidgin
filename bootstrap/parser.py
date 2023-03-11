@@ -177,9 +177,11 @@ class PState:
 
 
 class Parser:
-    def __init__(self, grammar, discard=None, trace=None):
-        self.grammar = grammar
-        self.discard = discard
+    def __init__(self, grammar, discard=None, trace=None, ntTransformer={}, tTransformer={}):
+        self.grammar       = grammar
+        self.discard       = discard
+        self.tTransformer  = tTransformer
+        self.ntTransformer = ntTransformer
         entry = Clause(None, [Grammar.Nonterminal(grammar.start)], terminating=True)
         initial = AState(grammar, [entry.get(0)])
         self.start = initial
@@ -231,25 +233,24 @@ class Parser:
                 print(f's{id(s)} -> s{id(next)} [label="Glue"];', file=output)
         print("}", file=output)
 
-    @staticmethod
-    def prune(node, ntTransformer, tTransformer):
+    def prune(self, node):
         if isinstance(node, Parser.Nonterminal):
             if len(node.children)==1:
-                pruned = Parser.prune(node.children[0], ntTransformer, tTransformer)
+                pruned = self.prune(node.children[0])
             else:
-                result = [ Parser.prune(c,ntTransformer,tTransformer) for c in node.children]
+                result = [ self.prune(c) for c in node.children]
                 node.children = tuple(result)
                 pruned = node
         else:
             pruned = node
 
-        if isinstance(pruned, Parser.Nonterminal) and pruned.tag in ntTransformer:
-            return ntTransformer[pruned.tag](pruned)
-        if isinstance(pruned, Parser.Terminal) and pruned.tag in tTransformer:
-            return tTransformer[pruned.tag](pruned)
+        if isinstance(pruned, Parser.Nonterminal) and pruned.tag in self.ntTransformer:
+            return self.ntTransformer[pruned.tag](pruned)
+        if isinstance(pruned, Parser.Terminal) and pruned.tag in self.tTransformer:
+            return self.tTransformer[pruned.tag](pruned)
         return pruned
 
-    def parse(self, input, trace=None, ntTransformer={}, tTransformer={}):
+    def parse(self, input, trace=None):
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
         pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
@@ -263,7 +264,7 @@ class Parser:
                         if drop is not None and len(drop)>0:
                             remaining += len(drop)
                     if remaining==len(input) and len(p.stack)==2:
-                        yield Parser.prune(p.stack[1],ntTransformer,tTransformer)
+                        yield self.prune(p.stack[1])
                         if trace is not None:    print(f"s{p.id} [shape=rect,label={p.dotLabel(input)}];", file=trace)
                 else:
                     reduces = p.reductions()

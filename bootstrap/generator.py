@@ -14,7 +14,7 @@ import sys
 from bootstrap.grammar import Grammar
 from bootstrap.parser import Parser
 from bootstrap.util import strs
-from bootstrap.interpreter import stage1, stage2, tTransformer, ntTransformer
+from bootstrap.interpreter import buildCommon, stage2
 
 class Generator:
     def __init__(self, grammar, substitutions={}):
@@ -228,10 +228,8 @@ if __name__=='__main__':
     tags = flattenKvs(args.tag)
     substitutions = flattenKvs(args.substitute)
 
-    stage1g = stage1()
-    stage1 = Parser(stage1g, discard=stage1g.discard)
-    res = next(stage1.parse( open(args.grammar).read(),
-                             ntTransformer=ntTransformer, tTransformer=tTransformer), None)
+    stage1g, stage1 = buildCommon()
+    res = next(stage1.parse( open(args.grammar).read()), None)
     if res is None:
         print(f"Failed to parse grammar from {args.grammar}")
         sys.exit(-1)

@@ -11,7 +11,7 @@ import sys
 
 from bootstrap.parser import Parser
 from bootstrap.grammar import Grammar
-from bootstrap.interpreter import stage1, stage2, tTransformer, ntTransformer
+from bootstrap.interpreter import buildParser, AST
 
 def dump(node, depth=0):
     print(f"{'  '*depth}{type(node)}{node}")
@@ -25,33 +25,15 @@ if __name__=="__main__":
     argParser.add_argument("grammar")
     argParser.add_argument("-i", "--input")
     argParser.add_argument("-f", "--file")
-    argParser.add_argument("-d", "--debug", action="store_true")
     args = argParser.parse_args()
 
     source = open(args.grammar).read()
-    g = stage1()
-    print("\nFirst stage:")
-    g.dump()
-    parser = Parser(g, g.discard)
-    res = list(parser.parse(source, trace=open('trace1.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer))
-    if len(res)==0:
-        print("Failed to parse!")
-        sys.exit(-1)
-    elif len(res)>1:
-        print("Result was ambiguous!")
-        sys.exit(-1)
-
-    if args.debug:
-        dump(res[0])
-    g2 = stage2(res[0])
-    print("Second stage:")
-    g2.dump()
-    parser = Parser(g2, g.discard)
+    parser = buildParser()
     parser.dotAutomaton(open("lr0.dot","wt"))
     if args.input is not None:
-        res2 = parser.parse(args.input, trace=open('trace2.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer)
+        res2 = parser.parse(args.input, trace=open('trace2.dot','wt'))
     if args.file is not None:
-        res2 = parser.parse(open(args.file).read(), trace=open('trace.dot','wt'), ntTransformer=ntTransformer, tTransformer=tTransformer)
+        res2 = parser.parse(open(args.file).read(), trace=open('trace.dot','wt'))
     print("\nResults:")
     for r in res2:
         dump(r)
