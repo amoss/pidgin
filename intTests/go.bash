@@ -2,11 +2,11 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-for file in $SCRIPT_DIR/set*.pidg; do
+for file in $SCRIPT_DIR/*.pidg; do
   while read line; do
     input=${line%|*}
     output=${line#*| }
-    result=$(python3 $SCRIPT_DIR/../bootstrap/interpreter.py -i "$input")
+    result=$(python3 $SCRIPT_DIR/../bootstrap/interpreter -i "$input")
     if [[ "$output" == "$result" ]]; then
       echo "Passed on $input"
     else
