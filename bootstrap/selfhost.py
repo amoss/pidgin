@@ -11,7 +11,7 @@ import sys
 
 from bootstrap.parser import Parser
 from bootstrap.grammar import Grammar
-from bootstrap.interpreter import buildParser, AST
+from bootstrap.interpreter import buildParser, buildCommon, stage2, AST
 
 def dump(node, depth=0):
     print(f"{'  '*depth}{type(node)}{node}")
@@ -29,8 +29,11 @@ if __name__=="__main__":
     args = argParser.parse_args()
 
     source = open(args.grammar).read()
-    parser = buildParser(trace=open("trace.dot","wt"))
-    if args.debug:  parser.grammar.dump()
+
+    stage1g, parser = buildCommon()
+    stage2g = stage2(next(parser.parse(source, trace=open("trace.dot","wt"))))
+    if args.debug:  stage2g.dump()
+    parser = buildParser(stage2g, stage1g.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
     if args.input is not None:
         res2 = list(parser.parse(args.input, trace=open('trace2.dot','wt')))

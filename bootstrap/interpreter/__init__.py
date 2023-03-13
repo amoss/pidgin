@@ -4,6 +4,6 @@
 import argparse
 import sys
 
-from .frontend import buildParser, buildGrammar, buildCommon, stage2, AST
+from .frontend import buildParser, buildPidginParser, buildGrammar, buildCommon, stage2, AST
 from .types import Type
 from .box import Box

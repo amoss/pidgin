@@ -8,18 +8,19 @@ if rootDir not in sys.path:
 
 import argparse
 
-from bootstrap.interpreter import buildParser, Box
+from bootstrap.interpreter import buildPidginParser, Box
 
 argParser = argparse.ArgumentParser()
 argParser.add_argument("-i", "--input")
 argParser.add_argument("-f", "--file")
+argParser.add_argument("-s", "--start", default="expr")
 args = argParser.parse_args()
 
 if args.input is None and args.file is None:
     print("Must supply input or file")
     sys.exit(-1)
 
-parser = buildParser()
+parser = buildPidginParser(start=args.start)
 
 if args.input is not None:
     trees = list(parser.parse(args.input, trace=open('trace.dot','wt')))

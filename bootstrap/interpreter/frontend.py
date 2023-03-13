@@ -224,10 +224,14 @@ def buildGrammar():
     _, parser = buildCommon()
     return stage2(next(parser.parse(grammar)))
 
-def buildParser(trace=None):
+def buildPidginParser(trace=None, start='expr'):
     dir= os.path.dirname(__file__)
     grammar = open(os.path.join(dir, "grammar.g")).read()
     stage1g, parser = buildCommon()
     stage2g = stage2(next(parser.parse(grammar, trace=trace)))
+    stage2g.start = start
     return Parser(stage2g, stage1g.discard, ntTransformer=ntTransformer, tTransformer=tTransformer)
+
+def buildParser(grammar, discard=None):
+    return Parser(grammar, discard, ntTransformer=ntTransformer, tTransformer=tTransformer)
 
