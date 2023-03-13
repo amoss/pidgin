@@ -72,7 +72,8 @@ def stage1():
 
     letters = string.ascii_lowercase + string.ascii_uppercase
     ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just",tag="ident"), g.Glue(),
-                                g.Terminal(set("_"+letters+string.digits), "some", external="optional")])
+                                g.Terminal(set("_"+letters+string.digits), "some", external="optional"),
+                                g.Remover()])
     return g
 
 
@@ -87,7 +88,8 @@ def stage2(tree):
                  'NO':     (lambda a: result.Nonterminal(a,"optional")),
                  'NA':     (lambda a: result.Nonterminal(a,"any")),
                  'NS':     (lambda a: result.Nonterminal(a,"some")),
-                 'G':      (lambda a: result.Glue())
+                 'G':      (lambda a: result.Glue()),
+                 'R':      (lambda a: result.Remover())
                }
     functors2 = { 'T':      (lambda a: result.Terminal(a['chars'],tag=a['tag'])),
                   'TS':     (lambda a: result.Terminal(a['chars'],"some", tag=a['tag'])),
@@ -222,10 +224,10 @@ def buildGrammar():
     _, parser = buildCommon()
     return stage2(next(parser.parse(grammar)))
 
-def buildParser():
+def buildParser(trace=None):
     dir= os.path.dirname(__file__)
     grammar = open(os.path.join(dir, "grammar.g")).read()
     stage1g, parser = buildCommon()
-    stage2g = stage2(next(parser.parse(grammar)))
+    stage2g = stage2(next(parser.parse(grammar, trace=trace)))
     return Parser(stage2g, stage1g.discard, ntTransformer=ntTransformer, tTransformer=tTransformer)
 

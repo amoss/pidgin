@@ -217,4 +217,19 @@ class Grammar:
             return isinstance(other,Grammar.Glue) and self.within==other.within and self.position==other.position
 
         def __hash__(self):
-            return hash((self.within,self.position))
+            return hash((1,self.within,self.position))
+
+    class Remover:
+        def __init__(self):
+            self.within = None
+            self.position = None
+            self.modifier = "just"
+
+        def __str__(self):
+            return "Remover"
+
+        def __eq__(self, other):
+            return isinstance(other,Grammar.Remover) and self.within==other.within and self.position==other.position
+
+        def __hash__(self):
+            return hash((2,self.within,self.position))

@@ -1,21 +1,19 @@
-func foo [x:num y:set<string>] {
-    return x+len(y)
+func foo [x:int y:set<string>] {
+    return x+len!y
 }
 
-func blah [left:set<num> right:set<num>] {
+func blah [left:set<int> right:set<int>] {
     x = foo![x:len!left y:right]
     y = [x:len!right y:left]
     return x + foo!y
 }
 
-enum Symbol   [Terminal Nonterminal]
-enum Modifier [Just Any Optional Some]
-func T   [s:string] { return [:Terminal    :s  :{} :Just     :false]
-func TA  [s:set]    { return [:Terminal    :'" :s  :Any      :false]
-func TS  [s:set]    { return [:Terminal    :'" :s  :Some     :false]
-func TAN [s:set]    { return [:Terminal    :'" :s  :Any      :true ]
-func TO  [s:string] { return [:Terminal    :s  :{} :Optional :false]
-func N   [n:name]   { return [:Nonterminal :n  :{} :Just     :false]
-func NA  [n:name]   { return [:Nonterminal :n  :{} :Any      :false]
-func NO  [n:name]   { return [:Nonterminal :n  :{} :Optional :false]
-func NS  [n:name]   { return [:Nonterminal :n  :{} :Some     :false]
+func TA  [s:set]    { return [:Terminal    :'" :s  :Any      :false] }
+func TS  [s:set]    { return [:Terminal    :'" :s  :Some     :false] }
+func TAN [s:set]    { return [:Terminal    :'" :s  :Any      :true ] }
+func TO  [s:string] { return [:Terminal    :s  :{} :Optional :false] }
+func N   [n:name]   { return [:Nonterminal :n  :{} :Just     :false] }
+func NA  [n:name]   { return [:Nonterminal :n  :{} :Any      :false] }
+func NO  [n:name]   { return [:Nonterminal :n  :{} :Optional :false] }
+func NS  [n:name]   { return [:Nonterminal :n  :{} :Some     :false] }
+

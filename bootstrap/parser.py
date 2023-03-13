@@ -13,6 +13,7 @@ class AState:
         self.byTerminal = {}
         self.byNonterminal = {}
         self.byGlue = {}
+        self.byRemover = {}
         self.repeats = {}           # Flags for both terminals/non-terminals
         self.byClause = set()
 
@@ -36,14 +37,15 @@ class AState:
         return frozenset(result.set)
 
     def connect(self, symbol, next, repeats=False):
-        assert isinstance(symbol,Grammar.Terminal) or isinstance(symbol,Grammar.Nonterminal) or\
-               isinstance(symbol,Grammar.Glue), symbol
+        assert type(symbol) in [Grammar.Terminal, Grammar.Nonterminal, Grammar.Glue, Grammar.Remover], symbol
         assert isinstance(next,AState), next
         if isinstance(symbol, Grammar.Terminal):
             self.byTerminal[symbol] = next
             self.repeats[symbol] = repeats
         elif isinstance(symbol, Grammar.Glue):
             self.byGlue[symbol] = next
+        elif isinstance(symbol, Grammar.Remover):
+            self.byRemover[symbol] = next
         else:
             self.byNonterminal[symbol.name] = next
             self.repeats[symbol.name] = repeats
@@ -80,6 +82,8 @@ class PState:
                     result.append(PState(self.stack + [Parser.Terminal(match,t),astate], remaining+len(match), discard=self.discard))
         for g,nextState in astate.byGlue.items():
             result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=True))
+        for g,nextState in astate.byRemover.items():
+            result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=False))
         return result
 
     def __hash__(self):
@@ -125,7 +129,7 @@ class PState:
 
             if r<0:
                 return prepare()
-            if isinstance(clause.rhs[r],Grammar.Glue):
+            if type(clause.rhs[r]) in (Grammar.Glue,Grammar.Remover):
                 r -= 1
                 continue
             symbol = clause.rhs[r]
@@ -231,6 +235,8 @@ class Parser:
                     print(f's{id(s)} -> s{id(s)} [label="NT({name})"];', file=output)
             for next in s.byGlue.values():
                 print(f's{id(s)} -> s{id(next)} [label="Glue"];', file=output)
+            for next in s.byRemover.values():
+                print(f's{id(s)} -> s{id(next)} [label="Remover"];', file=output)
         print("}", file=output)
 
     def prune(self, node):

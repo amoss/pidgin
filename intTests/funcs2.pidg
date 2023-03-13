@@ -1,0 +1,3 @@
+enum Symbol   [Terminal Nonterminal]
+enum Modifier [Just Any Optional Some]
+func T   [s:string] { return [:Terminal    :s  :{} :Just     :false] }

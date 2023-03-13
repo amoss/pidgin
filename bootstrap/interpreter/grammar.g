@@ -1,4 +1,21 @@
 {
+    'program": { [NS!'decl"] }
+    'decl": { [T!'func" N!'ident" N!'record_decl" T!'{" NS!'statement" T!'}"]
+              [N!'enum_decl"]
+            }
+    'record_decl": { [T!'[" NS!'nametype" T!']" ] }
+    'enum_decl": { [T!'enum" N!'ident" T!'[" NS!'ident" T!']"] }
+    'statement": { [T!'return" N!'expr" ]
+                   [N!'ident"  T!'=" N!'expr"]
+                 }
+    'nametype":  { [N!'ident" T!':" N!'type_decl"] }
+    'type_decl": { [T!'int"]
+                   [T!'string"]
+                   [T!'set<"   N!'type_decl" T!'>"]
+                   [T!'map<"   N!'type_decl" N!'type_decl" T!'>"]
+                   [T!'order<" N!'type_decl" T!'>"]
+                 }
+
     'expr": { [N!'binop1"] }
     'binop1":     { [N!'binop2",  NA!'binop1_lst"] }
     'binop1_lst": { [T!'.+",  N!'binop2"]
@@ -42,7 +59,8 @@
                     'a" 'b" 'c" 'd" 'e" 'f" 'g" 'h" 'i" 'j"
                     'k" 'l" 'm" 'n" 'o" 'p" 'q" 'r" 's" 't"
                     'u" 'v" 'w" 'x" 'y" 'z"
-                    '_" '0", '1", '2", '3", '4", '5", '6", '7", '8", '9"}]
+                    '_" '0", '1", '2", '3", '4", '5", '6", '7", '8", '9"},
+                R!'"]
              }
     'number": { [TS![chars:{'0", '1", '2", '3", '4", '5", '6", '7", '8", '9",} tag:'num"]] }
     'str_lit": { [T!u('), G!'", TAN!{u(")}, T!u(")]
@@ -52,10 +70,12 @@
     'map":   { [T!'{",  NS!'elem_kv",   T!'}"]
                [T!'{",  T!':",          T!'}"] }
     'order": { [T!'[",  NO!'elem_lst",  T!']"] }
-    'record": { [T!'[",  NS!'elem_iv",   T!']"] }
+    'record": { [T!'[",  NS!'elem_iv",   T!']"]
+                [T!'[",  NS!'elem_anonv", T!']"]}
 
     'elem_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
     'elem_iv":  { [N!'ident",  T!':",  N!'expr",  TO!',"] }
+    'elem_anonv":  { [T!':",  N!'expr",  TO!',"] }
     'elem_lst": {[NA!'repeat_elem", N!'final_elem"]}
     'repeat_elem": {[N!'expr", G!'", T!{' " '	" '" ',"}]}
     'final_elem": {[N!'expr", G!'", TO!{' "  '	" '" ',"}]}

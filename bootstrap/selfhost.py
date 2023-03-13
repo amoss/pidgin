@@ -25,16 +25,18 @@ if __name__=="__main__":
     argParser.add_argument("grammar")
     argParser.add_argument("-i", "--input")
     argParser.add_argument("-f", "--file")
+    argParser.add_argument("-d", "--debug", action="store_true")
     args = argParser.parse_args()
 
     source = open(args.grammar).read()
-    parser = buildParser()
+    parser = buildParser(trace=open("trace.dot","wt"))
+    if args.debug:  parser.grammar.dump()
     parser.dotAutomaton(open("lr0.dot","wt"))
     if args.input is not None:
-        res2 = parser.parse(args.input, trace=open('trace2.dot','wt'))
+        res2 = list(parser.parse(args.input, trace=open('trace2.dot','wt')))
     if args.file is not None:
-        res2 = parser.parse(open(args.file).read(), trace=open('trace.dot','wt'))
-    print("\nResults:")
+        res2 = list(parser.parse(open(args.file).read(), trace=open('trace2.dot','wt')))
+    print(f"\nResults {len(res2)}:")
     for r in res2:
         dump(r)
 
