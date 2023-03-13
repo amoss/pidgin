@@ -16,7 +16,7 @@ import traceback
 
 from bootstrap.generator import Generator
 from bootstrap.parser import Parser
-import bootstrap.selfhost as selfhost
+from bootstrap.interpreter import buildParser, buildCommon, stage2
 
 GRAY = "\033[0;37m"
 RED = "\033[1;31m"
@@ -143,8 +143,7 @@ for name in os.listdir(target):
     shutil.rmtree(dir)
 
 # Generate new result set
-stage1g = selfhost.stage1()
-stage1 = Parser(stage1g, stage1g.discard)
+stage1g, stage1 = buildCommon()
 for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
     if args.filter is not None and args.filter not in name: continue
     dir = os.path.join(rootDir,"tests",name)
@@ -178,7 +177,7 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
         print(END)
 
     try:
-        res = list(stage1.parse( open(os.path.join(dir,"grammar.g")).read(), transformer=selfhost.transformer))
+        res = list(stage1.parse( open(os.path.join(dir,"grammar.g")).read()))
         if len(res)==1:
             print(f"{GREEN}Initialized grammar {name}{END}")
         elif len(res)>1:
@@ -187,8 +186,8 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
         else:
             print(f"{RED}Grammar {name} failed to parse{END}")
             continue
-        stage2g = selfhost.stage2(res[0])
-        parser2 = Parser(stage2g, discard=stage2g.Terminal(set(" \t\r\n"), "some"))
+        stage2g = stage2(res[0])
+        parser2 = buildParser(stage2g, discard=stage2g.Terminal(set(" \t\r\n"), "some"))
         testPositives(dir, parser2)
         testNegatives(dir, parser2)
         testAmbiguities(dir, parser2)
