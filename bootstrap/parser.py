@@ -2,8 +2,23 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import html
-from .grammar import Grammar, Clause
+from .grammar import Grammar, Clause, Configuration
 from .util import OrdSet, strs
+
+class Barrier:
+    '''Implementation for priority/greediness in the parse. A group of related PStates tied to passing a greedy
+       symbol in a configuration (either NT any or NT some). The AState will contain the configuration before
+       and after the greedy symbol (by the definition of the epsilon closure). The step after accepting the greedy
+       symbol could be a transition or a reduction - but it will not be chosen until all of the other states in
+       the barrier have run to completition. Every state in the barrier that arrives back at the gate state will
+       update the delayed step to the longest stack.'''
+    def __init__(self, gate, final):
+        assert isinstance(gate, AState), gate
+        self.gate = gate
+        assert isinstance(final, Grammar.Configuration), final
+        self.final = final
+        self.states = set()
+
 
 class AState:
     '''A state in the LR(0) automaton'''
