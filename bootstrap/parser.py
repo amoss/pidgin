@@ -26,6 +26,11 @@ class Barrier:
     def register(self, state):
         self.states.add(state)
 
+    def cancel(self, state):
+        self.states.remove(state)
+        if len(self.states)==0:
+            return self.latch
+
     def updateLatch(self, pstate):
         if self.latch is None  or  pstate.position>self.latch.position:
             self.latch = pstate
@@ -103,13 +108,9 @@ class PState:
             if astate.latch is not None:
                 if barrier is None:
                     self.barrier = Barrier(astate, astate.latch)
+                    self.barrier.register(self)
                 else:
                     assert barrier.final is astate.latch, barrier.final   # This won't always be true, will need stack
-
-    #### HOLT SHIT THIS IS ALL WRONG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    #### Barrier creation should be in PState creation
-    #### Avoids two-step (now,next) semantics on barriers implied below
-
 
     def shiftIsLatch(self, terminal):
         if self.barrier is None:  return False
@@ -173,6 +174,35 @@ class PState:
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
+
+    # This is basically the deferred part of reductions() / shifts() that applied to the state that we latched on.
+    # Can we tidy up by refactoring out some of the duplication?
+    def liftAsLatch(self, input):
+        escapeSymbol = self.barrier.final.next()
+        astate = self.stack[-1]
+        if escapeSymbol is None:
+            # Lift latch to escape gating state via reduction
+            clause = self.barrier.final.clause
+            newStack = self.checkHandle(clause)
+            if newStack is not None:
+                returnState = newStack[-2]
+                if clause.lhs is None:
+                    return PState(newStack, self.position, discard=self.discard, keep=self.keep)
+                newStack.append(returnState.byNonterminal[clause.lhs])
+                return PState(newStack, self.position, discard=self.discard, keep=self.keep)
+        else:
+            # Lift latch to escape gating state via shift of a terminal
+            remaining = self.position
+            if not self.keep and self.discard is not None:
+                drop = self.discard.match(input[remaining:])
+                if drop is not None and len(drop)>0:
+                    remaining += len(drop)
+            assert escapeSymbol in astate.byTerminal, escapeSymbol
+            nextState = astate.byTerminal[escapeSymbol]
+            match = escapeSymbol.match(input[remaining:])
+            if match is not None:
+                return PState(self.stack + [Parser.Terminal(match,escapeSymbol),nextState],
+                              remaining+len(match), discard=self.discard)
 
     def checkHandle(self, clause):
         '''Handles are as complex as regex in this system, and so the choice of greediness is very important.
@@ -355,6 +385,13 @@ class Parser:
                             print(f's{p.id} -> s{r.id} [label="reduce"];', file=trace)
                         for s in shifts:
                             print(f's{p.id} -> s{s.id} [label="shift"];', file=trace)
+                if p.barrier is not None:
+                    latch = p.barrier.cancel(p)
+                    if latch is not None:
+                        afterLatch = latch.liftAsLatch(input)
+                        if afterLatch is not None:
+                            next.append(afterLatch)
+                            if trace is not None: print(f'b{p.barrier.id} -> s{afterLatch.id} [color="blue"];', file=trace)
             pstates = next
         if trace is not None: print("}", file=trace)
 
