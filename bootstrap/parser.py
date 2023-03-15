@@ -6,6 +6,7 @@ from .grammar import Grammar, Clause, Configuration
 from .util import OrdSet, strs
 
 class Barrier:
+    counter = 1
     '''Implementation for priority/greediness in the parse. A group of related PStates tied to passing a greedy
        symbol in a configuration (either NT any or NT some). The AState will contain the configuration before
        and after the greedy symbol (by the definition of the epsilon closure). The step after accepting the greedy
@@ -19,6 +20,8 @@ class Barrier:
         self.final = final
         self.latch = None
         self.states = set()
+        self.id = Barrier.counter
+        Barrier.counter += 1
 
     def register(self, state):
         self.states.add(state)
@@ -315,12 +318,19 @@ class Parser:
         return pruned
 
     def parse(self, input, trace=None):
+        barriers = set()
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
         pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
             next = []
             for p in pstates:
-                if trace is not None:            print(f"s{p.id} [shape=none,label={p.dotLabel(input)}];", file=trace)
+                if trace is not None:
+                    print(f"s{p.id} [shape=none,label={p.dotLabel(input)}];", file=trace)
+                    if p.barrier is not None:
+                        if p.barrier.id not in barriers:
+                            print(f'b{p.barrier.id} [fontcolor="blue",color="blue",label="Barrier {p.barrier.id}"];', file=trace)
+                            barriers.add(p.barrier.id)
+                        print(f's{p.id} -> b{p.barrier.id} [color="blue"];', file=trace)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position
                     if not p.keep and self.discard is not None:
