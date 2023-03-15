@@ -188,6 +188,7 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             continue
         stage2g = stage2(res[0])
         parser2 = buildParser(stage2g, discard=stage2g.Terminal(set(" \t\r\n"), "some"))
+        parser2.dotAutomaton(open(os.path.join(target, "lr0.dot"),"wt"))
         testPositives(dir, parser2)
         testNegatives(dir, parser2)
         testAmbiguities(dir, parser2)
