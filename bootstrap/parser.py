@@ -27,7 +27,7 @@ class Barrier:
         self.states.add(state)
 
     def updateLatch(self, pstate):
-        if self.latch is None  or  len(pstate.position) > len(self.latch.position):
+        if self.latch is None  or  pstate.position>self.latch.position:
             self.latch = pstate
 
 
@@ -161,12 +161,15 @@ class PState:
             if newStack is not None:
                 returnState = newStack[-2]
                 if clause.lhs is None:
-                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep,
+                                  barrier=self.barrier))
                     continue
                 newStack.append(returnState.byNonterminal[clause.lhs])
-                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep,
+                              barrier=self.barrier))
                 if returnState.repeats[clause.lhs] and newStack[-1]!=returnState:
-                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard, keep=self.keep))
+                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard,
+                                  keep=self.keep, barrier=self.barrier))
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
@@ -319,6 +322,7 @@ class Parser:
 
     def parse(self, input, trace=None):
         barriers = set()
+        Barrier.counter = 1
         if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
         pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
