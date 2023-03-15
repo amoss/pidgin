@@ -11,20 +11,32 @@ class Barrier:
        and after the greedy symbol (by the definition of the epsilon closure). The step after accepting the greedy
        symbol could be a transition or a reduction - but it will not be chosen until all of the other states in
        the barrier have run to completition. Every state in the barrier that arrives back at the gate state will
-       update the delayed step to the longest stack.'''
+       update the delayed step to the state that has progressed furthest through the input.'''
     def __init__(self, gate, final):
         assert isinstance(gate, AState), gate
         self.gate = gate
-        assert isinstance(final, Grammar.Configuration), final
+        assert isinstance(final, Configuration), final
         self.final = final
+        self.latch = None
         self.states = set()
+
+    def register(self, state):
+        self.states.add(state)
+
+    def updateLatch(self, pstate):
+        if self.latch is None  or  len(pstate.position) > len(self.latch.position):
+            self.latch = pstate
 
 
 class AState:
     '''A state in the LR(0) automaton'''
-    def __init__(self, grammar, configs):
+    def __init__(self, grammar, configs, latch=None):
         self.grammar = grammar
-        self.configurations = self.epsilonClosure(configs)
+        if latch is not None:
+            self.configurations = self.epsilonClosure(configs+[latch])
+        else:
+            self.configurations = self.epsilonClosure(configs)
+        self.latch = latch
         self.byTerminal = {}
         self.byNonterminal = {}
         self.byGlue = {}
@@ -73,13 +85,33 @@ class PState:
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position, discard=None, keep=False):
+    def __init__(self, stack, position, discard=None, keep=False, barrier=None):
         self.stack = stack
         self.position = position
         self.id = PState.counter
         self.discard = discard
         self.keep = keep
         PState.counter += 1
+        self.barrier = barrier
+        if self.barrier is not None:
+            self.barrier.register(self)
+        if isinstance(self.stack[-1],AState):
+            astate = self.stack[-1]
+            if astate.latch is not None:
+                if barrier is None:
+                    self.barrier = Barrier(astate, astate.latch)
+                else:
+                    assert barrier.final is astate.latch, barrier.final   # This won't always be true, will need stack
+
+    #### HOLT SHIT THIS IS ALL WRONG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #### Barrier creation should be in PState creation
+    #### Avoids two-step (now,next) semantics on barriers implied below
+
+
+    def shiftIsLatch(self, terminal):
+        if self.barrier is None:  return False
+        symbol = self.barrier.final.next()
+        return symbol==terminal
 
     def shifts(self, input):
         result = []
@@ -92,13 +124,20 @@ class PState:
         for t,nextState in astate.byTerminal.items():
             match = t.match(input[remaining:])
             if match is not None:
-                result.append(PState(self.stack + [Parser.Terminal(match,t),nextState], remaining+len(match), discard=self.discard))
+                if self.shiftIsLatch(t):
+                    self.barrier.updateLatch(self)
+                    continue
+                result.append(PState(self.stack + [Parser.Terminal(match,t),nextState],
+                              remaining+len(match), discard=self.discard, barrier=self.barrier))
                 if astate.repeats[t]:
-                    result.append(PState(self.stack + [Parser.Terminal(match,t),astate], remaining+len(match), discard=self.discard))
+                    result.append(PState(self.stack + [Parser.Terminal(match,t),astate],
+                                  remaining+len(match), discard=self.discard, barrier=self.barrier))
         for g,nextState in astate.byGlue.items():
-            result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=True))
+            result.append(PState(self.stack[:-1] + [nextState], self.position,
+                          discard=self.discard, keep=True, barrier=self.barrier))
         for g,nextState in astate.byRemover.items():
-            result.append(PState(self.stack[:-1] + [nextState], self.position, discard=self.discard, keep=False))
+            result.append(PState(self.stack[:-1] + [nextState], self.position,
+                          discard=self.discard, keep=False, barrier=self.barrier))
         return result
 
     def __hash__(self):
@@ -112,6 +151,9 @@ class PState:
         astate = self.stack[-1]
         done = set()
         for clause in astate.byClause:
+            if self.barrier is not None and self.barrier.final.next()==None and self.barrier.final.clause==clause:
+                self.barrier.updateLatch(self)
+                continue
             newStack = self.checkHandle(clause)
             if newStack is not None:
                 returnState = newStack[-2]
@@ -216,9 +258,10 @@ class Parser:
                     assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
                     state.connect(symbol, state)    # No repeat on any as self-loop
                 elif symbol.modifier=="some":
-                    next = AState(grammar, possibleConfigs+[c for c in state.configurations if c.next()==symbol])
-                    next = worklist.add(next)
-                    state.connect(symbol, next)
+                    for p in possibleConfigs:
+                        next = AState(grammar, [c for c in state.configurations if c.next()==symbol], latch=p)
+                        next = worklist.add(next)
+                        state.connect(symbol, next)
                 else:
                     next = AState(grammar, possibleConfigs)
                     next = worklist.add(next)
@@ -288,6 +331,7 @@ class Parser:
                         yield self.prune(p.stack[1])
                         if trace is not None:    print(f"s{p.id} [shape=rect,label={p.dotLabel(input)}];", file=trace)
                 else:
+                    # Need to convert to single call otherwise we can't share barriers
                     reduces = p.reductions()
                     shifts  = p.shifts(input)
                     next.extend(reduces)
