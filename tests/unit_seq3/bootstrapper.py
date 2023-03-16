@@ -11,8 +11,8 @@ from bootstrap.grammar import Grammar
 
 def build():
     g = Grammar("seq")
-    g.addRule("seq", [g.Nonterminal("x","any")])
-    g.addRule("x", [g.Terminal("x")])
+    g.addRule("seq", [g.Nonterminal("ntx","any")])
+    g.addRule("ntx", [g.Terminal("x")])
 
     return g
 
