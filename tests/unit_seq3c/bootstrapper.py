@@ -11,8 +11,9 @@ from bootstrap.grammar import Grammar
 
 def build():
     g = Grammar("seq")
-    g.addRule("seq", [g.Nonterminal("ntx","some"), g.Terminal(set(["x","z"])), g.Terminal(set(["x","z"]))])
-    g.addRule("ntx",   [g.TermString("x")])
+    g.addRule("seq", [g.Nonterminal("ntx",strength="all",modifier="any")])
+    g.addRule("ntx", [g.TermString("x")])
+
     return g
 
 # The spot for manual testing of the parser
@@ -21,6 +22,6 @@ if __name__=="__main__":
     from bootstrap.parser import Parser
     parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
-    res = (list(parser.parse('xxxx',trace=open("trace.dot","wt"))))
+    res = (list(parser.parse('xxx',trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()

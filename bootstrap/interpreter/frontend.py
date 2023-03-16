@@ -12,67 +12,67 @@ def stage1():
     The subset of the pidgin expression grammar that handles expressions with mostly normal and sane bracketing.
     '''
     g = Grammar("expr")
-    g.setDiscard(g.Terminal(set(" \t\r\n"), "some"))
+    g.setDiscard(g.TermSet(set(" \t\r\n"), modifier="some"))
 
     expr = g.addRule("expr", [g.Nonterminal("binop1")])
 
-    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst","any")])
-    binop1_lst = g.addRule("binop1_lst", [g.Terminal(".+"), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("+."), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal(".-"), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("-."), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("+"),  g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.Terminal("-"),  g.Nonterminal("binop2")])
+    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst",modifier="any")])
+    binop1_lst = g.addRule("binop1_lst", [g.TermString(".+"), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.TermString("+."), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.TermString(".-"), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.TermString("-."), g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.TermString("+"),  g.Nonterminal("binop2")])
+    binop1_lst.add(                      [g.TermString("-"),  g.Nonterminal("binop2")])
 
-    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst","any")])
-    binop2_lst = g.addRule("binop2_lst", [g.Terminal("*"), g.Nonterminal("binop3")])
-    binop2_lst.add(                      [g.Terminal("/"), g.Nonterminal("binop3")])
+    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst",modifier="any")])
+    binop2_lst = g.addRule("binop2_lst", [g.TermString("*"), g.Nonterminal("binop3")])
+    binop2_lst.add(                      [g.TermString("/"), g.Nonterminal("binop3")])
 
-    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst","any")])
-    binop3_lst = g.addRule("binop3_lst", [g.Terminal("@"), g.Nonterminal("binop4")])
+    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst",modifier="any")])
+    binop3_lst = g.addRule("binop3_lst", [g.TermString("@"), g.Nonterminal("binop4")])
 
-    binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.Terminal("!"), g.Nonterminal("atom")])
+    binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.TermString("!"), g.Nonterminal("atom")])
     binop4.add(                  [g.Nonterminal("atom")])
 
-    atom = g.addRule("atom", [g.Terminal(set("0123456789"),"some",tag="num")])
-    atom.add(                [g.Terminal("true", tag="bool")])
-    atom.add(                [g.Terminal("false", tag="bool")])
+    atom = g.addRule("atom", [g.TermSet(set("0123456789"),modifier="some",tag="num")])
+    atom.add(                [g.TermString("true", tag="bool")])
+    atom.add(                [g.TermString("false", tag="bool")])
     atom.add(                [g.Nonterminal("ident")])
     atom.add(                [g.Nonterminal("str_lit")])
     atom.add(                [g.Nonterminal("set")])
     atom.add(                [g.Nonterminal("map")])
     atom.add(                [g.Nonterminal("order")])
     atom.add(                [g.Nonterminal("record")])
-    atom.add(                [g.Terminal("("), g.Nonterminal("expr"), g.Terminal(")")])
+    atom.add(                [g.TermString("("), g.Nonterminal("expr"), g.TermString(")")])
 
-    aset = g.addRule("set",    [g.Terminal('{'), g.Nonterminal("elem_lst", "optional"), g.Terminal('}')])
-    aord = g.addRule("order",  [g.Terminal('['), g.Nonterminal("elem_lst", "optional"), g.Terminal(']')])
-    amap = g.addRule("map",    [g.Terminal('{'), g.Nonterminal("elem_kv",  "some"),  g.Terminal('}')])
-    amap.add(                  [g.Terminal('{'), g.Terminal(':'), g.Terminal('}')])
-    arec = g.addRule("record", [g.Terminal('['), g.Nonterminal("elem_iv", "some"), g.Terminal(']')])
+    aset = g.addRule("set",    [g.TermString('{'), g.Nonterminal("elem_lst", modifier="optional"), g.TermString('}')])
+    aord = g.addRule("order",  [g.TermString('['), g.Nonterminal("elem_lst", modifier="optional"), g.TermString(']')])
+    amap = g.addRule("map",    [g.TermString('{'), g.Nonterminal("elem_kv",  modifier="some"),  g.TermString('}')])
+    amap.add(                  [g.TermString('{'), g.TermString(':'), g.TermString('}')])
+    arec = g.addRule("record", [g.TermString('['), g.Nonterminal("elem_iv", modifier="some"), g.TermString(']')])
 
     g.addRule("elem_kv",  [g.Nonterminal("expr"),
-                           g.Terminal(":"),
+                           g.TermString(":"),
                            g.Nonterminal("expr"),
-                           g.Terminal(",", external="optional")])
+                           g.TermString(",", modifier="optional")])
     g.addRule("elem_iv",  [g.Nonterminal("ident"),
-                           g.Terminal(":"),
+                           g.TermString(":"),
                            g.Nonterminal("expr"),
-                           g.Terminal(",", external="optional")])
-    g.addRule("elem_lst", [g.Nonterminal("repeat_elem", "any"), g.Nonterminal("final_elem")])
-    g.addRule("repeat_elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"))] )
-    g.addRule("final_elem", [g.Nonterminal("expr"), g.Glue(), g.Terminal(set(", \r\t\n"), external="optional")] )
+                           g.TermString(",", modifier="optional")])
+    g.addRule("elem_lst", [g.Nonterminal("repeat_elem", modifier="any"), g.Nonterminal("final_elem")])
+    g.addRule("repeat_elem", [g.Nonterminal("expr"), g.Glue(), g.TermSet(set(", \r\t\n"))] )
+    g.addRule("final_elem", [g.Nonterminal("expr"), g.Glue(), g.TermSet(set(", \r\t\n"), modifier="optional")] )
 
-    str_lit = g.addRule("str_lit", [g.Terminal("'"), g.Glue(),
-                                    g.Terminal(set('"'), "some", inverse=True, external="optional"), g.Glue(),
-                                    g.Terminal('"')])
-    str_lit.add(                   [g.Terminal("u("), g.Glue(),
-                                    g.Terminal(set(')'), "some", inverse=True, external="optional"), g.Glue(),
-                                    g.Terminal(')')])
+    str_lit = g.addRule("str_lit", [g.TermString("'"), g.Glue(),
+                                    g.TermSet(set('"'), modifier="any", inverse=True), g.Glue(),
+                                    g.TermString('"')])
+    str_lit.add(                   [g.TermString("u("), g.Glue(),
+                                    g.TermSet(set(')'), modifier="any", inverse=True), g.Glue(),
+                                    g.TermString(')')])
 
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.Terminal(set("_"+letters),"just",tag="ident"), g.Glue(),
-                                g.Terminal(set("_"+letters+string.digits), "some", external="optional"),
+    ident = g.addRule("ident", [g.TermSet(set("_"+letters),tag="ident"), g.Glue(),
+                                g.TermSet(set("_"+letters+string.digits), modifier="any"),
                                 g.Remover()])
     return g
 

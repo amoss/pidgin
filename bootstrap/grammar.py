@@ -11,7 +11,7 @@ class Rule:
         self.clauses = set()
 
     def add(self, initialBody):
-        body = [ self.grammar.canonical(symbol) if isinstance(symbol, Grammar.Terminal) else symbol
+        body = [ self.grammar.canonical(symbol) if symbol.isTerminal() else symbol
                  for symbol in initialBody]
         self.clauses.add( Clause(self.name, body) )
 
@@ -85,7 +85,7 @@ class Grammar:
         self.canonicalTerminals = dict()
 
     def canonical(self, terminal):
-        assert isinstance(terminal, Grammar.Terminal), terminal
+        assert terminal.isTerminal(), terminal
         if not terminal in self.canonicalTerminals:
             self.canonicalTerminals[terminal] = terminal
         return self.canonicalTerminals[terminal]
@@ -124,14 +124,17 @@ class Grammar:
             return (self.match, self.tag, self.modifier)
 
         def __eq__(self,other):
-            return isinstance(other,TermString) and self.sig()==other.sig()
+            return isinstance(other,Grammar.TermString) and self.sig()==other.sig()
 
         def __hash__(self):
             return hash(self.sig())
 
+        def isTerminal(self):
+            return True
+
         def match(self, input):
-            allowzero = self.internal in ("any","optional")
-            limit = len(input) if self.internal in ("any","some") else 1
+            allowzero = self.modifier in ("any","optional")
+            limit = len(input) if self.modifier in ("any","some") else 1
             i = 0
             n = len(self.string)
             original = input[:]
@@ -143,6 +146,9 @@ class Grammar:
             if i==0:
                 return "" if allowzero else None
             return original[:i*n]
+
+        def exactlyOne(self):
+            return Grammar.TermString(self.string, modifier="just", tag=self.tag)
 
         # Does this still get used or is it dead?
         #def order(self):
@@ -176,10 +182,13 @@ class Grammar:
             return (self.chars, self.modifier, self.inverse, self.tag)
 
         def __eq__(self,other):
-            return isinstance(other,TermSet) and self.sig()==other.sig()
+            return isinstance(other,Grammar.TermSet) and self.sig()==other.sig()
 
         def __hash__(self):
             return hash(self.sig())
+
+        def isTerminal(self):
+            return True
 
         def exactlyOne(self):
             return Grammar.TermSet(self.chars, modifier="just", inverse=self.inverse, tag=self.tag)
@@ -218,10 +227,13 @@ class Grammar:
             return (self.name, self.modifier)
 
         def __eq__(self, other):
-            return isinstance(other,Nonterminal) and self.sig()==other.sig()
+            return isinstance(other,Grammar.Nonterminal) and self.sig()==other.sig()
 
         def __hash__(self):
             return hash(self.sig())
+
+        def isTerminal(self):
+            return False
 
         def exactlyOne(self):
             return Grammar.Nonterminal(self.name, "just")
@@ -241,6 +253,9 @@ class Grammar:
         def __hash__(self):
             return hash((1,self.within,self.position))
 
+        def isTerminal(self):
+            return False
+
     class Remover:
         def __init__(self):
             self.within = None
@@ -255,3 +270,6 @@ class Grammar:
 
         def __hash__(self):
             return hash((2,self.within,self.position))
+
+        def isTerminal(self):
+            return False

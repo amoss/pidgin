@@ -72,9 +72,10 @@ class AState:
         return frozenset(result.set)
 
     def connect(self, symbol, next, repeats=False):
-        assert type(symbol) in [Grammar.Terminal, Grammar.Nonterminal, Grammar.Glue, Grammar.Remover], symbol
+        assert type(symbol) in (Grammar.TermSet, Grammar.TermString, Grammar.Nonterminal, Grammar.Glue, 
+                                Grammar.Remover), symbol
         assert isinstance(next,AState), next
-        if isinstance(symbol, Grammar.Terminal):
+        if symbol.isTerminal():
             self.byTerminal[symbol] = next
             self.repeats[symbol] = repeats
         elif isinstance(symbol, Grammar.Glue):

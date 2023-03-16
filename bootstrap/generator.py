@@ -20,7 +20,7 @@ class Generator:
     def __init__(self, grammar, substitutions={}):
         self.grammar       = grammar
         self.templates     = set()
-        self.forms         = set([self.Form(grammar, [grammar.Nonterminal(grammar.start,"just")])])
+        self.forms         = set([self.Form(grammar, [grammar.Nonterminal(grammar.start)])])
         self.done          = set()
         self.substitutions = substitutions
 
@@ -70,7 +70,7 @@ class Generator:
 
     @staticmethod
     def isAllTerminal(symbols):
-        return all([isinstance(s,Grammar.Terminal) for s in symbols])
+        return all([s.isTerminal() for s in symbols])
 
     @staticmethod
     def dotTemplate(output, gen):
@@ -83,9 +83,9 @@ class Generator:
         for i,symbol in enumerate(sentence):
             if i!=0:
                 label += ' '
-            if isinstance(symbol,Grammar.Terminal) and symbol.string is not None:
+            if isinstance(symbol,Grammar.TermString):
                 label += symbol.string
-            if isinstance(symbol,Grammar.Terminal) and symbol.string is None:
+            if isinstance(symbol,Grammar.TermSet):
                 label += '[' + str(symbol.chars) + ']'
             if isinstance(symbol,Grammar.Nonterminal):
                 label += symbol.name
@@ -189,7 +189,7 @@ class Generator:
         def substitutions(self, restrict={}):
             variations = []
             for s in self.symbols:
-                if isinstance(s,Grammar.Terminal):
+                if s.isTerminal():
                     if s.modifier=="optional":
                         variations.append([[], [s.exactlyOne()]])
                     else:
@@ -197,7 +197,7 @@ class Generator:
                 elif isinstance(s,Grammar.Nonterminal) and s.name not in restrict:
                     variations.append([list(clause.rhs) for clause in self.grammar.rules[s.name].clauses])
                 elif isinstance(s,Grammar.Nonterminal) and s.name in restrict:
-                    variations.append([[Grammar.Terminal(random.choice(restrict[s.name]))]])
+                    variations.append([[Grammar.TermString(random.choice(restrict[s.name]))]])
 
             cart_product = itertools.product(*variations)
             for sentenceParts in cart_product:
