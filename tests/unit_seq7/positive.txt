@@ -1,3 +1,6 @@
-xz
-xxz
-xxxz
+xzz
+xzx
+xxzz
+xxzx
+xxxzz
+xxxzx

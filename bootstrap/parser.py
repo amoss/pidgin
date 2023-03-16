@@ -112,6 +112,12 @@ class PState:
                 else:
                     assert barrier.final is astate.latch, barrier.final   # This won't always be true, will need stack
 
+    def __hash__(self):
+        return hash((tuple(self.stack),self.position))
+
+    def __eq__(self, other):
+        return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
+
     def shiftIsLatch(self, terminal):
         if self.barrier is None:  return False
         symbol = self.barrier.final.next()
@@ -143,12 +149,6 @@ class PState:
             result.append(PState(self.stack[:-1] + [nextState], self.position,
                           discard=self.discard, keep=False, barrier=self.barrier))
         return result
-
-    def __hash__(self):
-        return hash((tuple(self.stack),self.position))
-
-    def __eq__(self, other):
-        return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
 
     def reductions(self):
         result = []

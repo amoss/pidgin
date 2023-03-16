@@ -26,5 +26,7 @@ Check greediness of "some" on a terminal, ensure overlapping matches in the fina
 
 ## unit_seq7
 
-Check greediness of "some" on a nonterminal, must be equivalent to unit_seq6
+Check greediness of "some" on a nonterminal, should be equivalent to unit_seq6.
+
+## unit_seq8
 
