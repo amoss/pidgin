@@ -79,15 +79,15 @@ def stage1():
 
 def stage2(tree):
     result = Grammar(tree.children[0].key.content)
-    functors = { 'T':      (lambda a: result.Terminal(a)),
-                 'TA':     (lambda a: result.Terminal(a,"some",external="optional")),
-                 'TAN':    (lambda a: result.Terminal(a,"some",external="optional",inverse=True)),
-                 'TS':     (lambda a: result.Terminal(a,"some")),
-                 'TO':     (lambda a: result.Terminal(a,external="optional")),
+    functors = { 'T':      (lambda a: result.TermSet(a) if isinstance(a,set) else result.TermString(a)),
+                 'TA':     (lambda a: result.TermSet(a,"any") if isinstance(a,set) else result.TermString(a,"any")),
+                 'TAN':    (lambda a: result.TermSet(a,"some",modifier="any",inverse=True)),
+                 'TS':     (lambda a: result.TermSet(a,"some") if isinstance(a,set) else result.TermString(a,"some")),
+                 'TO':     (lambda a: result.TermSet(a,"optional") if isinstance(a,set) else result.TermString(a,"optional")),
                  'N':      (lambda a: result.Nonterminal(a)),
-                 'NO':     (lambda a: result.Nonterminal(a,"optional")),
-                 'NA':     (lambda a: result.Nonterminal(a,"any")),
-                 'NS':     (lambda a: result.Nonterminal(a,"some")),
+                 'NO':     (lambda a: result.Nonterminal(a,modifier="optional")),
+                 'NA':     (lambda a: result.Nonterminal(a,modifier="any")),
+                 'NS':     (lambda a: result.Nonterminal(a,modifier="some")),
                  'G':      (lambda a: result.Glue()),
                  'R':      (lambda a: result.Remover())
                }

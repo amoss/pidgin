@@ -16,6 +16,7 @@ import traceback
 
 from bootstrap.generator import Generator
 from bootstrap.parser import Parser
+from bootstrap.grammar import Grammar
 from bootstrap.interpreter import buildParser, buildCommon, stage2
 
 GRAY = "\033[0;37m"
@@ -50,7 +51,7 @@ def generateWhileProductive(grammar, targetPath, numSentences=20):
         print("}", file=traceFile)
     with open(os.path.join(target, "generated.txt"),"wt") as outputFile:
         for s in sentences:
-            s = [ symb.string if symb.string is not None else str(symb) for symb in s]
+            s = [ symb.string if isinstance(symb,Grammar.TermString) else str(symb) for symb in s]
             outputFile.write(" ".join(s))
             outputFile.write("\n")
     return succeeded
@@ -187,7 +188,7 @@ for name in sorted(os.listdir( os.path.join(rootDir,"tests") )):
             print(f"{RED}Grammar {name} failed to parse{END}")
             continue
         stage2g = stage2(res[0])
-        parser2 = buildParser(stage2g, discard=stage2g.Terminal(set(" \t\r\n"), "some"))
+        parser2 = buildParser(stage2g, discard=stage2g.TermSet(set(" \t\r\n"), modifier="some"))
         parser2.dotAutomaton(open(os.path.join(target, "lr0.dot"),"wt"))
         testPositives(dir, parser2)
         testNegatives(dir, parser2)

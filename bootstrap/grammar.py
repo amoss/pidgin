@@ -133,7 +133,6 @@ class Grammar:
             return True
 
         def match(self, input):
-            allowzero = self.modifier in ("any","optional")
             limit = len(input) if self.modifier in ("any","some") else 1
             i = 0
             n = len(self.string)
@@ -143,9 +142,8 @@ class Grammar:
                 i += 1
                 input = input[n:]
                 #print(f"Matching {i} {n} {self.string} {input}")
-            if i==0:
-                return "" if allowzero else None
-            return original[:i*n]
+            if i>0:
+                return original[:i*n]
 
         def exactlyOne(self):
             return Grammar.TermString(self.string, modifier="just", tag=self.tag)
@@ -167,7 +165,7 @@ class Grammar:
             self.tag      = tag
 
         def __str__(self):
-            if len(sel.chars)<=5:
+            if len(self.chars)<=5:
                 charset = ",".join([c if c!=',' else "','" for c in self.chars])
             else:
                 charset = ",".join([c if c!=',' else "','" for c in list(self.chars)[:5]]) + f' +{len(self.chars)-5}'
@@ -198,14 +196,12 @@ class Grammar:
         #    return (0,0,self.chars)
 
         def match(self, input):
-            allowzero = self.internal in ("any","optional")
             limit = len(input) if self.internal in ("any","some") else 1
             i = 0
             while i<limit and i<len(input) and ((input[i] not in self.chars) == self.inverse):
                 i += 1
-            if i==0:
-                return "" if allowzero else None
-            return input[:i]
+            if i>0:
+                return input[:i]
 
 
     class Nonterminal:
@@ -236,7 +232,7 @@ class Grammar:
             return False
 
         def exactlyOne(self):
-            return Grammar.Nonterminal(self.name, "just")
+            return Grammar.Nonterminal(self.name, strength=self.strength, modifier="just")
 
     class Glue:
         def __init__(self):
