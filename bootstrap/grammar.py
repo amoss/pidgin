@@ -124,7 +124,7 @@ class Grammar:
             return (self.match, self.tag, self.modifier)
 
         def __eq__(self,other):
-            return self.sig()==other.sig()
+            return isinstance(other,TermString) and self.sig()==other.sig()
 
         def __hash__(self):
             return hash(self.sig())
@@ -149,14 +149,14 @@ class Grammar:
         #    return (0, 1, self.string)
 
     class TermSet:
-        def __init__(self, charset, strength="greedy", modifier="just", inverse=False, tag=''):
+        def __init__(self, charset, modifier="just", inverse=False, tag=''):
             '''The *modifier* applies to matching the *charset* within a single symbol, in contrast
                to how the modifier works on non-terminals.'''
-            assert strength in ("all","weak","greedy"), strength
             assert modifier in ("any","just","some","optional"), modifier
+            self.internal = "some" if modifier in ("any","some") else "just"
+            self.modifier = "optional" if modifier in ("optional","any") else "just"
+            self.orig = modifier
             self.chars = frozenset(charset)
-            self.strength = strength
-            self.modifier = modifier
             self.inverse  = inverse
             self.tag      = tag
 
@@ -170,13 +170,13 @@ class Grammar:
             else:
                 result = 'T({"' + charset + '},'
             tag = f",{self.tag}" if self.tag!="" else ""
-            return f'{result}{strength},{modifier}{tag})'
+            return f'{result},{self.orig}{tag})'
 
         def sig(self):
-            return (self.chars, self.strength, self.modifier, self.inverse, self.tag)
+            return (self.chars, self.modifier, self.inverse, self.tag)
 
         def __eq__(self,other):
-            return self.sig()==other.sig()
+            return isinstance(other,TermSet) and self.sig()==other.sig()
 
         def __hash__(self):
             return hash(self.sig())
@@ -200,22 +200,28 @@ class Grammar:
 
 
     class Nonterminal:
-        def __init__(self, name, modifier="just"):
-            assert modifier in ["any", "just", "some", "optional"]
-            self.name = name
+        def __init__(self, name, strength="greedy", modifier="just"):
+            assert modifier in ("any", "just", "some", "optional"), modifier
+            assert strength in ("all", "frugal", "greedy"), strength
+            self.name     = name
             self.modifier = modifier
+            self.strength = strength
 
         def __str__(self):
-            return f"N({self.modifier},{self.name})"
+            return f"N({self.strength},{self.modifier},{self.name})"
 
-        def order(self):
-            return (1, 0, self.name)
+        # Does this still get used or is it dead?
+        #def order(self):
+        #    return (1, 0, self.name)
+
+        def sig(self):
+            return (self.name, self.modifier)
 
         def __eq__(self, other):
-            return isinstance(other,Grammar.Nonterminal) and self.name==other.name and self.modifier==other.modifier
+            return isinstance(other,Nonterminal) and self.sig()==other.sig()
 
         def __hash__(self):
-            return hash((self.name, self.modifier))
+            return hash(self.sig())
 
         def exactlyOne(self):
             return Grammar.Nonterminal(self.name, "just")

@@ -12,7 +12,7 @@ from bootstrap.grammar import Grammar
 def build():
     g = Grammar("seq")
     g.addRule("seq", [g.Nonterminal("ntx","some"), g.Terminal(set(["x","z"])), g.Terminal(set(["x","z"]))])
-    g.addRule("ntx",   [g.Terminal("x")])
+    g.addRule("ntx",   [g.TermString("x")])
     return g
 
 # The spot for manual testing of the parser
