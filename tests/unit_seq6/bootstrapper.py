@@ -11,7 +11,7 @@ from bootstrap.grammar import Grammar
 
 def build():
     g = Grammar("seq")
-    g.addRule("seq", [g.Terminal("x","some","just"), g.Terminal(set(["x","y"]))])
+    g.addRule("seq", [g.Terminal("x","some","just"), g.Terminal(set(["x","z"]))])
     return g
 
 # The spot for manual testing of the parser
