@@ -1,0 +1,8 @@
+x
+y
+xx
+yx
+xxx
+xyy
+xxxx
+yyyy
