@@ -216,6 +216,7 @@ class PState:
         hasMatched = False
         while s >= 1:
             def prepare():
+                if s==len(self.stack)-1: return None  # Do not allow zero-length matches if the handle is all optional
                 preHandle = self.stack[:s+1]
                 onlySymbols = ( s for s in self.stack[s+1:] if not isinstance(s,AState) )
                 preHandle.append(Parser.Nonterminal(clause.lhs,onlySymbols))
