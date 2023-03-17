@@ -43,3 +43,31 @@ Check greediness of "some" on a terminal, ensure overlapping matches in the fina
     <li>Check all-matches of "some" on a nonterminal, should be able to match endings.</li>
 </ol>
 
+## unit_seq8
+
+<ol type="a">
+    <li>Check nesting of greedy nonterminal "any" inside of greedy nonterminal "some"</li>
+    <li>Check nesting of frugal nonterminal "any" inside of greedy nonterminal "some"</li>
+    <li>Check nesting of all nonterminal "any" inside of greedy nonterminal "some"</li>
+    <li>Check nesting of greedy nonterminal "any" inside of frugal nonterminal "some"</li>
+    <li>Check nesting of frugal nonterminal "any" inside of frugal nonterminal "some"</li>
+    <li>Check nesting of all nonterminal "any" inside of frugal nonterminal "some"</li>
+    <li>Check nesting of greedy nonterminal "any" inside of all nonterminal "some"</li>
+    <li>Check nesting of frugal nonterminal "any" inside of all nonterminal "some"</li>
+    <li>Check nesting of all nonterminal "any" inside of all nonterminal "some"</li>
+</ol>
+
+## unit_seq9
+
+<ol type="a">
+    <li>Check nesting of greedy nonterminal "some" inside of greedy nonterminal "any"</li>
+    <li>Check nesting of frugal nonterminal "some" inside of greedy nonterminal "any"</li>
+    <li>Check nesting of all nonterminal "some" inside of greedy nonterminal "any"</li>
+    <li>Check nesting of greedy nonterminal "some" inside of frugal nonterminal "any"</li>
+    <li>Check nesting of frugal nonterminal "some" inside of frugal nonterminal "any"</li>
+    <li>Check nesting of all nonterminal "some" inside of frugal nonterminal "any"</li>
+    <li>Check nesting of greedy nonterminal "some" inside of all nonterminal "any"</li>
+    <li>Check nesting of frugal nonterminal "some" inside of all nonterminal "any"</li>
+    <li>Check nesting of all nonterminal "some" inside of all nonterminal "any"</li>
+</ol>
+
