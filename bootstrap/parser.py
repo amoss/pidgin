@@ -33,6 +33,7 @@ class Barrier:
 
     def updateLatch(self, pstate):
         if self.latch is None  or  pstate.position>self.latch.position:
+            # NEED TO INTRODUCE STACK FOR FRUGAL CASE
             self.latch = pstate
 
 
@@ -101,8 +102,10 @@ class PState:
         self.discard = discard
         self.keep = keep
         PState.counter += 1
+        #assert barrier is None or (isinstance(barrier,tuple) and len(barrier)==2), barrier
         self.barrier = barrier
         if self.barrier is not None:
+            #self.barrier[0].register(self)
             self.barrier.register(self)
         if isinstance(self.stack[-1],AState):
             astate = self.stack[-1]
@@ -316,10 +319,11 @@ class Parser:
         print("digraph {", file=output)
         for s in self.states:
             label = "\\n".join([str(c).replace('"','\\"') for c in s.configurations])
+            color = "color=grey" if s.latch is None else "color=black"
             if len(s.byClause)>0:
-                print(f's{id(s)} [label="{label}",shape=rect];', file=output)
+                print(f's{id(s)} [label="{label}",shape=rect,{color}];', file=output)
             else:
-                print(f's{id(s)} [label="{label}"];', file=output)
+                print(f's{id(s)} [label="{label}",{color}];', file=output)
             for t,next in s.byTerminal.items():
                 label = str(t).replace('"','\\"')
                 print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)

@@ -27,6 +27,6 @@ if __name__=="__main__":
     from bootstrap.parser import Parser
     parser = Parser(grammar, discard=grammar.discard)
     parser.dotAutomaton(open("lr0.dot","wt"))
-    res = (list(parser.parse('uxzz',trace=open("trace.dot","wt"))))
+    res = (list(parser.parse('xxxbxxxbxxxbzz',trace=open("trace.dot","wt"))))
     for r in res:
         r.dump()
