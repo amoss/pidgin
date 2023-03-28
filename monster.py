@@ -316,23 +316,70 @@ class Grammar:
         def isTerminal(self):
             return False
 
+
+
+
+
+
 class AState:
     '''A state in the LR(0) automaton'''
     def __init__(self, grammar, configs):
         self.grammar = grammar
-        self.configurations = self.epsilonClosure(configs)
-        self.byTerminal = {}
-        self.byNonterminal = {}
-        self.byGlue = {}
-        self.byRemover = {}
-        self.byClause = set()
-        self.barriers = {}
+        accumulator = None
+        derived = {}
+        for c in configs:
+            accumulator, derived = self.epsilonClosure2(c, accumulator=accumulator, trace=derived)
+        self.configurations = frozenset(accumulator)
+        for k,v in derived.items():
+            if isinstance(k,str):
+                pass
+            else:
+                print(f"Terminal {k} from {v}")
+        #self.configurations = self.epsilonClosure(configs)
+
+        self.byPriTerminal   = {}
+        self.shiftBarriers   = {}
+        self.byTerminal      = {}
+
+
+#        self.byTerminal = {}
+#        self.byNonterminal = {}
+#        self.byGlue = {}
+#        self.byRemover = {}
+#        self.byClause = set()
+#        self.barriers = {}
 
     def __eq__(self, other):
         return isinstance(other,AState) and self.configurations==other.configurations
 
     def __hash__(self):
         return hash(self.configurations)
+
+    def epsilonClosure2(self, config, accumulator=None, trace=None):
+        '''Process the single *config* to produce a set of derived configurations to add to the closure. Use an
+           *accumulator* for the set of configurations to terminate recursion. Record the derivations in the
+           *trace* so that we can infer barriers for the state.'''
+        #print(f"closure: {config} {accumulator} {trace}")
+        if accumulator is None:                         accumulator = set()
+        if trace is None:                               trace = {}
+        if config in accumulator:                       return accumulator, trace
+        accumulator.add(config)
+        symbol = config.next()
+        if symbol.isTerminal():
+            norm = symbol.exactlyOne()
+            if norm not in trace:                       trace[norm] = set()
+            trace[norm].add(config.clause.lhs)
+            return accumulator, trace
+        if not isinstance(symbol,Grammar.Nonterminal):  return accumulator, trace
+        if symbol.name not in trace:                    trace[symbol.name] = set()
+        trace[symbol.name].add(config.clause.lhs)
+        rule = self.grammar.rules[symbol.name]
+        for clause in rule.clauses:
+            initial = clause.get(0)
+            accumulator, trace = self.epsilonClosure2(initial, accumulator, trace)
+        if symbol.modifier in ('any','optional'):
+            accumulator, trace = self.epsilonClosure2(config.succ(), accumulator, trace)
+        return accumulator, trace
 
     def epsilonClosure(self, configs):
         result = OrdSet(configs)
@@ -346,10 +393,20 @@ class AState:
                 rule = self.grammar.rules[symbol.name]
                 for clause in rule.clauses:
                     result.add(clause.get(0))
+                    #if symbol.modifier in ('any','some') and symbol.strength in ('greedy','frugal'):
+                    #    self.shiftBarriers[
 #                self.byNonterminal[symbol.name] = None
             if symbol.modifier in ('any','optional'):
                 result.add(c.succ())
         return frozenset(result.set)
+
+    def connectShift(self, terminal, next):
+        pass
+
+    def connectPriShift(self, terminal, exit, next):
+        pass
+
+
 
     def connect(self, symbol, next, repeats=False):
         assert type(symbol) in (Grammar.TermSet, Grammar.TermString, Grammar.Nonterminal, Grammar.Glue, 
@@ -385,6 +442,7 @@ class Automaton:
             nextSymbols.discard(None)
             for symbol in nextSymbols:
                 possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
+                print(f"next: {symbol} configs: {possibleConfigs}")
 #                if symbol.modifier=="any":
 #                    assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
 #                    state.connect(symbol, state)    # No repeat on any as self-loop
@@ -428,13 +486,13 @@ class Automaton:
 
 
 
-g = Grammar('E')
-E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
+#g = Grammar('E')
+#E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
+#E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
+#g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
 
-#g = Grammar('R')
-#g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
+g = Grammar('R')
+g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
 
 a = Automaton(g)
 a.dot(sys.stdout)
