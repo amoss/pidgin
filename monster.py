@@ -3,6 +3,7 @@
 
 from functools import total_ordering
 import html
+import itertools
 import sys
 
 class OrdSet:
@@ -170,7 +171,7 @@ class Grammar:
             return html.escape(self.string)
 
         def sig(self):
-            return (self.match, self.tag, self.modifier)
+            return (self.string, self.tag, self.modifier)
 
         def __eq__(self,other):
             return isinstance(other,Grammar.TermString) and self.sig()==other.sig()
@@ -391,6 +392,7 @@ class AState:
         if config in accumulator:                       return accumulator, trace
         accumulator.add(config)
         symbol = config.next()
+        if symbol is None:                              return accumulator, trace
         if symbol.isTerminal():
             norm = symbol.exactlyOne()
             if norm not in trace:                       trace[norm] = set()
@@ -446,11 +448,23 @@ class Automaton:
         worklist = OrdSet([initial])
 
         for state in worklist:
-            nextSymbols = set( config.next() for config in state.configurations)
-            reducing = None in nextSymbols
-            nextSymbols.discard(None)
-            for symbol in nextSymbols:
-                possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
+            for edges in (state.byTerminal, state.byPriTerminal):
+                for terminal in edges.keys():
+                    possibleConfigs = [ c.succ() for c in state.configurations if c.next()==terminal ]
+                    #print(f"next: {terminal} configs: {possibleConfigs}")
+                    next = AState(grammar, possibleConfigs)
+                    next = worklist.add(next)
+                    edges[terminal] = next
+
+#            nextSymbols = set( config.next() for config in state.configurations)
+#            reducing = None in nextSymbols
+#            nextSymbols.discard(None)
+#            for symbol in nextSymbols:
+#                possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
+#                next = AState(grammar, possibleConfigs)
+#                next = worklist.add(next)
+#                state.connect(symbol, next)
+
                 #print(f"next: {symbol} configs: {possibleConfigs}")
 #                if symbol.modifier=="any":
 #                    assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
@@ -480,16 +494,20 @@ class Automaton:
 
             for t,next in s.byPriTerminal.items():
                 if next is None:
-                    synthId = f's{id(s)}_{id(t)}'
-                    print(f'{synthId} [color=red,label="missing"];')
-                    barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
-                    print(f's{id(s)} -> {synthId} [label=<{t.html()}>,taillabel="enter {barriers}"];')
+                    nextId = f's{id(s)}_{id(t)}'
+                    print(f'{nextId} [color=red,label="missing"];')
+                else:
+                    nextId = f's{id(next)}'
+                barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
+                print(f's{id(s)} -> {nextId} [color=grey,label=<{t.html()}>,taillabel="enter {barriers}"];')
 
             for t,next in s.byTerminal.items():
                 if next is None:
-                    synthId = f's{id(s)}_{id(t)}'
-                    print(f'{synthId} [color=red,label="missing"];')
-                    print(f's{id(s)} -> {synthId} [label=<{t.html()}>];')
+                    nextId = f's{id(s)}_{id(t)}'
+                else:
+                    nextId = f's{id(next)}'
+                print(f'{nextId} [color=red,label="missing"];')
+                print(f's{id(s)} -> {nextId} [color=grey,label=<{t.html()}>];')
 #                label = str(t).replace('"','\\"')
 #                print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
 #                if s.repeats[t]:
