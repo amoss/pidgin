@@ -352,7 +352,7 @@ class AState:
         accumulator = None
         derived = {}
         for c in configs:
-            accumulator, derived = self.epsilonClosure2(c, accumulator=accumulator, trace=derived)
+            accumulator, derived = self.epsilonClosure(c, accumulator=accumulator, trace=derived)
         self.configurations = frozenset(accumulator)
 
         for k,v in derived.items():
@@ -381,7 +381,7 @@ class AState:
     def __hash__(self):
         return hash(self.configurations)
 
-    def epsilonClosure2(self, config, accumulator=None, trace=None):
+    def epsilonClosure(self, config, accumulator=None, trace=None):
         '''Process the single *config* to produce a set of derived configurations to add to the closure. Use an
            *accumulator* for the set of configurations to terminate recursion. Record the derivations in the
            *trace* so that we can infer barriers for the state.'''
@@ -404,29 +404,10 @@ class AState:
         rule = self.grammar.rules[symbol.name]
         for clause in rule.clauses:
             initial = clause.get(0)
-            accumulator, trace = self.epsilonClosure2(initial, accumulator, trace)
+            accumulator, trace = self.epsilonClosure(initial, accumulator, trace)
         if symbol.modifier in ('any','optional'):
-            accumulator, trace = self.epsilonClosure2(config.succ(), accumulator, trace)
+            accumulator, trace = self.epsilonClosure(config.succ(), accumulator, trace)
         return accumulator, trace
-
-    def epsilonClosure(self, configs):
-        result = OrdSet(configs)
-        for c in result:
-            symbol = c.next()
-            if symbol is None: continue
-#            if symbol.isTerminal():
-#                self.byTerminal[symbol] = None
-#                continue
-            if isinstance(symbol, Grammar.Nonterminal):
-                rule = self.grammar.rules[symbol.name]
-                for clause in rule.clauses:
-                    result.add(clause.get(0))
-                    #if symbol.modifier in ('any','some') and symbol.strength in ('greedy','frugal'):
-                    #    self.shiftBarriers[
-#                self.byNonterminal[symbol.name] = None
-            if symbol.modifier in ('any','optional'):
-                result.add(c.succ())
-        return frozenset(result.set)
 
     def connectShift(self, terminal, next):
         pass
