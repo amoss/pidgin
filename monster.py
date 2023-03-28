@@ -166,6 +166,9 @@ class Grammar:
             tag = f",{self.tag}" if self.tag!="" else ""
             return f"T({repr(self.string)},{self.modifier}{tag})"
 
+        def html(self):
+            return html.escape(self.string)
+
         def sig(self):
             return (self.match, self.tag, self.modifier)
 
@@ -221,6 +224,9 @@ class Grammar:
                 result = 'T({"' + charset + '},'
             tag = f",{self.tag}" if self.tag!="" else ""
             return f'{result},{self.orig}{tag})'
+
+        def html(self):
+            return '[]'
 
         def sig(self):
             return (self.chars, self.modifier, self.inverse, self.tag)
@@ -319,27 +325,46 @@ class Grammar:
 
 
 
-
+def barrierSources(trace, terminal):
+    '''Each entry in the *trace* is a map from symbol to sources that it was derived from during epsilon-closure.
+       This representation is necessary as the relation may form a DAG instead of a tree. From the given *terminal*
+       walk back through the DAG and check for greedy repeating symbols.'''
+    result = set()
+    worklist = OrdSet()
+    for src in trace[terminal]:
+        worklist.add(src)
+    for item in worklist:
+        if isinstance(item,str):
+            for src in trace[item]:
+                worklist.add(src)
+        elif isinstance(item,Grammar.Nonterminal) and item.modifier in ('any','some') and item.strength in ('greedy','frugal'):
+            result.add(item)
+    return result
 
 class AState:
     '''A state in the LR(0) automaton'''
     def __init__(self, grammar, configs):
         self.grammar = grammar
+        self.byPriTerminal   = {}
+        self.shiftBarriers   = {}
+        self.byTerminal      = {}
+
         accumulator = None
         derived = {}
         for c in configs:
             accumulator, derived = self.epsilonClosure2(c, accumulator=accumulator, trace=derived)
         self.configurations = frozenset(accumulator)
-        for k,v in derived.items():
-            if isinstance(k,str):
-                pass
-            else:
-                print(f"Terminal {k} from {v}")
-        #self.configurations = self.epsilonClosure(configs)
 
-        self.byPriTerminal   = {}
-        self.shiftBarriers   = {}
-        self.byTerminal      = {}
+        for k,v in derived.items():
+            if isinstance(k,Grammar.TermString) or isinstance(k,Grammar.TermSet):
+                barrierSrcs = barrierSources(derived,k)
+                if len(barrierSrcs)>0:
+                    self.byPriTerminal[k] = None
+                    for b in barrierSrcs:
+                        self.shiftBarriers[b] = k
+                else:
+                    self.byTerminal[k] = None
+
 
 
 #        self.byTerminal = {}
@@ -348,6 +373,7 @@ class AState:
 #        self.byRemover = {}
 #        self.byClause = set()
 #        self.barriers = {}
+
 
     def __eq__(self, other):
         return isinstance(other,AState) and self.configurations==other.configurations
@@ -373,6 +399,8 @@ class AState:
         if not isinstance(symbol,Grammar.Nonterminal):  return accumulator, trace
         if symbol.name not in trace:                    trace[symbol.name] = set()
         trace[symbol.name].add(config.clause.lhs)
+        if symbol.modifier in ('any','some') and symbol.strength in ('greedy','frugal'):
+            trace[symbol.name].add(symbol)
         rule = self.grammar.rules[symbol.name]
         for clause in rule.clauses:
             initial = clause.get(0)
@@ -442,7 +470,7 @@ class Automaton:
             nextSymbols.discard(None)
             for symbol in nextSymbols:
                 possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
-                print(f"next: {symbol} configs: {possibleConfigs}")
+                #print(f"next: {symbol} configs: {possibleConfigs}")
 #                if symbol.modifier=="any":
 #                    assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
 #                    state.connect(symbol, state)    # No repeat on any as self-loop
@@ -468,7 +496,19 @@ class Automaton:
         for s in self.states:
             label = "<BR/>".join([c.html() for c in s.configurations])
             print(f's{id(s)} [shape=none,label=< {label} >];', file=output)
-#            for t,next in s.byTerminal.items():
+
+            for t,next in s.byPriTerminal.items():
+                if next is None:
+                    synthId = f's{id(s)}_{id(t)}'
+                    print(f'{synthId} [color=red,label="missing"];')
+                    barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
+                    print(f's{id(s)} -> {synthId} [label=<{t.html()}>,taillabel="enter {barriers}"];')
+
+            for t,next in s.byTerminal.items():
+                if next is None:
+                    synthId = f's{id(s)}_{id(t)}'
+                    print(f'{synthId} [color=red,label="missing"];')
+                    print(f's{id(s)} -> {synthId} [label=<{t.html()}>];')
 #                label = str(t).replace('"','\\"')
 #                print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
 #                if s.repeats[t]:
