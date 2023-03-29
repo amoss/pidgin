@@ -367,7 +367,7 @@ def barrierSources(trace, terminal):
     for src in trace[terminal]:
         worklist.add(src)
     for item in worklist:
-        if isinstance(item,str):
+        if isinstance(item,str) and item in trace:
             for src in trace[item]:
                 worklist.add(src)
         elif isinstance(item,Grammar.Nonterminal) and item.modifier in ('any','some') and item.strength in ('greedy','frugal'):
@@ -391,6 +391,7 @@ class AState:
         for c in configs:
             accumulator, derived = self.epsilonClosure(c, accumulator=accumulator, trace=derived)
         self.configurations = frozenset(accumulator)
+        print(f'eclose: {accumulator} {derived}')
 
         for k,v in derived.items():
             if isinstance(k,Grammar.TermString) or isinstance(k,Grammar.TermSet):
@@ -403,8 +404,9 @@ class AState:
                     self.byTerminal[k] = None
             if isinstance(k,str):
                 filtered = [ entry for entry in v if isinstance(entry,Grammar.Nonterminal) ]
-                nonterminal = filtered[0].exactlyOne()
-                self.byNonterminal[nonterminal] = None
+                if len(filtered)>0:
+                    nonterminal = filtered[0].exactlyOne()
+                    self.byNonterminal[nonterminal] = None
 
 
 
@@ -573,13 +575,13 @@ class Automaton:
 
 
 
-#g = Grammar('E')
-#E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-#E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-#g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
+g = Grammar('E')
+E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
+E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
+g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
 
-g = Grammar('R')
-g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
+#g = Grammar('R')
+#g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
 
 a = Automaton(g)
 a.dot(open("t.dot","wt"))
