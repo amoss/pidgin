@@ -349,6 +349,7 @@ class AState:
         self.byPriTerminal   = {}
         self.shiftBarriers   = {}
         self.byTerminal      = {}
+        self.byNonterminal   = {}
 
         accumulator = None
         derived = {}
@@ -365,15 +366,17 @@ class AState:
                         self.shiftBarriers[b] = k
                 else:
                     self.byTerminal[k] = None
+            if isinstance(k,str):
+                filtered = [ entry for entry in v if isinstance(entry,Grammar.Nonterminal) ]
+                nonterminal = filtered[0].exactlyOne()
+                self.byNonterminal[nonterminal] = None
 
 
 
-#        self.byTerminal = {}
-#        self.byNonterminal = {}
+
 #        self.byGlue = {}
 #        self.byRemover = {}
 #        self.byClause = set()
-#        self.barriers = {}
 
 
     def __eq__(self, other):
@@ -456,14 +459,16 @@ class Automaton:
                     next = worklist.add(next)
                     edges[terminal] = next
 
-#            nextSymbols = set( config.next() for config in state.configurations)
-#            reducing = None in nextSymbols
-#            nextSymbols.discard(None)
-#            for symbol in nextSymbols:
-#                possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
-#                next = AState(grammar, possibleConfigs)
-#                next = worklist.add(next)
-#                state.connect(symbol, next)
+            for nonterminal in state.byNonterminal.keys():
+                eqRepeating = lambda sym: isinstance(sym,Grammar.Nonterminal) and \
+                                          sym.modifier in ('any','some') and      \
+                                          sym.name==nonterminal.name
+                possibleConfigs  = [ c.succ() for c in state.configurations if c.next()==nonterminal ]
+                possibleConfigs += [ c        for c in state.configurations if eqRepeating(c.next()) ]
+                next = AState(grammar, possibleConfigs)
+                next = worklist.add(next)
+                state.byNonterminal[nonterminal] = next
+
 
                 #print(f"next: {symbol} configs: {possibleConfigs}")
 #                if symbol.modifier=="any":
@@ -487,27 +492,33 @@ class Automaton:
         assert isinstance(self.states, dict)
 
     def dot(self, output):
+        def makeNextId(state, next, symbol, output):
+            if next is None:
+                nextId = f's{id(state)}_{id(symbol)}'
+                print(f'{nextId} [color=red,label="missing"];', file=output)
+            else:
+                nextId = f's{id(next)}'
+            return nextId
+
         print("digraph {", file=output)
         for s in self.states:
             label = "<BR/>".join([c.html() for c in s.configurations])
             print(f's{id(s)} [shape=none,label=< {label} >];', file=output)
 
             for t,next in s.byPriTerminal.items():
-                if next is None:
-                    nextId = f's{id(s)}_{id(t)}'
-                    print(f'{nextId} [color=red,label="missing"];')
-                else:
-                    nextId = f's{id(next)}'
+                nextId = makeNextId(s, next, t, output)
                 barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
-                print(f's{id(s)} -> {nextId} [color=grey,label=<{t.html()}>,taillabel="enter {barriers}"];')
+                print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">shift {t.html()}</FONT>>,taillabel=<<FONT color="grey">enter {barriers}</FONT>>];', file=output)
 
             for t,next in s.byTerminal.items():
-                if next is None:
-                    nextId = f's{id(s)}_{id(t)}'
-                else:
-                    nextId = f's{id(next)}'
-                print(f'{nextId} [color=red,label="missing"];')
-                print(f's{id(s)} -> {nextId} [color=grey,label=<{t.html()}>];')
+                nextId = makeNextId(s, next, t, output)
+                print(f's{id(s)} -> {nextId} [color=grey,label=<shift {t.html()}>];', file=output)
+
+            for nt, next in s.byNonterminal.items():
+                nextId = makeNextId(s, next, t, output)
+                print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt.name}</FONT>>];', file=output)
+
+
 #                label = str(t).replace('"','\\"')
 #                print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
 #                if s.repeats[t]:
@@ -534,6 +545,6 @@ g = Grammar('R')
 g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
 
 a = Automaton(g)
-a.dot(sys.stdout)
+a.dot(open("t.dot","wt"))
 
 
