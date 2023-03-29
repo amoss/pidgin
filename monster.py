@@ -62,6 +62,21 @@ class Clause:
     def __lt__(self, other):
         return self.rhs[0].order() < other.rhs[0].order()
 
+    def html(self):
+        result = ""
+        for s in self.rhs:
+            modChars = { 'just':'', 'any':'*', 'some':'+', 'optional':'?' }
+            modifier = modChars[s.modifier]
+            if isinstance(s,Grammar.Nonterminal):
+                result += s.name + f"{modifier} "
+            elif isinstance(s,Grammar.TermString):
+                result += f'<FONT face="monospace" color="grey">{html.escape(s.string)} </FONT>{modifier}'
+            elif isinstance(s,Grammar.TermSet):
+                result += f'<FONT face="monospace">[]</FONT>{modifier}'
+            else:
+                result += str(type(s)) + modifier
+        return result
+
     def isTerminal(self):
         return False
 
@@ -74,8 +89,8 @@ class Configuration:
     def __init__(self, clause, position):
         self.clause = clause
         assert -1 <= position and position <= len(self.clause.rhs)
-        self.terminating = clause.terminating and (position==len(self.clause.rhs))
         self.position = position
+        self.terminating = clause.terminating and self.isReducing()
 
     def __str__(self):
         result = f"{self.clause.lhs} <- "
@@ -114,6 +129,9 @@ class Configuration:
 
     def __hash__(self):
         return hash((self.clause.lhs, str(self.clause.rhs), self.position))
+
+    def isReducing(self):
+        return self.position == len(self.clause.rhs)
 
     def next(self):
         if self.position==len(self.clause.rhs):
@@ -350,6 +368,7 @@ class AState:
         self.shiftBarriers   = {}
         self.byTerminal      = {}
         self.byNonterminal   = {}
+        self.byClause        = set()
 
         accumulator = None
         derived = {}
@@ -376,7 +395,6 @@ class AState:
 
 #        self.byGlue = {}
 #        self.byRemover = {}
-#        self.byClause = set()
 
 
     def __eq__(self, other):
@@ -454,7 +472,6 @@ class Automaton:
             for edges in (state.byTerminal, state.byPriTerminal):
                 for terminal in edges.keys():
                     possibleConfigs = [ c.succ() for c in state.configurations if c.next()==terminal ]
-                    #print(f"next: {terminal} configs: {possibleConfigs}")
                     next = AState(grammar, possibleConfigs)
                     next = worklist.add(next)
                     edges[terminal] = next
@@ -469,25 +486,10 @@ class Automaton:
                 next = worklist.add(next)
                 state.byNonterminal[nonterminal] = next
 
+            for c in state.configurations:
+                if c.isReducing():
+                    state.byClause.add(c.clause)
 
-                #print(f"next: {symbol} configs: {possibleConfigs}")
-#                if symbol.modifier=="any":
-#                    assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
-#                    state.connect(symbol, state)    # No repeat on any as self-loop
-#                elif symbol.modifier=="some":
-#                    for p in possibleConfigs:
-#                        next = AState(grammar, [c for c in state.configurations if c.next()==symbol], latch=p)
-#                        next = worklist.add(next)
-#                        state.connect(symbol, next)
-#                else:
-#                    next = AState(grammar, possibleConfigs)
-#                    next = worklist.add(next)
-#                    state.connect(symbol, next)
-#            if reducing:
-#                reducingConfigs = [ c for c in state.configurations if c.next() is None ]
-#                for r in reducingConfigs:
-#                    state.addReducer(r.clause)
-#
         self.states = worklist.set
         assert isinstance(self.states, dict)
 
@@ -508,7 +510,9 @@ class Automaton:
             for t,next in s.byPriTerminal.items():
                 nextId = makeNextId(s, next, t, output)
                 barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
-                print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">shift {t.html()}</FONT>>,taillabel=<<FONT color="grey">enter {barriers}</FONT>>];', file=output)
+                print(f's{id(s)} -> {nextId} [color=grey,' +
+                      f'label=<<FONT color="grey">shift {t.html()}</FONT>>,' +
+                      f'taillabel=<<FONT color="grey">enter {barriers}</FONT>>];', file=output)
 
             for t,next in s.byTerminal.items():
                 nextId = makeNextId(s, next, t, output)
@@ -517,6 +521,11 @@ class Automaton:
             for nt, next in s.byNonterminal.items():
                 nextId = makeNextId(s, next, t, output)
                 print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt.name}</FONT>>];', file=output)
+
+            for clause in s.byClause:
+                nextId = f's{id(s)}_{id(clause)}'
+                print(f'{nextId} [label="reduce {clause.lhs}"];', file=output)
+                print(f's{id(s)} -> {nextId} [label=<{clause.html()}>];', file=output)
 
 
 #                label = str(t).replace('"','\\"')
