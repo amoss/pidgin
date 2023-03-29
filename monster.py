@@ -85,6 +85,20 @@ class Clause:
             self.configs[position] = Configuration(self, position)
         return self.configs[position]
 
+    def hasReduceBarrier(self):
+        for symbol in self.rhs:
+            if isinstance(symbol,Grammar.Nonterminal) and \
+                    symbol.modifier in ('any','some') and \
+                    symbol.strength in ('greedy','frugal'):
+                return True
+        return False
+
+    def floor(self):
+        return Clause(self.lhs, [symbol for symbol in self.rhs
+                                        if not (isinstance(symbol,Grammar.Nonterminal) and \
+                                           symbol.modifier in ('any','some') and \
+                                           symbol.strength in ('greedy','frugal'))])
+
 class Configuration:
     def __init__(self, clause, position):
         self.clause = clause
@@ -369,6 +383,8 @@ class AState:
         self.byTerminal      = {}
         self.byNonterminal   = {}
         self.byClause        = set()
+        self.byPriClause     = set()
+        self.reduceBarriers  = {}
 
         accumulator = None
         derived = {}
@@ -488,7 +504,14 @@ class Automaton:
 
             for c in state.configurations:
                 if c.isReducing():
-                    state.byClause.add(c.clause)
+                    if c.clause.hasReduceBarrier():
+                        above = c.clause
+                        below = c.clause.floor()
+                        state.byClause.add(above)
+                        state.byPriClause.add(below)
+                        state.reduceBarriers[below] = above
+                    else:
+                        state.byClause.add(c.clause)
 
         self.states = worklist.set
         assert isinstance(self.states, dict)
@@ -510,9 +533,9 @@ class Automaton:
             for t,next in s.byPriTerminal.items():
                 nextId = makeNextId(s, next, t, output)
                 barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
-                print(f's{id(s)} -> {nextId} [color=grey,' +
+                print(f's{id(s)} -> {nextId} [color=orange,' +
                       f'label=<<FONT color="grey">shift {t.html()}</FONT>>,' +
-                      f'taillabel=<<FONT color="grey">enter {barriers}</FONT>>];', file=output)
+                      f'taillabel=<<FONT color="orange">enter {barriers}</FONT>>];', file=output)
 
             for t,next in s.byTerminal.items():
                 nextId = makeNextId(s, next, t, output)
@@ -524,8 +547,13 @@ class Automaton:
 
             for clause in s.byClause:
                 nextId = f's{id(s)}_{id(clause)}'
-                print(f'{nextId} [label="reduce {clause.lhs}"];', file=output)
+                print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
                 print(f's{id(s)} -> {nextId} [label=<{clause.html()}>];', file=output)
+
+            for clause in s.byPriClause:
+                nextId = f's{id(s)}_{id(clause)}'
+                print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
+                print(f's{id(s)} -> {nextId} [color=orange,label=<{clause.html()}>,taillabel=<<FONT color="orange">enter {clause.lhs}</FONT>>];', file=output)
 
 
 #                label = str(t).replace('"','\\"')
