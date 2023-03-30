@@ -582,9 +582,16 @@ class Automaton:
 #E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
 #g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
 
-g = Grammar('R')
-g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
+#g = Grammar('R')
+#g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
 
+g = Grammar('P')
+P = g.addRule('P', [g.Nonterminal('U', modifier='any', strength='greedy'), g.TermString('z')])
+P.add(             [g.Nonterminal('V', modifier='any', strength='greedy'), g.TermString('k')])
+U = g.addRule('U', [g.TermString('x')])
+U.add(             [g.TermString('y')])
+V = g.addRule('V', [g.TermString('x')])
+V.add(             [g.TermString('y')])
 a = Automaton(g)
 a.dot(open("t.dot","wt"))
 
