@@ -402,6 +402,9 @@ class AState:
                         self.shiftBarriers[b] = k
                 else:
                     self.byTerminal[k] = None
+
+            # If epsilon closure expanded a nonterminal as the next symbol in a configuration then we recorded
+            # symbol.name -> clause.lhs for each clause in the nonterminal's rule.
             if isinstance(k,str):
                 filtered = [ entry for entry in v if isinstance(entry,Grammar.Nonterminal) ]
                 if len(filtered)>0:
@@ -440,8 +443,7 @@ class AState:
         if not isinstance(symbol,Grammar.Nonterminal):  return accumulator, trace
         if symbol.name not in trace:                    trace[symbol.name] = set()
         trace[symbol.name].add(config.clause.lhs)
-        if symbol.modifier in ('any','some') and symbol.strength in ('greedy','frugal'):
-            trace[symbol.name].add(symbol)
+        trace[symbol.name].add(symbol)
         rule = self.grammar.rules[symbol.name]
         for clause in rule.clauses:
             initial = clause.get(0)
@@ -575,13 +577,13 @@ class Automaton:
 
 
 
-g = Grammar('E')
-E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
+#g = Grammar('E')
+#E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
+#E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
+#g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
 
-#g = Grammar('R')
-#g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
+g = Grammar('R')
+g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
 
 a = Automaton(g)
 a.dot(open("t.dot","wt"))
