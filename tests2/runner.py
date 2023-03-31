@@ -212,19 +212,23 @@ units = [
 # Clean old results
 target = os.path.join(rootDir,"unitResults")
 for name in os.listdir(target):
-    if name==".keep":  continue
+    if name==".keep" or name=="index.md":  continue
     dir = os.path.join(target,name)
     print(f"Cleaning {dir}")
     shutil.rmtree(dir)
 
+index = open( os.path.join(target,"index.md"), "wt")
 for u in units:
     description   = u.__doc__
     lines         = description.split('\n')
     simple        = lines[0]
     justification = "\n".join(lines[2:])
     name          = u.__qualname__
-    print(f'\n{name}: {simple}')
-    print(justification)
+
+    print(f'\n## {name}', file=index)
+    print(f'`{simple}`', file=index)
+    print(justification, file=index)
+    print(f'\n![eclr machine]({name}/eclr.dot.png)', file=index)
 
     try:
         grammar = u()
