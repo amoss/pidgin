@@ -73,43 +73,6 @@ Check greediness of "some" on a terminal, ensure overlapping matches in the fina
 
 # Second batch of unit tests
 
-## Regexs covering non-recursive cases
-
-R: x y z
-g = Grammar('R')
-g.addRule('r', [g.TermString('x'), g.TermString('y'), g.TermString('z')])
-
-R: x* y* z*
-g = Grammar('R')
-g.addRule('r', [g.TermString('x', modifier='any', strength='greedy'),
-                g.TermString('y', modifier='any', strength='greedy'),
-                g.TermString('z', modifier='any', strength='greedy')])
-
-R: (x|y) (y|z) (k|l)
-
-R: x*
-
-R: l x*
-
-R: x*r
-
-R: l x*r
-
-R: (x y)*
-
-R: l(x y)*
-
-R: (x y)*r
-
-R: l(x y)*r
-
-R: (x*)*
-
-R: (l x*)*
-
-R: (x* r)*
-
-R: (l x* r)*
 
 ## Recursive cases
 
