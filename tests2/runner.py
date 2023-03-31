@@ -7,6 +7,7 @@ import monster
 Grammar = monster.Grammar
 
 import shutil
+import traceback
 
 def T(val, m=None, s=None):
     if m is None:
@@ -217,17 +218,21 @@ for name in os.listdir(target):
     shutil.rmtree(dir)
 
 for u in units:
-    description = u.__doc__
-    lines = description.split('\n')
-    simple = lines[0]
+    description   = u.__doc__
+    lines         = description.split('\n')
+    simple        = lines[0]
     justification = "\n".join(lines[2:])
-    name = u.__qualname__
-    grammar = u()
+    name          = u.__qualname__
     print(f'\n{name}: {simple}')
     print(justification)
-    grammar.dump()
-    dir = os.path.join(target,name)
-    os.makedirs(dir, exist_ok=True)
-    automaton = monster.Automaton(grammar)
-    automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
+
+    try:
+        grammar = u()
+        grammar.dump()
+        dir = os.path.join(target,name)
+        os.makedirs(dir, exist_ok=True)
+        automaton = monster.Automaton(grammar)
+        automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
+    except:
+        traceback.print_exc()
 

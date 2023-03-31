@@ -173,10 +173,11 @@ class Grammar:
             self.canonicalTerminals[terminal] = terminal
         return self.canonicalTerminals[terminal]
 
-    def addRule(self, name, body):
+    def addRule(self, name, *body):
         assert not name in self.rules.keys()
         rule = Rule(name, self)
-        rule.add(body)
+        for b in body:
+            rule.add(b)
         self.rules[name] = rule
         return rule
 
@@ -211,6 +212,10 @@ class Grammar:
 
         def __eq__(self,other):
             return isinstance(other,Grammar.TermString) and self.sig()==other.sig()
+
+        def eqOne(self,other):
+            '''Ignoring the modifier, would a single instance of this terminal match?'''
+            return isinstance(other,Grammar.TermString) and self.string==other.string
 
         def __hash__(self):
             return hash(self.sig())
@@ -270,6 +275,10 @@ class Grammar:
 
         def __eq__(self,other):
             return isinstance(other,Grammar.TermSet) and self.sig()==other.sig()
+
+        def eqOne(self,other):
+            '''Ignoring the modifier, would a single instance of this terminal match?'''
+            return isinstance(other,Grammar.TermSet) and self.chars==other.chars and self.inverse==other.inverse
 
         def __hash__(self):
             return hash(self.sig())
@@ -381,6 +390,7 @@ def barrierSources(trace, terminal):
 class AState:
     '''A state in the LR(0) automaton'''
     def __init__(self, grammar, configs):
+        assert len(configs)>0
         self.grammar = grammar
         self.byPriTerminal   = {}
         self.shiftBarriers   = {}
@@ -495,7 +505,8 @@ class Automaton:
         for state in worklist:
             for edges in (state.byTerminal, state.byPriTerminal):
                 for terminal in edges.keys():
-                    possibleConfigs = [ c.succ() for c in state.configurations if c.next()==terminal ]
+                    possibleConfigs = [ c.succ() for c in state.configurations if terminal.eqOne(c.next()) ]
+                    assert len(possibleConfigs)>0, str(terminal)
                     next = AState(grammar, possibleConfigs)
                     next = worklist.add(next)
                     edges[terminal] = next
