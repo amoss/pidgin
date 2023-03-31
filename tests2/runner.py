@@ -39,6 +39,7 @@ def regex_seqstar():
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
     return g
+    # TODO: Where are the repeating shift edges for the stars?
 
 
 def regex_starboundedleft():
@@ -48,6 +49,7 @@ def regex_starboundedleft():
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any')])
     return g
+    # TODO: Missing shifts for repetition in stars, missing reduce cases for barriers
 
 
 def regex_starboundedleft2():
@@ -75,6 +77,7 @@ def regex_starboundedright2():
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('x')])
     return g
+    # TODO: Barriers are missing on shift edges
 
 
 def regex_starboundedboth():
@@ -108,7 +111,7 @@ def regex_choice():
 
 
 def regex_choicestar():
-    '''R: (x|y) (y|z) (z|k)
+    '''R: (x|y)* (y|z)* (z|k)*
 
        Test sequence of repeated choices with overlapping cases.'''
     g = Grammar('R')
@@ -117,6 +120,7 @@ def regex_choicestar():
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
     return g
+    # TODO: Check this carefully
 
 
 def regex_selfalignunbounded():
@@ -127,6 +131,7 @@ def regex_selfalignunbounded():
     g.addRule('R', [N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
     return g
+    # TODO: Barrier exits are unclear, but this could be correct
 
 
 def regex_selfalignboundedleft():
@@ -167,6 +172,7 @@ def regex_selfalignboundedright2():
     g.addRule('R', [N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
     return g
+    # TODO: Could be correct, but barrier exits are unclear
 
 
 def regex_selfalignboundedboth():
@@ -217,7 +223,8 @@ def recurse_degenseq3():
        greediness. Left-recursive form.'''
     g = Grammar('R')
     g.addRule('R', [N('R'), T('x','any','greedy')])
-    return g
+    return 
+    # TODO: REWORK THIS - LANGUAGE IS EMPTY AS NO BASE CASE FOR R'''
 
 
 def recurse_degenseq4():
@@ -228,6 +235,7 @@ def recurse_degenseq4():
     g = Grammar('R')
     g.addRule('R', [T('x','any','greedy'), N('R')])
     return g
+    # TODO: REWORK THIS - LANGUAGE IS EMPTY AS NO BASE CASE FOR R'''
 
 
 def recurse_nests():
@@ -246,6 +254,7 @@ def recurse_partialnests():
     g = Grammar('R')
     g.addRule('R', [T('l','any','greedy'), N('R'), T('r','any','greedy')])
     return g
+    # TODO: Don't know if this works or not, but there are missing reduce cases for the barriers
 
 
 units = [
