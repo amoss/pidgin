@@ -235,7 +235,7 @@ def recurse_nests():
 
        Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
     g = Grammar('R')
-    g.addRule('R', [N('R','any','greedy'), T('x')])
+    g.addRule('R', [T('l'), N('R','any','greedy'), T('r')])
     return g
 
 
@@ -244,7 +244,7 @@ def recurse_partialnests():
 
        Test bracket (partial-) nesting. No idea if degenerate or not, kind of wondering what language this generates, lol'''
     g = Grammar('R')
-    g.addRule('R', [N('R','any','greedy'), T('x')])
+    g.addRule('R', [T('l','any','greedy'), N('R'), T('r','any','greedy')])
     return g
 
 
@@ -269,7 +269,10 @@ units = [
 
     recurse_degenseq,
     recurse_degenseq2,
-    recurse_nests
+    recurse_degenseq3,
+    recurse_degenseq4,
+    recurse_nests,
+    recurse_partialnests
 ]
 
 # Clean old results

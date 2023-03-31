@@ -405,7 +405,7 @@ class AState:
         for c in configs:
             accumulator, derived = self.epsilonClosure(c, accumulator=accumulator, trace=derived)
         self.configurations = frozenset(accumulator)
-        print(f'eclose: {accumulator} {derived}')
+        #print(f'eclose: {accumulator} {derived}')
 
         for k,v in derived.items():
             if isinstance(k,Grammar.TermString) or isinstance(k,Grammar.TermSet):
@@ -561,7 +561,7 @@ class Automaton:
                 print(f's{id(s)} -> {nextId} [color=grey,label=<shift {t.html()}>];', file=output)
 
             for nt, next in s.byNonterminal.items():
-                nextId = makeNextId(s, next, t, output)
+                nextId = makeNextId(s, next, nt, output)
                 print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt.name}</FONT>>];', file=output)
 
             for clause in s.byClause:

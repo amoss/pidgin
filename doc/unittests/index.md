@@ -115,8 +115,28 @@
 
 ![eclr machine](recurse_degenseq2/eclr.dot.png)
 
+## recurse_degenseq3
+`R: R x*`
+       Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
+       greediness. Left-recursive form.
+
+![eclr machine](recurse_degenseq3/eclr.dot.png)
+
+## recurse_degenseq4
+`R: x* R`
+       Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
+       greediness. Right-recursive form.
+
+![eclr machine](recurse_degenseq4/eclr.dot.png)
+
 ## recurse_nests
 `R: l R* r`
        Test bracket nesting. Not degenerate as sub-sequences cannot overlap?
 
 ![eclr machine](recurse_nests/eclr.dot.png)
+
+## recurse_partialnests
+`R: l* R r*`
+       Test bracket (partial-) nesting. No idea if degenerate or not, kind of wondering what language this generates, lol
+
+![eclr machine](recurse_partialnests/eclr.dot.png)
