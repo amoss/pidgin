@@ -189,6 +189,65 @@ def regex_selfalignboundedboth2():
     g.addRule('S', [T('x'), T('y')])
     return g
 
+
+def recurse_degenseq():
+    '''R: R* x
+
+       Test degenerate form of terminal repetition, same language as x+ but combinatorially ambiguous without
+       greediness. Left-recursive form.'''
+    g = Grammar('R')
+    g.addRule('R', [N('R','any','greedy'), T('x')])
+    return g
+
+
+def recurse_degenseq2():
+    '''R: x R*
+
+       Test degenerate form of terminal repetition, same language as x+ but combinatorially ambiguous without
+       greediness. Right-recursive form.'''
+    g = Grammar('R')
+    g.addRule('R', [T('x'), N('R','any','greedy')])
+    return g
+
+
+def recurse_degenseq3():
+    '''R: R x*
+
+       Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
+       greediness. Left-recursive form.'''
+    g = Grammar('R')
+    g.addRule('R', [N('R'), T('x','any','greedy')])
+    return g
+
+
+def recurse_degenseq4():
+    '''R: x* R
+
+       Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
+       greediness. Right-recursive form.'''
+    g = Grammar('R')
+    g.addRule('R', [T('x','any','greedy'), N('R')])
+    return g
+
+
+def recurse_nests():
+    '''R: l R* r
+
+       Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
+    g = Grammar('R')
+    g.addRule('R', [N('R','any','greedy'), T('x')])
+    return g
+
+
+def recurse_partialnests():
+    '''R: l* R r*
+
+       Test bracket (partial-) nesting. No idea if degenerate or not, kind of wondering what language this generates, lol'''
+    g = Grammar('R')
+    g.addRule('R', [N('R','any','greedy'), T('x')])
+    return g
+
+
 units = [
     regex_seq,
     regex_seqstar,
@@ -207,6 +266,10 @@ units = [
     regex_selfalignboundedright2,
     regex_selfalignboundedboth,
     regex_selfalignboundedboth2,
+
+    recurse_degenseq,
+    recurse_degenseq2,
+    recurse_nests
 ]
 
 # Clean old results

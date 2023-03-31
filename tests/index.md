@@ -76,12 +76,6 @@ Check greediness of "some" on a terminal, ensure overlapping matches in the fina
 
 ## Recursive cases
 
-R: R* r
-R: l R*
-R: l R* r
-R: l* R
-R: R r*
-R: l* R r*
 R: (l R)*
 R: (R r)*
 R: (l R r)*
