@@ -14,8 +14,8 @@ def T(val, m=None, s=None):
     return Grammar.TermSet(val, modifier=m, strength=s)
 
 
-def N(name, modifier, strength):
-    return Grammar.NonTerminal(name, modifier=modifier, strength=strength)
+def N(name, modifier='just', strength='greedy'):
+    return Grammar.Nonterminal(name, modifier=modifier, strength=strength)
 
 
 def regex_seq():
@@ -95,7 +95,10 @@ def regex_choice():
 
        Test sequence of choices with overlapping cases.'''
     g = Grammar('R')
-    g.addRule('R', [T('x'), T('x','any')])
+    g.addRule('R', [N('Ca'), N('Cb'), N('Cc')])
+    g.addRule('Ca', [T('x')], [T('y')])
+    g.addRule('Cb', [T('y')], [T('z')])
+    g.addRule('Cc', [T('z')], [T('k')])
     return g
 
 
@@ -117,7 +120,7 @@ def regex_selfalignunbounded():
        Test self aligned repeating sequence with no boundaries.'''
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 
@@ -127,7 +130,7 @@ def regex_selfalignboundedleft():
        Test self aligned repeating sequence with a non-overlapping boundary on the left.'''
     g = Grammar('R')
     g.addRule('R', [T('l'), N('S','any','greedy')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 
@@ -137,7 +140,7 @@ def regex_selfalignboundedleft2():
        Test self aligned repeating sequence with an overlapping boundary on the left.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), N('S','any','greedy')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 
@@ -147,7 +150,7 @@ def regex_selfalignboundedright():
        Test self aligned repeating sequence with a non-overlapping boundary on the right.'''
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('r')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 
@@ -157,7 +160,7 @@ def regex_selfalignboundedright2():
        Test self aligned repeating sequence with an overlapping boundary on the right.'''
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('x')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 
@@ -167,18 +170,18 @@ def regex_selfalignboundedboth():
        Test self aligned repeating sequence with a non-overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('l'), N('S','any','greedy'), T('r')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 
 
-def regex_selfalignboundedboth():
+def regex_selfalignboundedboth2():
     '''R: x (x y)* x
 
        Test self aligned repeating sequence with an overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), N('S','any','greedy'), T('x')])
-    g.addRule('S', [T('x')], [T('y')])
+    g.addRule('S', [T('x'), T('y')])
     return g
 
 units = [
@@ -193,10 +196,23 @@ units = [
     regex_choice,
     regex_choicestar,
     regex_selfalignunbounded,
-    regex_selfalignunboundedleft,
-    regex_selfalignunboundedleft2,
-    regex_selfalignunboundedright,
-    regex_selfalignunboundedright2,
-    regex_selfalignunboundedboth,
-    regex_selfalignunboundedboth2,
+    regex_selfalignboundedleft,
+    regex_selfalignboundedleft2,
+    regex_selfalignboundedright,
+    regex_selfalignboundedright2,
+    regex_selfalignboundedboth,
+    regex_selfalignboundedboth2,
 ]
+
+
+for u in units:
+    description = u.__doc__
+    lines = description.split('\n')
+    simple = lines[0]
+    justification = "\n".join(lines[2:])
+    name = u.__qualname__
+    grammar = u()
+    print(f'\n{name}: {simple}')
+    print(justification)
+    grammar.dump()
+

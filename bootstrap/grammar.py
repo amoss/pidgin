@@ -90,10 +90,11 @@ class Grammar:
             self.canonicalTerminals[terminal] = terminal
         return self.canonicalTerminals[terminal]
 
-    def addRule(self, name, body):
+    def addRule(self, name, *body):
         assert not name in self.rules.keys()
         rule = Rule(name, self)
-        rule.add(body)
+        for b in body:
+            rule.add(b)
         self.rules[name] = rule
         return rule
 
