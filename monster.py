@@ -6,6 +6,10 @@ import html
 import itertools
 import sys
 
+def strs(iterable):
+    return " ".join([str(x) for x in iterable])
+
+
 class OrdSet:
     '''This class differs from collections.OrderedDict because we can mutate it while iterating over it. The
        add method returns the value to allow canonical values.'''
@@ -585,14 +589,14 @@ class Automaton:
 #g = Grammar('R')
 #g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
 
-g = Grammar('P')
-P = g.addRule('P', [g.Nonterminal('U', modifier='any', strength='greedy'), g.TermString('z')])
-P.add(             [g.Nonterminal('V', modifier='any', strength='greedy'), g.TermString('k')])
-U = g.addRule('U', [g.TermString('x')])
-U.add(             [g.TermString('y')])
-V = g.addRule('V', [g.TermString('x')])
-V.add(             [g.TermString('y')])
-a = Automaton(g)
-a.dot(open("t.dot","wt"))
-
-
+#g = Grammar('P')
+#P = g.addRule('P', [g.Nonterminal('U', modifier='any', strength='greedy'), g.TermString('z')])
+#P.add(             [g.Nonterminal('V', modifier='any', strength='greedy'), g.TermString('k')])
+#U = g.addRule('U', [g.TermString('x')])
+#U.add(             [g.TermString('y')])
+#V = g.addRule('V', [g.TermString('x')])
+#V.add(             [g.TermString('y')])
+#a = Automaton(g)
+#a.dot(open("t.dot","wt"))
+#
+#

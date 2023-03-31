@@ -2,7 +2,11 @@ import os, sys
 rootDir= os.path.dirname(os.path.dirname(__file__))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
-from bootstrap.grammar import Grammar
+#from bootstrap.grammar import Grammar
+import monster
+Grammar = monster.Grammar
+
+import shutil
 
 def T(val, m=None, s=None):
     if m is None:
@@ -204,6 +208,13 @@ units = [
     regex_selfalignboundedboth2,
 ]
 
+# Clean old results
+target = os.path.join(rootDir,"unitResults")
+for name in os.listdir(target):
+    if name==".keep":  continue
+    dir = os.path.join(target,name)
+    print(f"Cleaning {dir}")
+    shutil.rmtree(dir)
 
 for u in units:
     description = u.__doc__
@@ -215,4 +226,8 @@ for u in units:
     print(f'\n{name}: {simple}')
     print(justification)
     grammar.dump()
+    dir = os.path.join(target,name)
+    os.makedirs(dir, exist_ok=True)
+    automaton = monster.Automaton(grammar)
+    automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
 
