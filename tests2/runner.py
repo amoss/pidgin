@@ -39,7 +39,6 @@ def regex_seqstar():
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
     return g
-    # TODO: Where are the repeating shift edges for the stars?
 
 
 def regex_starboundedleft():
@@ -77,7 +76,6 @@ def regex_starboundedright2():
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('x')])
     return g
-    # TODO: Barriers are missing on shift edges
 
 
 def regex_starboundedboth():
@@ -226,6 +224,8 @@ def recurse_degenseq3():
     g.addRule('Ri', [N('R'), T('x')])
     return g
 
+    # TODO: No initial shift to kickstart the parse, needs to reduce an empty R first. Compare with other form.
+
 
 def recurse_degenseq4():
     '''R: (x R)*
@@ -252,7 +252,7 @@ def recurse_nests2():
 
        Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
     g = Grammar('R')
-    g.addRule('R',  [N('R','any','greedy')])
+    g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('l'), N('R'), T('r')])
     return g
 
@@ -292,7 +292,7 @@ def recurse_parensseq():
 
        Test a parenthesized sequence with a single operator.'''
     g = Grammar('E')
-    g.addRule('E', [T('x')], [T('<'), N('E'), T('>'), N('Et','any','greedy')])
+    g.addRule('E', [T('x'), N('Et','any','greedy')], [T('<'), N('E'), T('>'), N('Et','any','greedy')])
     g.addRule('Et', [T('+'), N('E')])
     return g
 

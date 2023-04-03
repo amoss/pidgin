@@ -326,6 +326,9 @@ class Grammar:
         def __hash__(self):
             return hash(self.sig())
 
+        def eqOne(self, other):
+            return isinstance(other,Grammar.Nonterminal) and self.name==other.name
+
         def isTerminal(self):
             return False
 
@@ -449,6 +452,8 @@ class AState:
         accumulator.add(config)
         symbol = config.next()
         if symbol is None:                              return accumulator, trace
+        if symbol.modifier in ('any','optional'):
+            accumulator, trace = self.epsilonClosure(config.succ(), accumulator, trace)
         if symbol.isTerminal():
             norm = symbol.exactlyOne()
             if norm not in trace:                       trace[norm] = set()
@@ -462,8 +467,6 @@ class AState:
         for clause in rule.clauses:
             initial = clause.get(0)
             accumulator, trace = self.epsilonClosure(initial, accumulator, trace)
-        if symbol.modifier in ('any','optional'):
-            accumulator, trace = self.epsilonClosure(config.succ(), accumulator, trace)
         return accumulator, trace
 
     def connectShift(self, terminal, next):
@@ -505,18 +508,19 @@ class Automaton:
         for state in worklist:
             for edges in (state.byTerminal, state.byPriTerminal):
                 for terminal in edges.keys():
-                    possibleConfigs = [ c.succ() for c in state.configurations if terminal.eqOne(c.next()) ]
+                    matchingConfigs = [ c for c in state.configurations if terminal.eqOne(c.next()) ]
+                    possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
+                                      [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
                     assert len(possibleConfigs)>0, str(terminal)
                     next = AState(grammar, possibleConfigs)
                     next = worklist.add(next)
                     edges[terminal] = next
 
             for nonterminal in state.byNonterminal.keys():
-                eqRepeating = lambda sym: isinstance(sym,Grammar.Nonterminal) and \
-                                          sym.modifier in ('any','some') and      \
-                                          sym.name==nonterminal.name
-                possibleConfigs  = [ c.succ() for c in state.configurations if c.next()==nonterminal ]
-                possibleConfigs += [ c        for c in state.configurations if eqRepeating(c.next()) ]
+                matchingConfigs = [ c for c in state.configurations if nonterminal.eqOne(c.next()) ]
+                possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
+                                  [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
+                assert len(possibleConfigs)>0, str(nonterminal)
                 next = AState(grammar, possibleConfigs)
                 next = worklist.add(next)
                 state.byNonterminal[nonterminal] = next
