@@ -76,9 +76,6 @@ Check greediness of "some" on a terminal, ensure overlapping matches in the fina
 
 ## Recursive cases
 
-R: (l R)*
-R: (R r)*
-R: (l R r)*
 R: S* x ; S: x
 R: S* l r ; S: l r
 E: (x | < E >)(+ E)*

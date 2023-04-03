@@ -217,25 +217,25 @@ def recurse_degenseq2():
 
 
 def recurse_degenseq3():
-    '''R: R x*
+    '''R: (R x)*
 
        Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
        greediness. Left-recursive form.'''
     g = Grammar('R')
-    g.addRule('R', [N('R'), T('x','any','greedy')])
-    return 
-    # TODO: REWORK THIS - LANGUAGE IS EMPTY AS NO BASE CASE FOR R'''
+    g.addRule('R',  [N('Ri','any','greedy')])
+    g.addRule('Ri', [N('R'), T('x')])
+    return
 
 
 def recurse_degenseq4():
-    '''R: x* R
+    '''R: (x R)*
 
        Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
        greediness. Right-recursive form.'''
     g = Grammar('R')
-    g.addRule('R', [T('x','any','greedy'), N('R')])
+    g.addRule('R',  [N('Ri','any','greedy')])
+    g.addRule('Ri', [T('x'), N('R')])
     return g
-    # TODO: REWORK THIS - LANGUAGE IS EMPTY AS NO BASE CASE FOR R'''
 
 
 def recurse_nests():
@@ -244,6 +244,16 @@ def recurse_nests():
        Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
     g = Grammar('R')
     g.addRule('R', [T('l'), N('R','any','greedy'), T('r')])
+    return g
+
+
+def recurse_nests2():
+    '''R: (l R r)*
+
+       Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
+    g = Grammar('R')
+    g.addRule('R',  [N('R','any','greedy')])
+    g.addRule('Ri', [T('l'), N('R'), T('r')])
     return g
 
 
