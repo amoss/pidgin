@@ -224,7 +224,7 @@ def recurse_degenseq3():
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [N('R'), T('x')])
-    return
+    return g
 
 
 def recurse_degenseq4():
@@ -267,32 +267,51 @@ def recurse_partialnests():
     # TODO: Don't know if this works or not, but there are missing reduce cases for the barriers
 
 
-units = [
-    regex_seq,
-    regex_seqstar,
-    regex_starboundedleft,
-    regex_starboundedleft2,
-    regex_starboundedright,
-    regex_starboundedright2,
-    regex_starboundedboth,
-    regex_starboundedboth2,
-    regex_choice,
-    regex_choicestar,
-    regex_selfalignunbounded,
-    regex_selfalignboundedleft,
-    regex_selfalignboundedleft2,
-    regex_selfalignboundedright,
-    regex_selfalignboundedright2,
-    regex_selfalignboundedboth,
-    regex_selfalignboundedboth2,
+def recurse_termplusvianonterm():
+    '''R: S* x ; S: x
 
-    recurse_degenseq,
-    recurse_degenseq2,
-    recurse_degenseq3,
-    recurse_degenseq4,
-    recurse_nests,
-    recurse_partialnests
-]
+       Test that non-terminal stars are equivalent to terminal stars, simulate x+ via depth-limited recursion.'''
+    g = Grammar('R')
+    g.addRule('R', [N('S','any','greedy'), T('x')])
+    g.addRule('S', [T('x')])
+    return g
+
+
+def recurse_termplusvianonterm2():
+    '''R: S* l r ; S: l r
+
+       Test that non-terminal stars are equivalent to terminal stars, simulate (l r)+ via depth-limited recursion.'''
+    g = Grammar('R')
+    g.addRule('R', [N('S','any','greedy'), T('l'), T('r')])
+    g.addRule('S', [T('l'), T('r')])
+    return g
+
+
+def recurse_parensseq():
+    '''E: (x | < E >)(+ E)*
+
+       Test a parenthesized sequence with a single operator.'''
+    g = Grammar('E')
+    g.addRule('E', [T('x')], [T('<'), N('E'), T('>'), N('Et','any','greedy')])
+    g.addRule('Et', [T('+'), N('E')])
+    return g
+
+
+def recurse_parensseq2():
+    '''E: F (/ F)* ; F: (x | < E >)(+ E)*
+
+       Test a parenthesized sequence with two prioritized operators.'''
+    g = Grammar('E')
+    g.addRule('E',  [N('F'), N('Et','any','greedy')])
+    g.addRule('Et', [T('/'), N('F')])
+    g.addRule('F',  [T('x'), N('Ft','any','greedy')], [T('<'), N('E'), T('>'), N('Ft','any','greedy')])
+    g.addRule('Ft', [T('x'), N('E')])
+    return g
+
+
+
+units = [ v for k,v in sorted(globals().items())
+            if k[:6]=='regex_' or k[:8]=='recurse_' ]
 
 # Clean old results
 target = os.path.join(rootDir,"unitResults")

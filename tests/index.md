@@ -71,12 +71,3 @@ Check greediness of "some" on a terminal, ensure overlapping matches in the fina
     <li>Check nesting of all nonterminal "some" inside of all nonterminal "any"</li>
 </ol>
 
-# Second batch of unit tests
-
-
-## Recursive cases
-
-R: S* x ; S: x
-R: S* l r ; S: l r
-E: (x | < E >)(+ E)*
-E: F(/ F)* ; F: (x | < E >)(+ F)*
