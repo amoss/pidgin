@@ -428,13 +428,6 @@ class AState:
                     nonterminal = filtered[0].exactlyOne()
                     self.byNonterminal[nonterminal] = None
 
-
-
-
-#        self.byGlue = {}
-#        self.byRemover = {}
-
-
     def __eq__(self, other):
         return isinstance(other,AState) and self.configurations==other.configurations
 
@@ -469,14 +462,6 @@ class AState:
             accumulator, trace = self.epsilonClosure(initial, accumulator, trace)
         return accumulator, trace
 
-    def connectShift(self, terminal, next):
-        pass
-
-    def connectPriShift(self, terminal, exit, next):
-        pass
-
-
-
     def connect(self, symbol, next, repeats=False):
         assert type(symbol) in (Grammar.TermSet, Grammar.TermString, Grammar.Nonterminal, Grammar.Glue, 
                                 Grammar.Remover), symbol
@@ -494,6 +479,123 @@ class AState:
 
     def addReducer(self, clause):
         self.byClause.add(clause)
+
+class PState:
+    counter = 1
+    '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
+       just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
+       instead of terminals.'''
+    def __init__(self, stack, position, discard=None):
+        self.stack = stack
+        self.position = position
+        self.id = PState.counter
+        self.discard = discard
+        PState.counter += 1
+
+    def __hash__(self):
+        return hash((tuple(self.stack),self.position))
+
+    def __eq__(self, other):
+        return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
+
+    def shifts(self, input):
+        result = []
+        astate = self.stack[-1]
+        remaining = self.position
+        for t,nextState in astate.byTerminal.items():
+            match = t.match(input[remaining:])
+            if match is not None:
+                result.append(PState(self.stack + [Automaton.Terminal(match,t),nextState],
+                              remaining+len(match), discard=self.discard))
+        return result
+
+    def reductions(self):
+        result = []
+        astate = self.stack[-1]
+        done = set()
+        for clause in astate.byClause:
+            newStack = self.checkHandle(clause)
+            if newStack is not None:
+                returnState = newStack[-2]
+                if clause.lhs is None:
+                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                    continue
+                newStack.append(returnState.byNonterminal[clause.lhs])
+                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                if returnState.repeats[clause.lhs] and newStack[-1]!=returnState:
+                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard, keep=self.keep))
+        # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
+        # in modifiers, i.e. x+ and xx*, or x and x*.
+        return list(set(result))
+
+    def checkHandle(self, clause):
+        '''Handles are as complex as regex in this system, and so the choice of greediness is very important.
+           It seems that greedy non-backtracking works on handles as long as we perform the match at the symbol
+           level, and not the character-level. For terminals each Parser.Terminal on the stack contains a
+           reference to the Grammar.Terminal it matched. For non-terminals we use the name.'''
+        assert isinstance(clause, Clause), clause
+        s = len(self.stack) - 1         # Track index of state above symbol being checked
+        r = len(clause.rhs) - 1         # Track index of symbol being checked
+        hasMatched = False
+        while s >= 1:
+            def prepare():
+                if s==len(self.stack)-1: return None  # Do not allow zero-length matches if the handle is all optional
+                preHandle = self.stack[:s+1]
+                onlySymbols = ( s for s in self.stack[s+1:] if not isinstance(s,AState) )
+                preHandle.append(Automaton.Nonterminal(clause.lhs,onlySymbols))
+                return preHandle
+
+            if r<0:
+                return prepare()
+            if type(clause.rhs[r]) in (Grammar.Glue,Grammar.Remover):
+                r -= 1
+                continue
+            symbol = clause.rhs[r]
+            matching = self.stack[s-1].matches(symbol)
+            if not matching and hasMatched:
+                r -= 1
+                hasMatched = False
+                continue
+            if not matching and symbol.modifier in ("just","some"):
+                return None
+            if not matching and symbol.modifier in ("any","optional"):
+                r -= 1
+                hasMatched = False
+            if matching and symbol.modifier in ("just","optional"):
+                s -= 2
+                r -= 1
+                hasMatched = False
+            if matching and symbol.modifier in ("any","some"):
+                s -= 2
+                hasMatched = True
+        if hasMatched and r==0:
+            r -= 1
+        if r<0:
+            return prepare()
+        return None
+
+    def dotLabel(self, input):
+        remaining = input[self.position:]
+        astate = self.stack[-1]
+        if not isinstance(astate,AState):
+            return "<Success>"
+        if len(remaining)>30:
+            result =  f'< <table border="0"><tr><td>{html.escape(remaining[:30])}...</td></tr><hr/>'
+        else:
+            result =  f'< <table border="0"><tr><td>{html.escape(remaining)}</td></tr><hr/>'
+
+        if len(astate.configurations)>5:
+            result += f"<tr><td>{len(astate.configurations)} configs</td></tr>"
+        else:
+            result += ''.join([f"<tr><td>{html.escape(str(c))}</td></tr>" for c in astate.configurations])
+
+        onlySymbols = [ s for s in self.stack if not isinstance(s,AState) ]
+        if len(onlySymbols)>5:
+            result += '<hr/><tr><td>... ' + " ".join([html.escape(str(s)) for s in onlySymbols[-5:]]) + '</td></tr></table> >';
+        else:
+            result += '<hr/><tr><td>' + " ".join([html.escape(str(s)) for s in onlySymbols]) + '</td></tr></table> >';
+        return result
+
 
 
 class Automaton:
@@ -593,25 +695,76 @@ class Automaton:
 #                print(f's{id(s)} -> s{id(next)} [label="Remover"];', file=output)
         print("}", file=output)
 
+    def execute(self, input):
+        pstates = [PState([self.start], 0, discard=self.discard)]
+        while len(pstates)>0:
+            next = []
+            for p in pstates:
+                print(p.dotLabel(input))
+                if not isinstance(p.stack[-1],AState):
+                    if p.position==len(input) and len(p.stack)==2:
+                        yield p.stack[1]
+                else:
+                    reduces = p.reductions()
+                    shifts  = p.shifts(input)
+                    next.extend(reduces)
+                    next.extend(shifts)
+            pstates = next
+
+    class Terminal:
+        def __init__(self, chars, original):
+            self.chars    = chars
+            self.original = original
+            self.tag = original.tag
+
+        def __str__(self):
+            return self.chars
+
+        def matches(self, other):
+            return id(other)==id(self.original)
+
+        def dump(self, depth=0):
+            print(f"{'  '*depth}{self.chars}")
+
+    class Nonterminal:
+        def __init__(self, tag, children ):
+            self.tag      = tag
+            self.children = tuple(children)
+            for c in self.children:
+                assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
+
+        def __str__(self):
+            return str(self.tag)
+
+        def __eq__(self, other):
+            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag and self.children==other.children
+
+        def __hash__(self):
+            return hash((self.tag,self.children))
+
+        def matches(self, other):
+            return isinstance(other,Grammar.Nonterminal) and self.tag == other.name
+
+        def dump(self, depth=0):
+            print(f"{'  '*depth}{self.tag}")
+            for c in self.children:
+                c.dump(depth+1)
 
 
+def T(val, m=None, s=None):
+    if m is None:
+        if isinstance(val,str):
+            return Grammar.TermString(val)
+        return Grammar.TermSet(val)
+    if isinstance(val,str):
+        return Grammar.TermString(val, modifier=m)
+    return Grammar.TermSet(val, modifier=m, strength=s)
 
-#g = Grammar('E')
-#E = g.addRule('E',[g.TermString('x'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-#E.add(            [g.TermString('<'), g.Nonterminal('E'), g.TermString('>'), g.Nonterminal('E2', strength='greedy', modifier='any')])
-#g.addRule('E2',   [g.TermString('+'), g.Nonterminal('E')])
 
-#g = Grammar('R')
-#g.addRule('R', [g.Nonterminal('R', modifier='any', strength='greedy'), g.TermString('x') ])
-
-#g = Grammar('P')
-#P = g.addRule('P', [g.Nonterminal('U', modifier='any', strength='greedy'), g.TermString('z')])
-#P.add(             [g.Nonterminal('V', modifier='any', strength='greedy'), g.TermString('k')])
-#U = g.addRule('U', [g.TermString('x')])
-#U.add(             [g.TermString('y')])
-#V = g.addRule('V', [g.TermString('x')])
-#V.add(             [g.TermString('y')])
-#a = Automaton(g)
-#a.dot(open("t.dot","wt"))
-#
-#
+def N(name, modifier='just', strength='greedy'):
+    return Grammar.Nonterminal(name, modifier=modifier, strength=strength)
+g = Grammar('R')
+g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
+a = Automaton(g)
+for result in a.execute('xxxzz'):
+    print(result)
