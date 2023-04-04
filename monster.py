@@ -35,6 +35,19 @@ class OrdSet:
         for x in self.ord:
             yield x
 
+class MultiDict:
+    '''This class stores a representation of graph edges as a two-level structure of keys -> value(-sets).'''
+    def __init__(self):
+        self.map = {}
+
+    def store(self, k, values):
+        if not k in self.map.keys():
+            self.map[k] = set()
+        for v in values:
+            self.map[k].add(v)
+
+
+
 
 class Rule:
     def __init__(self, name, grammar):
@@ -695,21 +708,63 @@ class Automaton:
 #                print(f's{id(s)} -> s{id(next)} [label="Remover"];', file=output)
         print("}", file=output)
 
-    def execute(self, input):
+    def execute(self, input, tracing=False):
+        self.trace = Automaton.Trace(input, tracing)
         pstates = [PState([self.start], 0, discard=self.discard)]
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(p.dotLabel(input))
                 if not isinstance(p.stack[-1],AState):
                     if p.position==len(input) and len(p.stack)==2:
                         yield p.stack[1]
+                        self.trace.result(p)
                 else:
-                    reduces = p.reductions()
-                    shifts  = p.shifts(input)
-                    next.extend(reduces)
+                    shifts = p.shifts(input)
                     next.extend(shifts)
+                    self.trace.shifts(p, shifts)
+                    reduces = p.reductions()
+                    next.extend(reduces)
+                    self.trace.reduces(p, reduces)
             pstates = next
+
+    class Trace:
+        def __init__(self, input, recording):
+            self.recording = recording
+            self.input     = input
+            self.forwards  = MultiDict()
+            self.backwards = MultiDict()
+
+        def shifts(self, source, destinations):
+            if not self.recording: return
+            for d in destinations:
+                self.forwards.store(source, [(d, 'shift')])
+                self.backwards.store(d,     [(source, 'shift')])
+
+        def reduces(self, source, destinations):
+            if not self.recording: return
+            for d in destinations:
+                self.forwards.store(source, [(d, 'reduce')])
+                self.backwards.store(d,     [(source, 'reduce')])
+
+        def result(self, state):
+            if not self.recording: return
+            self.forwards.store(state, (None, 'emit'))
+            self.backwards.store(None, (state,'emit'))
+
+        def output(self, target):
+            print('digraph {', file=target)
+            for k,v in self.forwards.map.items():
+                if isinstance(k, PState):
+                    for nextState, label in v:
+                        print(f's{k.id} [shape=none, label={k.dotLabel(self.input)}];', file=target)
+                        print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
+                else:
+                    print(repr(k))
+            print('}', file=target)
+
+        def measure(self):
+            return 0
+
 
     class Terminal:
         def __init__(self, chars, original):
@@ -766,5 +821,6 @@ def N(name, modifier='just', strength='greedy'):
 g = Grammar('R')
 g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
 a = Automaton(g)
-for result in a.execute('xxxzz'):
+for result in a.execute('xxxzz',True):
     print(result)
+a.trace.output(open('x.dot','wt'))
