@@ -578,15 +578,16 @@ class PState:
             return prepare()
         return None
 
-    def dotLabel(self, input):
+    def dotLabel(self, input, redundant):
         remaining = input[self.position:]
         astate = self.stack[-1]
+        cell = ' bgcolor="#ffdddd"' if redundant else ''
         if not isinstance(astate,AState):
             return "<Terminated>"
         if len(remaining)>30:
-            result =  f'< <table border="0"><tr><td>{html.escape(remaining[:30])}...</td></tr><hr/>'
+            result =  f'< <table border="0"><tr><td{cell}>{html.escape(remaining[:30])}...</td></tr><hr/>'
         else:
-            result =  f'< <table border="0"><tr><td>{html.escape(remaining)}</td></tr><hr/>'
+            result =  f'< <table border="0"><tr><td{cell}>{html.escape(remaining)}</td></tr><hr/>'
 
         stackStrs = []
         for s in self.stack[-8:]:
@@ -594,7 +595,7 @@ class PState:
                 stackStrs.append(f'<font color="blue">{s.label}</font>')
             else:
                 stackStrs.append(html.escape(str(s)))
-        result += '<tr><td>' + " ".join([s for s in stackStrs]) + '</td></tr></table> >';
+        result += f'<tr><td{cell}>' + " ".join([s for s in stackStrs]) + '</td></tr></table> >';
         return result
 
 
@@ -757,6 +758,19 @@ class Automaton:
 
 
         def output(self, target):
+            redundant = {}
+            for k in self.forwards.map.keys():
+                redundant[k] = True
+            # The backwards map over the trace is acyclic and performance is not a concern
+            def markAncestors(state):
+                if not state in self.backwards.map:
+                    print(f'Orphan {state}')
+                else:
+                    for next,_ in self.backwards.map[state]:
+                        redundant[next] = False
+                        markAncestors(next)
+            for s,_ in self.backwards.map[True]:
+                markAncestors(s)
             print('digraph {', file=target)
             for k,v in self.forwards.map.items():
                 if isinstance(k, PState):
@@ -766,7 +780,7 @@ class Automaton:
                             print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
                         else:
                             fontcolor = 'green' if nextState else 'red'
-                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, label={k.dotLabel(self.input)}];', file=target)
+                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, label={k.dotLabel(self.input,redundant[k])}];', file=target)
                 else:
                     print(repr(k))
             print('}', file=target)
