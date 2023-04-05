@@ -524,7 +524,6 @@ class PState:
                 if clause.lhs is None:
                     result.append(PState(newStack, self.position, discard=self.discard))
                     continue
-                print(returnState.byNonterminal)
                 newStack.append(returnState.byNonterminal[clause.lhs])
                 result.append(PState(newStack, self.position, discard=self.discard))
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
@@ -536,7 +535,6 @@ class PState:
            It seems that greedy non-backtracking works on handles as long as we perform the match at the symbol
            level, and not the character-level. For terminals each Parser.Terminal on the stack contains a
            reference to the Grammar.Terminal it matched. For non-terminals we use the name.'''
-        print(f'checkHandle: {self.stack} {clause}')
         assert isinstance(clause, Clause), clause
         s = len(self.stack) - 1         # Track index of state above symbol being checked
         r = len(clause.rhs) - 1         # Track index of symbol being checked
@@ -707,7 +705,6 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(f'execute {p.id}')
                 if not isinstance(p.stack[-1],AState):
                     if p.position==len(input) and len(p.stack)==2:
                         yield p.stack[1]
@@ -755,9 +752,23 @@ class Automaton:
             self.forwards.store(state, [(False, 'blocks')])
             self.backwards.store(False, [(state,'blocks')])
 
-
-
         def output(self, target):
+            redundant = self.calculateRedundancy()
+            print('digraph {', file=target)
+            for k,v in self.forwards.map.items():
+                if isinstance(k, PState):
+                    for nextState, label in v:
+                        fontcolor = 'black'
+                        if isinstance(nextState,PState):
+                            print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
+                        else:
+                            fontcolor = 'green' if nextState else 'red'
+                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, label={k.dotLabel(self.input,redundant[k])}];', file=target)
+                else:
+                    print(f'Non-pstate in trace: {repr(k)}')
+            print('}', file=target)
+
+        def calculateRedundancy(self):
             redundant = {}
             for k in self.forwards.map.keys():
                 redundant[k] = True
@@ -771,22 +782,11 @@ class Automaton:
                         markAncestors(next)
             for s,_ in self.backwards.map[True]:
                 markAncestors(s)
-            print('digraph {', file=target)
-            for k,v in self.forwards.map.items():
-                if isinstance(k, PState):
-                    for nextState, label in v:
-                        fontcolor = 'black'
-                        if isinstance(nextState,PState):
-                            print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
-                        else:
-                            fontcolor = 'green' if nextState else 'red'
-                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, label={k.dotLabel(self.input,redundant[k])}];', file=target)
-                else:
-                    print(repr(k))
-            print('}', file=target)
+            return redundant
 
         def measure(self):
-            return 0
+            redundant = self.calculateRedundancy().values()
+            return len([v for v in redundant if v]) / len(redundant)
 
 
     class Terminal:
@@ -848,3 +848,4 @@ a.dot( open('eclr.dot','wt') )
 for result in a.execute('xxxzz',True):
     print(result)
 a.trace.output(open('x.dot','wt'))
+print(a.trace.measure())
