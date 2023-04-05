@@ -439,7 +439,7 @@ class AState:
                 filtered = [ entry for entry in v if isinstance(entry,Grammar.Nonterminal) ]
                 if len(filtered)>0:
                     nonterminal = filtered[0].exactlyOne()
-                    self.byNonterminal[nonterminal] = None
+                    self.byNonterminal[nonterminal.name] = None
 
     def __eq__(self, other):
         return isinstance(other,AState) and self.configurations==other.configurations
@@ -474,21 +474,6 @@ class AState:
             initial = clause.get(0)
             accumulator, trace = self.epsilonClosure(initial, accumulator, trace)
         return accumulator, trace
-
-    def connect(self, symbol, next, repeats=False):
-        assert type(symbol) in (Grammar.TermSet, Grammar.TermString, Grammar.Nonterminal, Grammar.Glue, 
-                                Grammar.Remover), symbol
-        assert isinstance(next,AState), next
-        if symbol.isTerminal():
-            self.byTerminal[symbol] = next
-            self.repeats[symbol] = repeats
-        elif isinstance(symbol, Grammar.Glue):
-            self.byGlue[symbol] = next
-        elif isinstance(symbol, Grammar.Remover):
-            self.byRemover[symbol] = next
-        else:
-            self.byNonterminal[symbol.name] = next
-            self.repeats[symbol.name] = repeats
 
     def addReducer(self, clause):
         self.byClause.add(clause)
@@ -531,12 +516,11 @@ class PState:
             if newStack is not None:
                 returnState = newStack[-2]
                 if clause.lhs is None:
-                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                    result.append(PState(newStack, self.position, discard=self.discard))
                     continue
+                print(returnState.byNonterminal)
                 newStack.append(returnState.byNonterminal[clause.lhs])
-                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
-                if returnState.repeats[clause.lhs] and newStack[-1]!=returnState:
-                    result.append(PState(newStack[:-1]+[returnState], self.position, discard=self.discard, keep=self.keep))
+                result.append(PState(newStack, self.position, discard=self.discard))
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
@@ -546,6 +530,7 @@ class PState:
            It seems that greedy non-backtracking works on handles as long as we perform the match at the symbol
            level, and not the character-level. For terminals each Parser.Terminal on the stack contains a
            reference to the Grammar.Terminal it matched. For non-terminals we use the name.'''
+        print(f'checkHandle: {self.stack} {clause}')
         assert isinstance(clause, Clause), clause
         s = len(self.stack) - 1         # Track index of state above symbol being checked
         r = len(clause.rhs) - 1         # Track index of symbol being checked
@@ -631,7 +616,8 @@ class Automaton:
                     next = worklist.add(next)
                     edges[terminal] = next
 
-            for nonterminal in state.byNonterminal.keys():
+            for name in list(state.byNonterminal.keys()):
+                nonterminal = Grammar.Nonterminal(name)
                 matchingConfigs = [ c for c in state.configurations if nonterminal.eqOne(c.next()) ]
                 possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
                                   [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
@@ -715,14 +701,17 @@ class Automaton:
             next = []
             for p in pstates:
                 if not isinstance(p.stack[-1],AState):
+                    print(p.position,p.stack)
                     if p.position==len(input) and len(p.stack)==2:
                         yield p.stack[1]
                         self.trace.result(p)
                 else:
                     shifts = p.shifts(input)
+                    print(f's{p.id} shifts {shifts}')
                     next.extend(shifts)
                     self.trace.shifts(p, shifts)
                     reduces = p.reductions()
+                    print(f's{p.id} reduces {reduces}')
                     next.extend(reduces)
                     self.trace.reduces(p, reduces)
             pstates = next
@@ -748,12 +737,13 @@ class Automaton:
 
         def result(self, state):
             if not self.recording: return
-            self.forwards.store(state, (None, 'emit'))
-            self.backwards.store(None, (state,'emit'))
+            self.forwards.store(state, [(None, 'emit')])
+            self.backwards.store(None, [(state,'emit')])
 
         def output(self, target):
             print('digraph {', file=target)
             for k,v in self.forwards.map.items():
+                print(repr(k),repr(v))
                 if isinstance(k, PState):
                     for nextState, label in v:
                         print(f's{k.id} [shape=none, label={k.dotLabel(self.input)}];', file=target)
@@ -776,7 +766,7 @@ class Automaton:
             return self.chars
 
         def matches(self, other):
-            return id(other)==id(self.original)
+            return other.match(self.chars)
 
         def dump(self, depth=0):
             print(f"{'  '*depth}{self.chars}")
@@ -786,7 +776,7 @@ class Automaton:
             self.tag      = tag
             self.children = tuple(children)
             for c in self.children:
-                assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
+                assert isinstance(c,Automaton.Terminal) or isinstance(c,Automaton.Nonterminal), repr(c)
 
         def __str__(self):
             return str(self.tag)
