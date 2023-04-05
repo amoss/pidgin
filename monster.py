@@ -404,8 +404,9 @@ def barrierSources(trace, terminal):
     return result
 
 class AState:
+    counter = 1
     '''A state in the LR(0) automaton'''
-    def __init__(self, grammar, configs):
+    def __init__(self, grammar, configs, label=None):
         assert len(configs)>0
         self.grammar = grammar
         self.byPriTerminal   = {}
@@ -415,6 +416,11 @@ class AState:
         self.byClause        = set()
         self.byPriClause     = set()
         self.reduceBarriers  = {}
+        if label is None:
+            self.label = f's{AState.counter}'
+            AState.counter += 1
+        else:
+            self.label = label
 
         accumulator = None
         derived = {}
@@ -582,16 +588,13 @@ class PState:
         else:
             result =  f'< <table border="0"><tr><td>{html.escape(remaining)}</td></tr><hr/>'
 
-        if len(astate.configurations)>5:
-            result += f"<tr><td>{len(astate.configurations)} configs</td></tr>"
-        else:
-            result += ''.join([f"<tr><td>{html.escape(str(c))}</td></tr>" for c in astate.configurations])
-
-        onlySymbols = [ s for s in self.stack if not isinstance(s,AState) ]
-        if len(onlySymbols)>5:
-            result += '<hr/><tr><td>... ' + " ".join([html.escape(str(s)) for s in onlySymbols[-5:]]) + '</td></tr></table> >';
-        else:
-            result += '<hr/><tr><td>' + " ".join([html.escape(str(s)) for s in onlySymbols]) + '</td></tr></table> >';
+        stackStrs = []
+        for s in self.stack[-8:]:
+            if isinstance(s, AState):
+                stackStrs.append(f'<font color="blue">{s.label}</font>')
+            else:
+                stackStrs.append(html.escape(str(s)))
+        result += '<tr><td>' + " ".join([s for s in stackStrs]) + '</td></tr></table> >';
         return result
 
 
@@ -601,9 +604,10 @@ class Automaton:
         self.grammar       = grammar
         self.discard       = grammar.discard
         entry = Clause(None, [Grammar.Nonterminal(grammar.start)], terminating=True)
-        initial = AState(grammar, [entry.get(0)])
+        initial = AState(grammar, [entry.get(0)], label='s0')
         self.start = initial
         worklist = OrdSet([initial])
+        counter = 1
 
         for state in worklist:
             for edges in (state.byTerminal, state.byPriTerminal):
@@ -612,7 +616,8 @@ class Automaton:
                     possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
                                       [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
                     assert len(possibleConfigs)>0, str(terminal)
-                    next = AState(grammar, possibleConfigs)
+                    next = AState(grammar, possibleConfigs, label=f's{counter}')
+                    counter += 1
                     next = worklist.add(next)
                     edges[terminal] = next
 
@@ -622,7 +627,8 @@ class Automaton:
                 possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
                                   [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
                 assert len(possibleConfigs)>0, str(nonterminal)
-                next = AState(grammar, possibleConfigs)
+                next = AState(grammar, possibleConfigs, label=f's{counter}')
+                counter += 1
                 next = worklist.add(next)
                 state.byNonterminal[name] = next
 
@@ -652,7 +658,7 @@ class Automaton:
         print("digraph {", file=output)
         for s in self.states:
             label = "<BR/>".join([c.html() for c in s.configurations])
-            print(f's{id(s)} [shape=none,label=< {label} >];', file=output)
+            print(f's{id(s)} [shape=none,label=<<font color="blue">{s.label}</font>{label} >];', file=output)
 
             for t,next in s.byPriTerminal.items():
                 nextId = makeNextId(s, next, t, output)
@@ -753,7 +759,6 @@ class Automaton:
         def output(self, target):
             print('digraph {', file=target)
             for k,v in self.forwards.map.items():
-                print(f'Trace.output: {repr(k)} -> {repr(v)}')
                 if isinstance(k, PState):
                     for nextState, label in v:
                         fontcolor = 'black'
