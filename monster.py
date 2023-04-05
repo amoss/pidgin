@@ -576,7 +576,7 @@ class PState:
         remaining = input[self.position:]
         astate = self.stack[-1]
         if not isinstance(astate,AState):
-            return "<Success>"
+            return "<Terminated>"
         if len(remaining)>30:
             result =  f'< <table border="0"><tr><td>{html.escape(remaining[:30])}...</td></tr><hr/>'
         else:
@@ -700,20 +700,23 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
+                print(f'execute {p.id}')
                 if not isinstance(p.stack[-1],AState):
-                    print(p.position,p.stack)
                     if p.position==len(input) and len(p.stack)==2:
                         yield p.stack[1]
                         self.trace.result(p)
+                    else:
+                        self.trace.blocks(p)
                 else:
                     shifts = p.shifts(input)
-                    print(f's{p.id} shifts {shifts}')
-                    next.extend(shifts)
-                    self.trace.shifts(p, shifts)
                     reduces = p.reductions()
-                    print(f's{p.id} reduces {reduces}')
-                    next.extend(reduces)
-                    self.trace.reduces(p, reduces)
+                    if len(shifts)+len(reduces)==0:
+                        self.trace.blocks(p)
+                    else:
+                        next.extend(shifts)
+                        self.trace.shifts(p, shifts)
+                        next.extend(reduces)
+                        self.trace.reduces(p, reduces)
             pstates = next
 
     class Trace:
@@ -737,17 +740,28 @@ class Automaton:
 
         def result(self, state):
             if not self.recording: return
-            self.forwards.store(state, [(None, 'emit')])
-            self.backwards.store(None, [(state,'emit')])
+            self.forwards.store(state, [(True, 'emit')])
+            self.backwards.store(True, [(state,'emit')])
+
+        def blocks(self, state):
+            if not self.recording: return
+            self.forwards.store(state, [(False, 'blocks')])
+            self.backwards.store(False, [(state,'blocks')])
+
+
 
         def output(self, target):
             print('digraph {', file=target)
             for k,v in self.forwards.map.items():
-                print(repr(k),repr(v))
+                print(f'Trace.output: {repr(k)} -> {repr(v)}')
                 if isinstance(k, PState):
                     for nextState, label in v:
-                        print(f's{k.id} [shape=none, label={k.dotLabel(self.input)}];', file=target)
-                        print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
+                        fontcolor = 'black'
+                        if isinstance(nextState,PState):
+                            print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
+                        else:
+                            fontcolor = 'green' if nextState else 'red'
+                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, label={k.dotLabel(self.input)}];', file=target)
                 else:
                     print(repr(k))
             print('}', file=target)
