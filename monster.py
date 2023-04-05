@@ -624,7 +624,7 @@ class Automaton:
                 assert len(possibleConfigs)>0, str(nonterminal)
                 next = AState(grammar, possibleConfigs)
                 next = worklist.add(next)
-                state.byNonterminal[nonterminal] = next
+                state.byNonterminal[name] = next
 
             for c in state.configurations:
                 if c.isReducing():
@@ -667,7 +667,7 @@ class Automaton:
 
             for nt, next in s.byNonterminal.items():
                 nextId = makeNextId(s, next, nt, output)
-                print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt.name}</FONT>>];', file=output)
+                print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt}</FONT>>];', file=output)
 
             for clause in s.byClause:
                 nextId = f's{id(s)}_{id(clause)}'
@@ -825,6 +825,7 @@ def N(name, modifier='just', strength='greedy'):
 g = Grammar('R')
 g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
 a = Automaton(g)
+a.dot( open('eclr.dot','wt') )
 for result in a.execute('xxxzz',True):
     print(result)
 a.trace.output(open('x.dot','wt'))
