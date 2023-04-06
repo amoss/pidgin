@@ -6,6 +6,8 @@ if rootDir not in sys.path:
 import monster
 Grammar = monster.Grammar
 
+import argparse
+import re
 import shutil
 import traceback
 
@@ -321,6 +323,11 @@ def recurse_parensseq2():
 units = [ v for k,v in sorted(globals().items())
             if k[:6]=='regex_' or k[:8]=='recurse_' ]
 
+argParser = argparse.ArgumentParser()
+argParser.add_argument("-v","--verbose", action="store_true")
+argParser.add_argument("-f","--filter")
+args = argParser.parse_args()
+
 # Clean old results
 target = os.path.join(rootDir,"unitResults")
 for name in os.listdir(target):
@@ -342,6 +349,7 @@ for u in units:
     print(justification, file=index)
     print(f'\n![eclr machine]({name}/eclr.dot.png)', file=index)
 
+    if args.filter is not None and re.fullmatch(args.filter,name) is None: continue
     try:
         grammar, positive, negative = u()
         dir = os.path.join(target,name)
@@ -350,18 +358,20 @@ for u in units:
         automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
 
         for i,p in enumerate(positive):
+            if args.verbose: print(f'{GRAY}Executing p{i} on {name}: {p}')
             results = [r for r in automaton.execute(p, True)]
             automaton.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
             if len(results)==0:
                 print(f'{RED}Failed on {name} positive {i} {p}{END}')
-            else:
+            elif args.verbose:
                 print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
         for i,n in enumerate(negative):
+            if args.verbose: print(f'{GRAY}Executing n{i} on {name}: {n}')
             results = [r for r in automaton.execute(n, True)]
             automaton.trace.output( open(os.path.join(dir,f'n{i}.dot'),'wt') )
             if len(results)>0:
                 print(f'{RED}Failed on {name} negative {i} {n}{END}')
-            else:
+            elif args.verbose:
                 print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
     except:
         traceback.print_exc()
