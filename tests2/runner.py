@@ -29,7 +29,8 @@ def regex_seq():
        Test sequencing of terminals in a grammar.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), T('y'), T('z')])
-    return g
+    return g, ['xyz'], \
+           ['xxy','yyz','x','xy','yz']
 
 
 def regex_seqstar():
@@ -38,7 +39,9 @@ def regex_seqstar():
        Test repetition of terminals within a sequence.'''
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
-    return g
+    return g, ['', 'x', 'xx' ,'xxx', 'xxxx', 'y', 'yy', 'yyy', 'yyyy', 'z', 'zz', 'zzz', 'zzzz',
+               'xy', 'xxy', 'xyy', 'xxyyz', 'xyz', 'xyzzz', 'yzz'], \
+           ['yx', 'zx', 'zy', 'xjz', 'zi']
 
 
 def regex_starboundedleft():
@@ -47,8 +50,7 @@ def regex_starboundedleft():
        Test repetition of a terminal with a non-overlapping boundary on the left.'''
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any')])
-    return g
-    # TODO: Missing shifts for repetition in stars, missing reduce cases for barriers
+    return g, [], []
 
 
 def regex_starboundedleft2():
@@ -57,7 +59,7 @@ def regex_starboundedleft2():
        Test repetition of a terminal with an overlapping boundary on the left.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), T('x','any')])
-    return g
+    return g, [], []
 
 
 def regex_starboundedright():
@@ -66,7 +68,7 @@ def regex_starboundedright():
        Test repetition of a terminal with a non-overlapping boundary on the right.'''
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('r')])
-    return g
+    return g, [], []
 
 
 def regex_starboundedright2():
@@ -75,7 +77,7 @@ def regex_starboundedright2():
        Test repetition of a terminal with an overlapping boundary on the right.'''
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('x')])
-    return g
+    return g, [], []
 
 
 def regex_starboundedboth():
@@ -84,7 +86,7 @@ def regex_starboundedboth():
        Test repetition of a terminal with a non-overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any'), T('r')])
-    return g
+    return g, [], []
 
 
 def regex_starboundedboth2():
@@ -93,7 +95,7 @@ def regex_starboundedboth2():
        Test repetition of a terminal with an overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), T('x','any'), T('x')])
-    return g
+    return g, [], []
 
 
 def regex_choice():
@@ -105,7 +107,7 @@ def regex_choice():
     g.addRule('Ca', [T('x')], [T('y')])
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
-    return g
+    return g, [], []
 
 
 def regex_choicestar():
@@ -117,7 +119,7 @@ def regex_choicestar():
     g.addRule('Ca', [T('x')], [T('y')])
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
-    return g
+    return g, [], []
     # TODO: Check this carefully
 
 
@@ -128,7 +130,7 @@ def regex_selfalignunbounded():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
     # TODO: Barrier exits are unclear, but this could be correct
 
 
@@ -139,7 +141,7 @@ def regex_selfalignboundedleft():
     g = Grammar('R')
     g.addRule('R', [T('l'), N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
 
 
 def regex_selfalignboundedleft2():
@@ -149,7 +151,7 @@ def regex_selfalignboundedleft2():
     g = Grammar('R')
     g.addRule('R', [T('x'), N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
 
 
 def regex_selfalignboundedright():
@@ -159,7 +161,7 @@ def regex_selfalignboundedright():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('r')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
 
 
 def regex_selfalignboundedright2():
@@ -169,7 +171,7 @@ def regex_selfalignboundedright2():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
     # TODO: Could be correct, but barrier exits are unclear
 
 
@@ -180,7 +182,7 @@ def regex_selfalignboundedboth():
     g = Grammar('R')
     g.addRule('R', [T('l'), N('S','any','greedy'), T('r')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
 
 
 
@@ -191,7 +193,7 @@ def regex_selfalignboundedboth2():
     g = Grammar('R')
     g.addRule('R', [T('x'), N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
-    return g
+    return g, [], []
 
 
 def recurse_degenseq():
@@ -201,7 +203,7 @@ def recurse_degenseq():
        greediness. Left-recursive form.'''
     g = Grammar('R')
     g.addRule('R', [N('R','any','greedy'), T('x')])
-    return g
+    return g, [], []
 
 
 def recurse_degenseq2():
@@ -211,7 +213,7 @@ def recurse_degenseq2():
        greediness. Right-recursive form.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), N('R','any','greedy')])
-    return g
+    return g, [], []
 
 
 def recurse_degenseq3():
@@ -222,7 +224,7 @@ def recurse_degenseq3():
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [N('R'), T('x')])
-    return g
+    return g, [], []
 
     # TODO: No initial shift to kickstart the parse, needs to reduce an empty R first. Compare with other form.
 
@@ -235,7 +237,7 @@ def recurse_degenseq4():
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('x'), N('R')])
-    return g
+    return g, [], []
 
 
 def recurse_nests():
@@ -244,7 +246,7 @@ def recurse_nests():
        Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
     g = Grammar('R')
     g.addRule('R', [T('l'), N('R','any','greedy'), T('r')])
-    return g
+    return g, [], []
 
 
 def recurse_nests2():
@@ -254,7 +256,7 @@ def recurse_nests2():
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('l'), N('R'), T('r')])
-    return g
+    return g, [], []
 
 
 def recurse_partialnests():
@@ -263,7 +265,7 @@ def recurse_partialnests():
        Test bracket (partial-) nesting. No idea if degenerate or not, kind of wondering what language this generates, lol'''
     g = Grammar('R')
     g.addRule('R', [T('l','any','greedy'), N('R'), T('r','any','greedy')])
-    return g
+    return g, [], []
     # TODO: Don't know if this works or not, but there are missing reduce cases for the barriers
 
 
@@ -274,7 +276,7 @@ def recurse_termplusvianonterm():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x')])
-    return g
+    return g, [], []
 
 
 def recurse_termplusvianonterm2():
@@ -284,7 +286,7 @@ def recurse_termplusvianonterm2():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('l'), T('r')])
     g.addRule('S', [T('l'), T('r')])
-    return g
+    return g, [], []
 
 
 def recurse_parensseq():
@@ -294,7 +296,7 @@ def recurse_parensseq():
     g = Grammar('E')
     g.addRule('E', [T('x'), N('Et','any','greedy')], [T('<'), N('E'), T('>'), N('Et','any','greedy')])
     g.addRule('Et', [T('+'), N('E')])
-    return g
+    return g, [], []
 
 
 def recurse_parensseq2():
@@ -306,7 +308,7 @@ def recurse_parensseq2():
     g.addRule('Et', [T('/'), N('F')])
     g.addRule('F',  [T('x'), N('Ft','any','greedy')], [T('<'), N('E'), T('>'), N('Ft','any','greedy')])
     g.addRule('Ft', [T('x'), N('E')])
-    return g
+    return g, [], []
 
 
 
@@ -335,12 +337,24 @@ for u in units:
     print(f'\n![eclr machine]({name}/eclr.dot.png)', file=index)
 
     try:
-        grammar = u()
-        grammar.dump()
+        grammar, positive, negative = u()
         dir = os.path.join(target,name)
         os.makedirs(dir, exist_ok=True)
         automaton = monster.Automaton(grammar)
         automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
+
+        for p in positive:
+            results = [r for r in automaton.execute(p, True)]
+            if len(results)==0:
+                print(f'Failed on {name} positive {p}')
+            else:
+                print(f'Passed on {name} positive {p}')
+        for n in negative:
+            results = [r for r in automaton.execute(p, True)]
+            if len(results)>0:
+                print(f'Failed on {name} negative {n}')
+            else:
+                print(f'Failed on {name} negative {n}')
     except:
         traceback.print_exc()
 
