@@ -58,7 +58,8 @@ def regex_starboundedleft():
        Test repetition of a terminal with a non-overlapping boundary on the left.'''
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any')])
-    return g, [], []
+    return g, ['l', 'lx', 'lxx', 'lxxx', 'lxxxx'], \
+           ['', 'x', 'xx', 'll', 'rx', 'z', 'llxx']
 
 
 def regex_starboundedleft2():
@@ -67,7 +68,8 @@ def regex_starboundedleft2():
        Test repetition of a terminal with an overlapping boundary on the left.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), T('x','any')])
-    return g, [], []
+    return g, ['x', 'xx', 'xxx', 'xxxx'], \
+           ['', 'y', 'yxx', 'xxxy']
 
 
 def regex_starboundedright():
