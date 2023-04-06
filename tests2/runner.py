@@ -9,6 +9,12 @@ Grammar = monster.Grammar
 import shutil
 import traceback
 
+GRAY = "\033[0;37m"
+RED = "\033[1;31m"
+GREEN = "\033[1;32m"
+YELLOW = "\033[1;33m"
+END = "\033[0m"
+
 def T(val, m=None, s=None):
     if m is None:
         if isinstance(val,str):
@@ -318,7 +324,7 @@ units = [ v for k,v in sorted(globals().items())
 # Clean old results
 target = os.path.join(rootDir,"unitResults")
 for name in os.listdir(target):
-    if name==".keep" or name=="index.md":  continue
+    if name==".keep" or name=="index.md" or name=='.DS_Store':  continue
     dir = os.path.join(target,name)
     print(f"Cleaning {dir}")
     shutil.rmtree(dir)
@@ -343,18 +349,20 @@ for u in units:
         automaton = monster.Automaton(grammar)
         automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
 
-        for p in positive:
+        for i,p in enumerate(positive):
             results = [r for r in automaton.execute(p, True)]
+            automaton.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
             if len(results)==0:
-                print(f'Failed on {name} positive {p}')
+                print(f'{RED}Failed on {name} positive {i} {p}{END}')
             else:
-                print(f'Passed on {name} positive {p}')
-        for n in negative:
-            results = [r for r in automaton.execute(p, True)]
+                print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
+        for i,n in enumerate(negative):
+            results = [r for r in automaton.execute(n, True)]
+            automaton.trace.output( open(os.path.join(dir,f'n{i}.dot'),'wt') )
             if len(results)>0:
-                print(f'Failed on {name} negative {n}')
+                print(f'{RED}Failed on {name} negative {i} {n}{END}')
             else:
-                print(f'Failed on {name} negative {n}')
+                print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
     except:
         traceback.print_exc()
 

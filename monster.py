@@ -780,8 +780,9 @@ class Automaton:
                     for next,_ in self.backwards.map[state]:
                         redundant[next] = False
                         markAncestors(next)
-            for s,_ in self.backwards.map[True]:
-                markAncestors(s)
+            if True in self.backwards.map:
+                for s,_ in self.backwards.map[True]:
+                    markAncestors(s)
             return redundant
 
         def measure(self):
