@@ -461,34 +461,6 @@ class Handle:
         assert isinstance(stack[-1], AState), stack[-1]
         pos = len(stack)-2
         dfaState = self.initial
-        lastExit = None
-        while pos>0:
-            next = None
-            for symbol, succ in self.dfa.map[dfaState]:
-                if stack[pos].matches(symbol):
-                    next = succ
-                    pos -= 2
-                    break
-            if next is None:
-                if lastExit is not None:
-                    onlySymbols = ( s for s in stack[lastExit+2:] if not isinstance(s,AState) )
-                    return stack[:lastExit+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
-                return None
-            dfaState = next
-            if self.exit in dfaState:
-                lastExit = pos
-        assert pos==-1
-        if lastExit is not None:
-            onlySymbols = ( s for s in stack[lastExit+2:] if not isinstance(s,AState) )
-            return stack[:lastExit+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
-        return None
-
-    def check(self, stack):
-        '''Check the stack against the DFA. If we find a match then return the remaining stack after the
-           handle has been removed.'''
-        assert isinstance(stack[-1], AState), stack[-1]
-        pos = len(stack)-2
-        dfaState = self.initial
         #print(f'Handle check {strs(stack)} starting {",".join([str(x) for x in sorted(dfaState)])}')
         while pos>0:
             next = None
