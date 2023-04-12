@@ -40,11 +40,10 @@ class MultiDict:
     def __init__(self):
         self.map = {}
 
-    def store(self, k, values):
+    def store(self, k, v):
         if not k in self.map.keys():
             self.map[k] = set()
-        for v in values:
-            self.map[k].add(v)
+        self.map[k].add(v)
 
 
 
@@ -403,6 +402,84 @@ def barrierSources(trace, terminal):
             result.add(item)
     return result
 
+
+class Handle:
+    def __init__(self, clause):
+        '''Build a restricted NFA for recognising the clause - no loops larger than self-loops, no choices.
+           The NFA is a straight-line with self-loops on repeating nodes and jumps over skipable nodes.
+           Translate the NFA to a DFA that we store / use for recognition.'''
+        nfaStates  = list(reversed(clause.rhs))
+        nfaSkips   = [ s.modifier in ('optional','any') for s in nfaStates ] + [False]
+        nfaRepeats = [ s.modifier in ('some','any') for s in nfaStates ]     + [False]
+        nfaEdges   = [ MultiDict() for i in range(len(nfaStates)) ]          + [MultiDict()]
+
+        for i,s in enumerate(nfaStates):
+            if nfaRepeats[i]:
+                nfaEdges[i].store(s.exactlyOne(), i)
+            for tar in range(i+1,len(nfaStates)+2):
+                nfaEdges[i].store(s.exactlyOne(), tar)
+                if not nfaSkips[tar]:
+                    break
+
+        initial = []
+        for i in range(len(nfaStates)):
+            initial.append(i)
+            if not nfaSkips[i]:
+                break
+        self.initial = frozenset(initial)
+        self.exit = len(nfaStates)
+        self.lhs = clause.lhs
+
+        def successor(dfaState, symbol):
+            result = set()
+            for nfaIdx in dfaState:
+                if symbol in nfaEdges[nfaIdx].map:
+                    result.update(nfaEdges[nfaIdx].map[symbol])
+            return frozenset(result)
+
+        def ogEdges(dfaState):
+            result = set()
+            for nfaIdx in dfaState:
+                for symbol in nfaEdges[nfaIdx].map.keys():
+                    result.add(symbol)
+            return result
+
+        self.dfa = MultiDict()
+        worklist = OrdSet()
+        worklist.add(self.initial)
+        for state in worklist:
+            if state in self.dfa.map:
+                continue
+            for symbol in ogEdges(state):
+                succ = successor(state,symbol)
+                self.dfa.store(state, (symbol,succ))
+                worklist.add(succ)
+
+    def check(self, stack):
+        '''Check the stack against the DFA. If we find a match then return the remaining stack after the
+           handle has been removed.'''
+        assert isinstance(stack[-1], AState), stack[-1]
+        pos = len(stack)-2
+        dfaState = self.initial
+        while pos>0:
+            next = None
+            for symbol, succ in self.dfa.map[dfaState]:
+                if stack[pos].matches(symbol):
+                    next = succ
+                    pos -= 2
+                    break
+            if next is None:
+                if self.exit in dfaState:
+                    onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
+                    return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+                return None
+            dfaState = next
+        if self.exit in dfaState:
+            onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
+            return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+        return None
+
+
 class AState:
     counter = 1
     '''A state in the LR(0) automaton'''
@@ -413,8 +490,8 @@ class AState:
         self.shiftBarriers   = {}
         self.byTerminal      = {}
         self.byNonterminal   = {}
-        self.byClause        = set()
-        self.byPriClause     = set()
+        self.byClause        = {}
+        self.byPriClause     = {}
         self.reduceBarriers  = {}
         if label is None:
             self.label = f's{AState.counter}'
@@ -453,6 +530,9 @@ class AState:
     def __hash__(self):
         return hash(self.configurations)
 
+    def __str__(self):
+        return self.label
+
     def epsilonClosure(self, config, accumulator=None, trace=None):
         '''Process the single *config* to produce a set of derived configurations to add to the closure. Use an
            *accumulator* for the set of configurations to terminate recursion. Record the derivations in the
@@ -481,8 +561,6 @@ class AState:
             accumulator, trace = self.epsilonClosure(initial, accumulator, trace)
         return accumulator, trace
 
-    def addReducer(self, clause):
-        self.byClause.add(clause)
 
 class PState:
     counter = 1
@@ -517,14 +595,15 @@ class PState:
         result = []
         astate = self.stack[-1]
         done = set()
-        for clause in astate.byClause:
-            newStack = self.checkHandle(clause)
+        for handle in astate.byClause.values():
+            newStack = handle.check(self.stack)
             if newStack is not None:
+                print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
                 returnState = newStack[-2]
-                if clause.lhs is None:
+                if handle.lhs is None:
                     result.append(PState(newStack, self.position, discard=self.discard))
                     continue
-                newStack.append(returnState.byNonterminal[clause.lhs])
+                newStack.append(returnState.byNonterminal[handle.lhs])
                 result.append(PState(newStack, self.position, discard=self.discard))
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
@@ -639,11 +718,11 @@ class Automaton:
                     if c.clause.hasReduceBarrier():
                         above = c.clause
                         below = c.clause.floor()
-                        state.byClause.add(above)
-                        state.byPriClause.add(below)
+                        state.byClause[above] = Handle(above)
+                        state.byPriClause[below] = Handle(below)
                         state.reduceBarriers[below] = above
                     else:
-                        state.byClause.add(c.clause)
+                        state.byClause[c.clause] = Handle(c.clause)
 
         self.states = worklist.set
         assert isinstance(self.states, dict)
@@ -736,24 +815,24 @@ class Automaton:
         def shifts(self, source, destinations):
             if not self.recording: return
             for d in destinations:
-                self.forwards.store(source, [(d, 'shift')])
-                self.backwards.store(d,     [(source, 'shift')])
+                self.forwards.store(source, (d, 'shift'))
+                self.backwards.store(d,     (source, 'shift'))
 
         def reduces(self, source, destinations):
             if not self.recording: return
             for d in destinations:
-                self.forwards.store(source, [(d, 'reduce')])
-                self.backwards.store(d,     [(source, 'reduce')])
+                self.forwards.store(source, (d, 'reduce'))
+                self.backwards.store(d,     (source, 'reduce'))
 
         def result(self, state):
             if not self.recording: return
-            self.forwards.store(state, [(True, 'emit')])
-            self.backwards.store(True, [(state,'emit')])
+            self.forwards.store(state, (True, 'emit'))
+            self.backwards.store(True, (state,'emit'))
 
         def blocks(self, state):
             if not self.recording: return
-            self.forwards.store(state, [(False, 'blocks')])
-            self.backwards.store(False, [(state,'blocks')])
+            self.forwards.store(state, (False, 'blocks'))
+            self.backwards.store(False, (state,'blocks'))
 
         def output(self, target):
             redundant = self.calculateRedundancy()
