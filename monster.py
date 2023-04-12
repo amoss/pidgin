@@ -461,6 +461,7 @@ class Handle:
         assert isinstance(stack[-1], AState), stack[-1]
         pos = len(stack)-2
         dfaState = self.initial
+        lastExit = None
         while pos>0:
             next = None
             for symbol, succ in self.dfa.map[dfaState]:
@@ -469,14 +470,17 @@ class Handle:
                     pos -= 2
                     break
             if next is None:
-                if self.exit in dfaState:
-                    onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
-                    return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+                if lastExit is not None:
+                    onlySymbols = ( s for s in stack[lastExit+2:] if not isinstance(s,AState) )
+                    return stack[:lastExit+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
                 return None
             dfaState = next
-        if self.exit in dfaState:
-            onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
-            return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+            if self.exit in dfaState:
+                lastExit = pos
+        assert pos==-1
+        if lastExit is not None:
+            onlySymbols = ( s for s in stack[lastExit+2:] if not isinstance(s,AState) )
+            return stack[:lastExit+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
         return None
 
 
@@ -598,13 +602,15 @@ class PState:
         for handle in astate.byClause.values():
             newStack = handle.check(self.stack)
             if newStack is not None:
-                print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
+                #print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
                 returnState = newStack[-2]
                 if handle.lhs is None:
                     result.append(PState(newStack, self.position, discard=self.discard))
                     continue
                 newStack.append(returnState.byNonterminal[handle.lhs])
                 result.append(PState(newStack, self.position, discard=self.discard))
+            #else:
+            #    print(f'Handle failed on {strs(self.stack)}')
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
