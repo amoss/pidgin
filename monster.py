@@ -422,7 +422,7 @@ class Handle:
                     break
 
         initial = []
-        for i in range(len(nfaStates)):
+        for i in range(len(nfaStates)+1):
             initial.append(i)
             if not nfaSkips[i]:
                 break
@@ -481,6 +481,31 @@ class Handle:
         if lastExit is not None:
             onlySymbols = ( s for s in stack[lastExit+2:] if not isinstance(s,AState) )
             return stack[:lastExit+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+        return None
+
+    def check(self, stack):
+        '''Check the stack against the DFA. If we find a match then return the remaining stack after the
+           handle has been removed.'''
+        assert isinstance(stack[-1], AState), stack[-1]
+        pos = len(stack)-2
+        dfaState = self.initial
+        #print(f'Handle check {strs(stack)} starting {",".join([str(x) for x in sorted(dfaState)])}')
+        while pos>0:
+            next = None
+            for symbol, succ in self.dfa.map[dfaState]:
+                if stack[pos].matches(symbol):
+                    next = succ
+                    pos -= 2
+                    break
+            if next is None:
+                if self.exit in dfaState:
+                    onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
+                    return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+                return None
+            dfaState = next
+        if self.exit in dfaState:
+            onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
+            return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
         return None
 
 
@@ -814,7 +839,7 @@ class Automaton:
             # The backwards map over the trace is acyclic and performance is not a concern
             def markAncestors(state):
                 if not state in self.backwards.map:
-                    print(f'Orphan {state}')
+                    pass #print(f'Orphan {state}')
                 else:
                     for next,_ in self.backwards.map[state]:
                         redundant[next] = False

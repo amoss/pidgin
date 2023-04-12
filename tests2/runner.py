@@ -72,6 +72,18 @@ def regex_starboundedleft2():
            ['', 'y', 'yxx', 'xxxy']
 
 
+def regex_starboundedleft3():
+    '''R: x W ; W: x*
+
+       Test repetition of a terminal with an overlapping boundary on the left, where the repeating part is
+       wrapped inside a non-terminal to test if the handle check consumes the extra symbol.'''
+    g = Grammar('R')
+    g.addRule('R', [T('x'), N('W')])
+    g.addRule('W', [T('x','any')])
+    return g, ['x', 'xx', 'xxx', 'xxxx'], \
+           ['', 'y', 'yxx', 'xxxy']
+
+
 def regex_starboundedright():
     '''R: x* r
 
