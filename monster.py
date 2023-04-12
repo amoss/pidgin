@@ -609,55 +609,6 @@ class PState:
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
 
-    def checkHandle(self, clause):
-        '''Handles are as complex as regex in this system, and so the choice of greediness is very important.
-           It seems that greedy non-backtracking works on handles as long as we perform the match at the symbol
-           level, and not the character-level. For terminals each Parser.Terminal on the stack contains a
-           reference to the Grammar.Terminal it matched. For non-terminals we use the name.'''
-        assert isinstance(clause, Clause), clause
-        s = len(self.stack) - 1         # Track index of state above symbol being checked
-        r = len(clause.rhs) - 1         # Track index of symbol being checked
-        hasMatched = False
-        def prepare():
-            ## This was added because of a different breakage case earlier on. With barriers it may be redundant so
-            ## we progress without it for now until we find a breaking case.
-            ##if s==len(self.stack)-1: return None  # Do not allow zero-length matches if the handle is all optional
-            preHandle = self.stack[:s+1]
-            onlySymbols = ( s for s in self.stack[s+1:] if not isinstance(s,AState) )
-            preHandle.append(Automaton.Nonterminal(clause.lhs,onlySymbols))
-            return preHandle
-        while s >= 1:
-            if r<0:
-                return prepare()
-            if type(clause.rhs[r]) in (Grammar.Glue,Grammar.Remover):
-                r -= 1
-                continue
-            symbol = clause.rhs[r]
-            matching = self.stack[s-1].matches(symbol)
-            if not matching and hasMatched:
-                r -= 1
-                hasMatched = False
-                continue
-            if not matching and symbol.modifier in ("just","some"):
-                return None
-            if not matching and symbol.modifier in ("any","optional"):
-                r -= 1
-                hasMatched = False
-            if matching and symbol.modifier in ("just","optional"):
-                s -= 2
-                r -= 1
-                hasMatched = False
-            if matching and symbol.modifier in ("any","some"):
-                s -= 2
-                hasMatched = True
-        if hasMatched:
-            r -= 1
-        while r>=0 and clause.rhs[r].modifier in ('any','optional'):
-            r -= 1
-        if r<0:
-            return prepare()
-        return None
-
     def dotLabel(self, input, redundant):
         remaining = input[self.position:]
         astate = self.stack[-1]
