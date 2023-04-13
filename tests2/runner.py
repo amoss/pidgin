@@ -270,7 +270,8 @@ def recurse_degenseq4():
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('x'), N('R')])
-    return g, [], []
+    return g, ['', 'x', 'xx', 'xxx', 'xxxx'], \
+           ['lx', 'xr']
 
 
 def recurse_nests():
@@ -279,7 +280,8 @@ def recurse_nests():
        Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
     g = Grammar('R')
     g.addRule('R', [T('l'), N('R','any','greedy'), T('r')])
-    return g, [], []
+    return g, ['lr','llrr','llrlrr','lllrrlrlrr', 'llrllrrlrr', 'llrllrlrrlrr'], \
+           ['', 'l', 'r', 'll', 'rr', 'llr', 'lrr', 'rl', 'lllrr', 'llrlr', 'llrrr', 'lllrlrrrr']
 
 
 def recurse_nests2():
@@ -289,17 +291,19 @@ def recurse_nests2():
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('l'), N('R'), T('r')])
-    return g, [], []
+    return g, ['','lr','llrr','llrlrr','lllrrlrlrr', 'llrllrrlrr', 'llrllrlrrlrr'], \
+           ['l', 'r', 'll', 'rr', 'llr', 'lrr', 'rl', 'lllrr', 'llrlr', 'llrrr', 'lllrlrrrr']
 
 
 def recurse_partialnests():
     '''R: l* R r*
 
-       Test bracket (partial-) nesting. No idea if degenerate or not, kind of wondering what language this generates, lol'''
+       Test bracket (partial-) nesting. Impossible to match as requires an infinitely deep
+       nesting of R.'''
     g = Grammar('R')
     g.addRule('R', [T('l','any','greedy'), N('R'), T('r','any','greedy')])
-    return g, [], []
-    # TODO: Don't know if this works or not, but there are missing reduce cases for the barriers
+    return g, [], ['', 'l', 'll', 'lll', 'r', 'rr', 'rrr', 'lllrlr', 'lllrrrrrlr', 'rrrlll',
+              'x','xx','xxx','xxxx']
 
 
 def recurse_termplusvianonterm():
@@ -309,7 +313,8 @@ def recurse_termplusvianonterm():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x')])
-    return g, [], []
+    return g, ['x','xx','xxx','xxxx'], \
+           ['','lx','xr']
 
 
 def recurse_termplusvianonterm2():
@@ -319,7 +324,8 @@ def recurse_termplusvianonterm2():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('l'), T('r')])
     g.addRule('S', [T('l'), T('r')])
-    return g, [], []
+    return g, ['lr','lrlr','lrlrlr','lrlrlrlr'], \
+           ['','l','r','lxr','xlr','lrx','lrl','lrr','rlr']
 
 
 def recurse_parensseq():
@@ -329,7 +335,8 @@ def recurse_parensseq():
     g = Grammar('E')
     g.addRule('E', [T('x'), N('Et','any','greedy')], [T('<'), N('E'), T('>'), N('Et','any','greedy')])
     g.addRule('Et', [T('+'), N('E')])
-    return g, [], []
+    return g, ['x','x+x','x+x+x','<x>','<x>+x','x+<x>','<x>+<x>','<x+x>','<x+<x>>','<<x+x>+<x>>+<x>'], \
+           ['','xx','<x','x>','<x>>','x+','<x+x','x+x>','x+<x']
 
 
 def recurse_parensseq2():
@@ -340,8 +347,10 @@ def recurse_parensseq2():
     g.addRule('E',  [N('F'), N('Et','any','greedy')])
     g.addRule('Et', [T('/'), N('F')])
     g.addRule('F',  [T('x'), N('Ft','any','greedy')], [T('<'), N('E'), T('>'), N('Ft','any','greedy')])
-    g.addRule('Ft', [T('x'), N('E')])
-    return g, [], []
+    g.addRule('Ft', [T('+'), N('E')])
+    return g, ['x', 'x+x', 'x+x+x', '<x>', '<x>+x', 'x+<x>', '<x>+<x>', '<x+x>', '<x+<x>>', '<<x+x>+<x>>+<x>',
+               'x/x', 'x/x/x', 'x/x+x', 'x+x/x', 'x/<x+x>', '<x/x>+x', '<<x>/x+x>/<x+x>'], \
+           ['','xx','<x','x>','<x>>','x+','<x+x','x+x>','x+<x','x/','x/x/','x/x>','<x/x','<x>/','/x']
 
 
 
