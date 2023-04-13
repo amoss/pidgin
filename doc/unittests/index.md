@@ -16,7 +16,8 @@
 ## recurse_degenseq3
 `R: (R x)*`
        Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
-       greediness. Left-recursive form.
+       greediness. Left-recursive form. Successful traces have a prefix that reduces empty to R before starting
+       to shift.
 
 ![eclr machine](recurse_degenseq3/eclr.dot.png)
 
@@ -53,7 +54,8 @@
 
 ## recurse_partialnests
 `R: l* R r*`
-       Test bracket (partial-) nesting. No idea if degenerate or not, kind of wondering what language this generates, lol
+       Test bracket (partial-) nesting. Impossible to match as requires an infinitely deep
+       nesting of R.
 
 ![eclr machine](recurse_partialnests/eclr.dot.png)
 
@@ -142,7 +144,7 @@
 ![eclr machine](regex_starboundedboth/eclr.dot.png)
 
 ## regex_starboundedboth2
-`R: x x*`
+`R: x x* x`
        Test repetition of a terminal with an overlapping boundary on both sides.
 
 ![eclr machine](regex_starboundedboth2/eclr.dot.png)
@@ -159,6 +161,13 @@
 
 ![eclr machine](regex_starboundedleft2/eclr.dot.png)
 
+## regex_starboundedleft3
+`R: x W ; W: x*`
+       Test repetition of a terminal with an overlapping boundary on the left, where the repeating part is
+       wrapped inside a non-terminal to test if the handle check consumes the extra symbol.
+
+![eclr machine](regex_starboundedleft3/eclr.dot.png)
+
 ## regex_starboundedright
 `R: x* r`
        Test repetition of a terminal with a non-overlapping boundary on the right.
@@ -167,6 +176,6 @@
 
 ## regex_starboundedright2
 `R: x* x`
-       Test repetition of a terminal with an overlapping boundary on the right.
+       Test repetition of a terminal with an overlapping boundary on the right, equivalent to x+
 
 ![eclr machine](regex_starboundedright2/eclr.dot.png)
