@@ -462,15 +462,15 @@ class Handle:
         assert (len(stack)%2) == 1
         pos = len(stack)-2
         dfaState = self.initial
-        #print(f'Handle check {strs(stack)} starting {",".join([str(x) for x in sorted(dfaState)])}')
         while pos>0:
             next = None
-            for symbol, succ in self.dfa.map[dfaState]:
-                #print(f'pos={stack[pos]} pos-1={stack[pos-1].validLhs}')
-                if stack[pos].matches(symbol) and self.lhs in stack[pos-1].validLhs:
-                    next = succ
-                    pos -= 2
-                    break
+            if dfaState in self.dfa.map:   # If dfaState = { nfaExit } then it won't be in the edge map
+                for symbol, succ in self.dfa.map[dfaState]:
+                    #print(f'pos={stack[pos]} pos-1={stack[pos-1].validLhs}')
+                    if stack[pos].matches(symbol) and self.lhs in stack[pos-1].validLhs:
+                        next = succ
+                        pos -= 2
+                        break
             if next is None:
                 if self.exit in dfaState:
                     onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
