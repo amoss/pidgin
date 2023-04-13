@@ -90,16 +90,18 @@ def regex_starboundedright():
        Test repetition of a terminal with a non-overlapping boundary on the right.'''
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('r')])
-    return g, [], []
+    return g, ['r', 'xr', 'xxr', 'xxxr'], \
+           ['l','xl','lx','x','xx','rx','rxx']
 
 
 def regex_starboundedright2():
     '''R: x* x
 
-       Test repetition of a terminal with an overlapping boundary on the right.'''
+       Test repetition of a terminal with an overlapping boundary on the right, equivalent to x+'''
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('x')])
-    return g, [], []
+    return g, ['x','xx','xxx','xxxx'], \
+           ['l','lx','','xr']
 
 
 def regex_starboundedboth():
@@ -108,16 +110,17 @@ def regex_starboundedboth():
        Test repetition of a terminal with a non-overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any'), T('r')])
-    return g, [], []
+    return g, ['lr', 'lxr', 'lxxr', 'lxxxr'], \
+           ['', 'x', 'xx', 'lx', 'lxx', 'xr', 'xxr']
 
 
 def regex_starboundedboth2():
-    '''R: x x*
+    '''R: x x* x
 
        Test repetition of a terminal with an overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), T('x','any'), T('x')])
-    return g, [], []
+    return g, ['xx', 'xxx', 'xxxx'], ['','x','l','lxx','xxr']
 
 
 def regex_choice():
@@ -129,7 +132,8 @@ def regex_choice():
     g.addRule('Ca', [T('x')], [T('y')])
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
-    return g, [], []
+    return g, ['xyz','xyk','xzz','xzk','yyz','yyk','yzz','yzk'], \
+           ['xy','yk','xxx','']
 
 
 def regex_choicestar():
