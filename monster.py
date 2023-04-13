@@ -459,13 +459,15 @@ class Handle:
         '''Check the stack against the DFA. If we find a match then return the remaining stack after the
            handle has been removed.'''
         assert isinstance(stack[-1], AState), stack[-1]
+        assert (len(stack)%2) == 1
         pos = len(stack)-2
         dfaState = self.initial
         #print(f'Handle check {strs(stack)} starting {",".join([str(x) for x in sorted(dfaState)])}')
         while pos>0:
             next = None
             for symbol, succ in self.dfa.map[dfaState]:
-                if stack[pos].matches(symbol):
+                #print(f'pos={stack[pos]} pos-1={stack[pos-1].validLhs}')
+                if stack[pos].matches(symbol) and self.lhs in stack[pos-1].validLhs:
                     next = succ
                     pos -= 2
                     break
@@ -505,6 +507,7 @@ class AState:
         for c in configs:
             accumulator, derived = self.epsilonClosure(c, accumulator=accumulator, trace=derived)
         self.configurations = frozenset(accumulator)
+        self.validLhs        = frozenset([c.clause.lhs for c in self.configurations])
         #print(f'eclose: {accumulator} {derived}')
 
         for k,v in derived.items():
