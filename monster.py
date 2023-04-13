@@ -839,7 +839,7 @@ class Automaton:
             return self.chars
 
         def matches(self, other):
-            return other.match(self.chars)
+            return type(other) in (Grammar.TermString, Grammar.TermSet) and other.match(self.chars)
 
         def dump(self, depth=0):
             print(f"{'  '*depth}{self.chars}")
