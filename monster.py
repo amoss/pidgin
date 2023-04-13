@@ -588,7 +588,7 @@ class PState:
         result = []
         astate = self.stack[-1]
         remaining = self.position
-        for t,nextState in astate.byTerminal.items():
+        for t,nextState in list(astate.byTerminal.items())+list(astate.byPriTerminal.items()):
             match = t.match(input[remaining:])
             if match is not None:
                 result.append(PState(self.stack + [Automaton.Terminal(match,t),nextState],
