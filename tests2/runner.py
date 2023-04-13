@@ -157,8 +157,8 @@ def regex_selfalignunbounded():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
-    # TODO: Barrier exits are unclear, but this could be correct
+    return g, ['', 'xy', 'xyxy', 'xyxyxy'], \
+           ['xx','yy','xyx','xyyx']
 
 
 def regex_selfalignboundedleft():
@@ -168,7 +168,8 @@ def regex_selfalignboundedleft():
     g = Grammar('R')
     g.addRule('R', [T('l'), N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
+    return g, ['l', 'lxy', 'lxyxy', 'lxyxyxy'], \
+           ['','xx','yy','xyx','xyyx', 'xy', 'xyxy', 'rxyxy', 'xyxyl']
 
 
 def regex_selfalignboundedleft2():
@@ -178,7 +179,8 @@ def regex_selfalignboundedleft2():
     g = Grammar('R')
     g.addRule('R', [T('x'), N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
+    return g, ['x', 'xxy', 'xxyxy', 'xxyxyxy'], \
+           ['', 'xx', 'xxyy', 'xxyx', 'lx', 'xxyr']
 
 
 def regex_selfalignboundedright():
@@ -188,7 +190,8 @@ def regex_selfalignboundedright():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('r')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
+    return g, ['r', 'xyr', 'xyxyr', 'xyxyxyr'], \
+          ['', 'xr', 'xxr', 'xy', 'xyxy', 'xyxr', 'xyyr', 'xxyyr']
 
 
 def regex_selfalignboundedright2():
