@@ -145,8 +145,9 @@ def regex_choicestar():
     g.addRule('Ca', [T('x')], [T('y')])
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
-    return g, [], []
-    # TODO: Check this carefully
+    return g, ['', 'x', 'xx', 'xxx', 'y', 'yy', 'yyy', 'k', 'kk', 'kkk', 'zy', 'zyy', 'zyyy',
+               'k', 'kz', 'kzz', 'kzzz', 'xyyk', 'xyyyzk'], \
+           ['l', 'ky', 'kyy', 'kyyy', 'zx', 'zxx', 'zxxx', 'xzx', 'xkx']
 
 
 def regex_selfalignunbounded():
