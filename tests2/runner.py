@@ -201,8 +201,8 @@ def regex_selfalignboundedright2():
     g = Grammar('R')
     g.addRule('R', [N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
-    # TODO: Could be correct, but barrier exits are unclear
+    return g, ['x', 'xyx', 'xyxyx', 'xyxyxyx'], \
+           ['', 'xy', 'xyxy', 'xyr', 'lxyx', 'xx', 'xyxx']
 
 
 def regex_selfalignboundedboth():
@@ -212,8 +212,8 @@ def regex_selfalignboundedboth():
     g = Grammar('R')
     g.addRule('R', [T('l'), N('S','any','greedy'), T('r')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
-
+    return g, ['lr', 'lxyr', 'lxyxyr', 'lxyxyxyr'], \
+           ['l', 'r', 'lxy', 'xyr', 'lxr', 'lyr', 'lxyxr', 'lxxyyr']
 
 
 def regex_selfalignboundedboth2():
@@ -223,7 +223,8 @@ def regex_selfalignboundedboth2():
     g = Grammar('R')
     g.addRule('R', [T('x'), N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
-    return g, [], []
+    return g, ['xx', 'xxyx', 'xxyxyx', 'xxyxyxyx'], \
+           ['', 'x', 'xxx', 'xxy', 'xyx', 'lxx', 'xxr', 'lxxyx', 'xxyxx', 'xyx']
 
 
 def recurse_degenseq():
@@ -233,7 +234,8 @@ def recurse_degenseq():
        greediness. Left-recursive form.'''
     g = Grammar('R')
     g.addRule('R', [N('R','any','greedy'), T('x')])
-    return g, [], []
+    return g, ['x', 'xx', 'xxx', 'xxxx'], \
+           ['', 'lx', 'xr']
 
 
 def recurse_degenseq2():
@@ -243,20 +245,21 @@ def recurse_degenseq2():
        greediness. Right-recursive form.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), N('R','any','greedy')])
-    return g, [], []
+    return g, ['x', 'xx', 'xxx', 'xxxx'], \
+           ['', 'lx', 'xr']
 
 
 def recurse_degenseq3():
     '''R: (R x)*
 
        Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
-       greediness. Left-recursive form.'''
+       greediness. Left-recursive form. Successful traces have a prefix that reduces empty to R before starting
+       to shift.'''
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [N('R'), T('x')])
-    return g, [], []
-
-    # TODO: No initial shift to kickstart the parse, needs to reduce an empty R first. Compare with other form.
+    return g, ['', 'x', 'xx', 'xxx', 'xxxx'], \
+           ['lx', 'xr']
 
 
 def recurse_degenseq4():
