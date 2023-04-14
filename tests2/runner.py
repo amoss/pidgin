@@ -40,8 +40,8 @@ def S(val, invert=False, m=None, s=None):
     return Grammar.TermSet(val,inverse=invert,modifier=m,strength=s)
 
 
-def N(name, modifier='just', strength='greedy'):
-    return Grammar.Nonterminal(name, modifier=modifier, strength=strength)
+def N(name, m='just', s='greedy'):
+    return Grammar.Nonterminal(name, modifier=m, strength=s)
 
 
 # Entry
@@ -73,7 +73,9 @@ for d in subDirs:
             spec.loader.exec_module(module)
             for name in dir(module):
                 if name not in injections.keys() and name[:2]!='__':
-                    units.append((getattr(module,name),d=='units'))
+                    entry = getattr(module,name)
+                    if callable(entry):     # Filter out imports and data declarations
+                        units.append((entry,d=='units'))
         except:
             print(f"{RED}Failed to load {d}/{f}{GRAY}")
             traceback.print_exc()
