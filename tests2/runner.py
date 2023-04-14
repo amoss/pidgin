@@ -32,6 +32,14 @@ def T(val, m=None, s=None):
         return Grammar.TermString(val, modifier=m)
     return Grammar.TermSet(val, modifier=m, strength=s)
 
+def S(val, invert=False, m=None, s=None):
+    print(val,invert,m,s)
+    if m is None:
+        return Grammar.TermSet(val,inverse=invert)
+    if s is None:
+        return Grammar.TermSet(val,inverse=invert,modifier=m)
+    return Grammar.TermSet(val,inverse=invert,modifier=m,strength=s)
+
 
 def N(name, modifier='just', strength='greedy'):
     return Grammar.Nonterminal(name, modifier=modifier, strength=strength)
@@ -49,11 +57,11 @@ for name in os.listdir(target):
     if name==".keep" or name=="index.md" or name=='.DS_Store':  continue
     d = os.path.join(target,name)
     print(f"Cleaning {d}")
-    shutil.rmtree(dir)
+    shutil.rmtree(d)
 
 # Scan units from files
 units = []
-injections = dict( (i.__qualname__,i) for i in (T,N,Grammar))
+injections = dict( (i.__qualname__,i) for i in (T,S,N,Grammar))
 subDirs = [ os.path.join(thisDir,e.name) for e in os.scandir(thisDir) if e.is_dir() ]
 for d in subDirs:
     files = [ e.name for e in os.scandir(d) if e.name[-3:]=='.py' ]
@@ -68,7 +76,7 @@ for d in subDirs:
                 if name not in injections.keys() and name[:2]!='__':
                     units.append((getattr(module,name),d=='units'))
         except:
-            print(f"{RED}Failed on {name}{GRAY}")
+            print(f"{RED}Failed to load {d}/{f}{GRAY}")
             traceback.print_exc()
             print(END)
 
@@ -90,6 +98,7 @@ for (u,addToDoc) in units:
     if args.filter is not None and re.fullmatch(args.filter,name) is None: continue
     try:
         grammar, positive, negative = u()
+        grammar.dump()
         dir = os.path.join(target,name)
         os.makedirs(dir, exist_ok=True)
         automaton = monster.Automaton(grammar)
@@ -112,5 +121,7 @@ for (u,addToDoc) in units:
             elif args.verbose:
                 print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
     except:
+        print(f"{RED}Failed to build case {u.__qualname__}{GRAY}")
         traceback.print_exc()
+        print(END)
 

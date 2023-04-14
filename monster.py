@@ -257,27 +257,23 @@ class Grammar:
 
     class TermSet:
         def __init__(self, charset, modifier="just", inverse=False, tag=''):
-            '''The *modifier* applies to matching the *charset* within a single symbol, in contrast
-               to how the modifier works on non-terminals.'''
             assert modifier in ("any","just","some","optional"), modifier
-            self.internal = "some" if modifier in ("any","some") else "just"
-            self.modifier = "optional" if modifier in ("optional","any") else "just"
-            self.orig = modifier
+            self.modifier = modifier
             self.chars = frozenset(charset)
             self.inverse  = inverse
             self.tag      = tag
 
         def __str__(self):
             if len(self.chars)<=5:
-                charset = ",".join([c if c!=',' else "','" for c in self.chars])
+                charset = "".join([c for c in self.chars])
             else:
-                charset = ",".join([c if c!=',' else "','" for c in list(self.chars)[:5]]) + f' +{len(self.chars)-5}'
+                charset = "".join([c for c in list(self.chars)[:5]]) + f' +{len(self.chars)-5}'
             if self.inverse:
-                result = 'T(^{"' + charset + '},'
+                result = 'T(^{' + charset + '}'
             else:
-                result = 'T({"' + charset + '},'
+                result = 'T({' + charset + '}'
             tag = f",{self.tag}" if self.tag!="" else ""
-            return f'{result},{self.orig}{tag})'
+            return f'{result},{self.modifier}{tag})'
 
         def html(self):
             return '[]'
@@ -306,7 +302,7 @@ class Grammar:
         #    return (0,0,self.chars)
 
         def match(self, input):
-            limit = len(input) if self.internal in ("any","some") else 1
+            limit = len(input) if self.modifier in ("any","some") else 1
             i = 0
             while i<limit and i<len(input) and ((input[i] not in self.chars) == self.inverse):
                 i += 1
