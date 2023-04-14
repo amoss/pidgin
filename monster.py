@@ -203,7 +203,7 @@ class Grammar:
                 print(f"  {strs(clause.rhs)}")
 
     class TermString:
-        def __init__(self, match, modifier="just", tag=''):
+        def __init__(self, match, modifier="just", tag='', original=None):
             '''A terminal symbol that matches a string literal *match*. If the *modifier* is repeating then
                the match is always greedy. If non-greedy matching is required then it can be simulated by
                wrapping in a non-terminal (with glue if appropriate).'''
@@ -211,6 +211,7 @@ class Grammar:
             self.tag = tag
             assert modifier in ("any","just","some","optional"), modifier
             self.modifier = modifier
+            self.original = self if original is None else original
 
         def __str__(self):
             tag = f",{self.tag}" if self.tag!="" else ""
@@ -249,19 +250,20 @@ class Grammar:
                 return original[:i*n]
 
         def exactlyOne(self):
-            return Grammar.TermString(self.string, modifier="just", tag=self.tag)
+            return Grammar.TermString(self.string, modifier="just", tag=self.tag, original=self.original)
 
         # Does this still get used or is it dead?
         #def order(self):
         #    return (0, 1, self.string)
 
     class TermSet:
-        def __init__(self, charset, modifier="just", inverse=False, tag=''):
+        def __init__(self, charset, modifier="just", inverse=False, tag='', original=None):
             assert modifier in ("any","just","some","optional"), modifier
             self.modifier = modifier
             self.chars = frozenset(charset)
             self.inverse  = inverse
             self.tag      = tag
+            self.original = self if original is None else original
 
         def __str__(self):
             if len(self.chars)<=5:
@@ -295,7 +297,7 @@ class Grammar:
             return True
 
         def exactlyOne(self):
-            return Grammar.TermSet(self.chars, modifier="just", inverse=self.inverse, tag=self.tag)
+            return Grammar.TermSet(self.chars, modifier="just", inverse=self.inverse, tag=self.tag, original=self.original)
 
         # Does this still get used or is it dead?
         #def order(self):
@@ -462,7 +464,6 @@ class Handle:
             next = None
             if dfaState in self.dfa.map:   # If dfaState = { nfaExit } then it won't be in the edge map
                 for symbol, succ in self.dfa.map[dfaState]:
-                    #print(f'pos={stack[pos]} pos-1={stack[pos-1].validLhs}')
                     if stack[pos].matches(symbol) and self.lhs in stack[pos-1].validLhs:
                         next = succ
                         pos -= 2
@@ -477,6 +478,14 @@ class Handle:
             onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
             return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
         return None
+
+    def __str__(self):
+        res = ""
+        for k,v in self.dfa.map.items():
+            res += ",".join([str(state) for state in k]) + ':['
+            res += " ".join([str(term) + '->' + ",".join([str(state) for state in target]) for (term,target) in v])
+            res += ']'
+        return res
 
 
 class AState:
@@ -587,7 +596,7 @@ class PState:
         for t,nextState in list(astate.byTerminal.items())+list(astate.byPriTerminal.items()):
             match = t.match(input[remaining:])
             if match is not None:
-                result.append(PState(self.stack + [Automaton.Terminal(match,t),nextState],
+                result.append(PState(self.stack + [Automaton.Terminal(match,t.original),nextState],
                               remaining+len(match), discard=self.discard))
         return result
 
@@ -597,12 +606,14 @@ class PState:
         done = set()
         for handle in astate.byClause.values():
             newStack = handle.check(self.stack)
+            #print(f'Check {handle}')
             if newStack is not None:
                 #print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
                 returnState = newStack[-2]
                 if handle.lhs is None:
                     result.append(PState(newStack, self.position, discard=self.discard))
                     continue
+                assert handle.lhs in returnState.byNonterminal, strs(self.stack) + ' => ' + returnState.label
                 newStack.append(returnState.byNonterminal[handle.lhs])
                 result.append(PState(newStack, self.position, discard=self.discard))
             #else:
@@ -835,7 +846,11 @@ class Automaton:
             return self.chars
 
         def matches(self, other):
-            return type(other) in (Grammar.TermString, Grammar.TermSet) and other.match(self.chars)
+            if isinstance(other, Grammar.TermString):
+                return other.match(self.chars)
+            if isinstance(other, Grammar.TermSet):
+                return other.original == self.original
+            return False
 
         def dump(self, depth=0):
             print(f"{'  '*depth}{self.chars}")

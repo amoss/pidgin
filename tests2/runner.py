@@ -33,7 +33,6 @@ def T(val, m=None, s=None):
     return Grammar.TermSet(val, modifier=m, strength=s)
 
 def S(val, invert=False, m=None, s=None):
-    print(val,invert,m,s)
     if m is None:
         return Grammar.TermSet(val,inverse=invert)
     if s is None:
@@ -98,7 +97,7 @@ for (u,addToDoc) in units:
     if args.filter is not None and re.fullmatch(args.filter,name) is None: continue
     try:
         grammar, positive, negative = u()
-        grammar.dump()
+        #grammar.dump()
         dir = os.path.join(target,name)
         os.makedirs(dir, exist_ok=True)
         automaton = monster.Automaton(grammar)
