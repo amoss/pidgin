@@ -17,9 +17,11 @@ def pidgin_term():
                        [T('['), N('order_pair', m='any'), N('expr'), T(',',m='optional'), T(']')],
                        [T('['), N('expr'), N('expr', m='some'), T(']')])
     g.addRule('order_pair', [N('expr'), T(',')])
-    g.addRule('map',   [T('{'), N('elem_kv',m='some'), T('}')],
-                       [T('{'), T(':'), T('}')])
-    g.addRule('elem_kv',  [N('expr'), T(':'), N('expr'), T(',',m='optional')])
+    g.addRule('map',   [T('{'), T(':'), T('}')],
+                       [T('{'), N('kv_comma',m='any'), N('expr'), T(':'), N('expr'), T(',',m='optional'), T('}')],
+                       [T('{'), N('kv_pair'), N('kv_pair',m='some'), T('}')])
+    g.addRule('kv_pair',  [N('expr'), T(':'), N('expr')])
+    g.addRule('kv_comma', [N('expr'), T(':'), N('expr'), T(',')])
     g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
                          [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
     g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
@@ -31,6 +33,7 @@ def pidgin_term():
 'hello"
 X!Y
 X!'world"
+['a" 'b" 'c"]
 ['a"  'b"'c"]
 [x y12  z14 w]
 [x, y12,z14,  w]
@@ -41,6 +44,7 @@ X!'world"
 {'a", 'b",  'c",}
 {'a":'"'b":'"'c":'"}
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
+{'a":[X!'a"], 'b":[X!'b"], 'c":[]}
 {'name":{[N!'a"][T!'b"]}}
 {'name":{[N!'a"][T!'a",T!'b",T!'c"]}}
 {'expr":{[N!'atom"][N!'binop1"]}}'''.split('\n'),\
@@ -53,5 +57,8 @@ X!'world"
 {x, y12 z14,  w}
 [x y12,  z14 w]
 [x, y12 z14,  w]
+{'a":[X!'a"],'b":[X!'b"]'c":[]}
+{'a":[X!'a"],,'b":[X!'b"],'c":[]}
+{'a":[X!'a"] 'b":[X!'b"] 'c":[],}
 {'a":}
 '''.split('\n')

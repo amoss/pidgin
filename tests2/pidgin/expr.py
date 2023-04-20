@@ -31,19 +31,22 @@ def pidgin_expr():
                       [N('map')],
                       [N('order')],
                       [T('('),N('binop1'),T(')')])
-    g.addRule('set',   [T('{'), N('elem_lst',m='optional'), T('}')])
-    g.addRule('order', [T('['), N('elem_lst',m='optional'), T(']')])
-    g.addRule('map',   [T('{'), N('elem_kv',m='some'), T('}')],
-                       [T('{'), T(':'), T('}')])
-    g.addRule('elem_kv',  [N('binop1'), T(':'), N('binop1'), T(',',m='optional')])
-    g.addRule('elem_lst', [N('repeat_elem',m='any'), N('final_elem')])
-    g.addRule('repeat_elem', [N('binop1'), Glue(), S(', \r\t\n') ])
-    g.addRule('final_elem',  [N('binop1'), Glue(), S(', \r\t\n',m='optional'), Remove()])
-    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), Glue(), T('"')], 
-                         [T('u('), Glue(), S([')'],True,m='any'), Glue(), T(')')])
+    g.addRule('set', [T('{'), T('}')],
+                     [T('{'), N('order_pair', m='any'), N('binop1'), T(',',m='optional'), T('}')],
+                     [T('{'), N('binop1'), N('binop1', m='some'), T('}')])
+    g.addRule('order', [T('['), T(']')],
+                       [T('['), N('order_pair', m='any'), N('binop1'), T(',',m='optional'), T(']')],
+                       [T('['), N('binop1'), N('binop1', m='some'), T(']')])
+    g.addRule('order_pair', [N('binop1'), T(',')])
+    g.addRule('map',   [T('{'), T(':'), T('}')],
+                       [T('{'), N('kv_comma',m='any'), N('binop1'), T(':'), N('binop1'), T(',',m='optional'), T('}')],
+                       [T('{'), N('kv_pair'), N('kv_pair',m='some'), T('}')])
+    g.addRule('kv_pair',  [N('binop1'), T(':'), N('binop1')])
+    g.addRule('kv_comma', [N('binop1'), T(':'), N('binop1'), T(',')])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
+                         [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
     g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
 
-# TODO: Put spaces back in after we sort out glue
     return g, \
 '''[]
 {}
@@ -52,6 +55,7 @@ def pidgin_expr():
 X!Y
 X!'world"
 ['a" 'b" 'c"]
+['a"  'b"'c"]
 {'a" 	'b"  'c"}
 {'a":'"'b":'"'c":'"}
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
@@ -85,5 +89,4 @@ u(true)+true
 u(,,,)
 foo+blah
 22+43/66.+[]
-x+y@[2,2]+z@pos
-'''.split('\n'), []
+x+y@[2,2]+z@pos'''.split('\n'), []
