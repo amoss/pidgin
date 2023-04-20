@@ -37,3 +37,44 @@ u(world)
 [['x"]'y"
 '''.split('\n')
 
+def toy_stringlist2():
+    '''A: S | O   O: [ ] | [ P* A ,?] | [ A A+ ]   P: A ,   S: ' [^"]* " | u( [^)]* )
+
+       Test lists of pidgin-style string literals with uniform but optional commas.'''
+    letters = string.ascii_lowercase + string.ascii_uppercase
+    g = Grammar('atom')
+    g.setDiscard(S(' \t\r\n',m='some'))
+    g.addRule('atom', [N('str_lit')], [N('order')])
+    g.addRule('order', [T('['), T(']')],
+                       [T('['), N('pair', m='any'), N('atom'), T(',',m='optional'), T(']')],
+                       [T('['), N('atom'), N('atom', m='some'), T(']')])
+    g.addRule('pair', [N('atom'), T(',')])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), Glue(), T('"')],
+                         [T('u('), Glue(), S([')'],True,m='any'), Glue(), T(')')])
+    return g, \
+'''[]
+'hello"
+u(world)
+[u(x)]
+[u(x) u(y)]
+[u(x), u(y)]
+[u(x), u(y),]
+[u(x) ,u(y)]
+[u(x) , u(y)]
+[[], [], [], []]
+[[], [], [], [],]
+['hello" 'world"]
+[u(a) u(b) u(c)]
+['a" 'b" 'c"]
+[u(a)  u(b)   'c"]
+[['x"] ['y"] ['z"]]'''.split('\n'),\
+'''
+[)
+[,]
+][
+['a"
+[u(a]
+[[] [], [], []]
+[[] [], [] []]
+[['x"]'y"
+'''.split('\n')
