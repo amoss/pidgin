@@ -3,7 +3,7 @@
 
 import string
 
-def pidgin_terms():
+def pidgin_term():
     '''Test subset of pidgin for literal declarations.'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('expr')
