@@ -11,8 +11,8 @@ def toy_stringlist():
     g.addRule('atom', [N('str_lit')], [N('order')])
     g.addRule('order', [T('['), N('elem_lst',m='any'), T(']')])
     g.addRule('elem_lst', [N('atom'), T(',',m='optional')])
-    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), Glue(), T('"')],
-                         [T('u('), Glue(), S([')'],True,m='any'), Glue(), T(')')])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
+                         [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
     return g, \
 '''[]
 'hello"
@@ -49,8 +49,8 @@ def toy_stringlist2():
                        [T('['), N('pair', m='any'), N('atom'), T(',',m='optional'), T(']')],
                        [T('['), N('atom'), N('atom', m='some'), T(']')])
     g.addRule('pair', [N('atom'), T(',')])
-    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), Glue(), T('"')],
-                         [T('u('), Glue(), S([')'],True,m='any'), Glue(), T(')')])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
+                         [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
     return g, \
 '''[]
 'hello"

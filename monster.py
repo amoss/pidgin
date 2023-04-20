@@ -612,7 +612,7 @@ class PState:
             match = t.match(input[remaining:])
             if match is not None:
                 result.append(PState(self.stack + [Automaton.Terminal(match,t.original),nextState],
-                              remaining+len(match), discard=self.discard, keep=False))
+                              remaining+len(match), discard=self.discard, keep=self.keep))
         if astate.byGlue is not None:
             result.append(PState(self.stack[:-1] + [astate.byGlue], remaining, discard=self.discard, keep=True))
         if astate.byRemover is not None:
