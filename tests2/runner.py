@@ -43,6 +43,11 @@ def S(val, invert=False, m=None, s=None):
 def N(name, m='just', s='greedy'):
     return Grammar.Nonterminal(name, modifier=m, strength=s)
 
+def Glue():
+    return Grammar.Glue()
+
+def Remove():
+    return Grammar.Remover()
 
 # Entry
 argParser = argparse.ArgumentParser()
@@ -60,7 +65,7 @@ for name in os.listdir(target):
 
 # Scan units from files
 units = []
-injections = dict( (i.__qualname__,i) for i in (T,S,N,Grammar))
+injections = dict( (i.__qualname__,i) for i in (T,S,N,Glue,Remove,Grammar))
 subDirs = [ os.path.join(thisDir,e.name) for e in os.scandir(thisDir) if e.is_dir() ]
 for d in subDirs:
     files = [ e.name for e in os.scandir(d) if e.name[-3:]=='.py' ]

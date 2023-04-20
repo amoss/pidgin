@@ -7,6 +7,7 @@ def pidgin_expr():
     '''Test subset of pidgin for literal expressions.'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('binop1')
+    g.setDiscard(S(' \t\r\n',m='some'))
     g.addRule('binop1', [N('binop2'), N('binop1_lst',m='any')])
     g.addRule('binop1_lst', [T('.+'), N('binop2')],
                             [T('+.'), N('binop2')],
@@ -36,10 +37,11 @@ def pidgin_expr():
                        [T('{'), T(':'), T('}')])
     g.addRule('elem_kv',  [N('binop1'), T(':'), N('binop1'), T(',',m='optional')])
     g.addRule('elem_lst', [N('repeat_elem',m='any'), N('final_elem')])
-    g.addRule('repeat_elem', [N('binop1'),T(',',m='optional')])
-    g.addRule('final_elem', [N('binop1')])
-    g.addRule('str_lit', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
-    g.addRule('ident', [S(list(letters)+['_']),S(list(letters+string.digits)+['_'], m='any')])
+    g.addRule('repeat_elem', [N('binop1'), Glue(), S(', \r\t\n') ])
+    g.addRule('final_elem',  [N('binop1'), Glue(), S(', \r\t\n',m='optional'), Remove()])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), Glue(), T('"')], 
+                         [T('u('), Glue(), S([')'],True,m='any'), Glue(), T(')')])
+    g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
 
 # TODO: Put spaces back in after we sort out glue
     return g, \
@@ -49,8 +51,8 @@ def pidgin_expr():
 'hello"
 X!Y
 X!'world"
-['a"'b"'c"]
-{'a"'b"'c"}
+['a" 'b" 'c"]
+{'a" 	'b"  'c"}
 {'a":'"'b":'"'c":'"}
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
 {'name":{[N!'a"][T!'b"]}}

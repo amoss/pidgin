@@ -1,5 +1,6 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import string
 
 def regex_seq():
     '''R: x y z
@@ -196,3 +197,10 @@ def regex_selfalignboundedboth2():
     return g, ['xx', 'xxyx', 'xxyxyx', 'xxyxyxyx'], \
            ['', 'x', 'xxx', 'xxy', 'xyx', 'lxx', 'xxr', 'lxxyx', 'xxyxx', 'xyx']
 
+def regex_glue():
+    '''R: [a-z] Glue [a-z0-9]* Remover
+
+       Test use of glue between terminals.'''
+    g = Grammar('R')
+    g.addRule('R', [S(string.ascii_letters), Glue(), S(string.ascii_letters+string.digits,m='any'), Remove()])
+    return g, ['x', 'y', 'x123', 'xyyy'], ['', '1x', 'x y']

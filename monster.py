@@ -89,8 +89,12 @@ class Clause:
                 result += f'<FONT face="monospace" color="grey">{html.escape(s.string)} </FONT>{modifier}'
             elif isinstance(s,Grammar.TermSet):
                 result += f'<FONT face="monospace">[]</FONT>{modifier}'
+            elif isinstance(s,Grammar.Glue):
+                result += '<FONT color="grey"><B>G</B></FONT>'
+            elif isinstance(s,Grammar.Remover):
+                result += '<FONT color="grey"><B>R</B></FONT>'
             else:
-                result += str(type(s)) + modifier
+                result += type(s).__name__ + modifier
         return result
 
     def isTerminal(self):
@@ -145,8 +149,12 @@ class Configuration:
                 result += f'<FONT face="monospace" color="grey">{html.escape(s.string)} </FONT>{modifier}'
             elif isinstance(s,Grammar.TermSet):
                 result += f'<FONT face="monospace">[]</FONT>{modifier}'
+            elif isinstance(s,Grammar.Glue):
+                result += '<FONT color="grey"><B>G</B></FONT>'
+            elif isinstance(s,Grammar.Remover):
+                result += '<FONT color="grey"><B>R</B></FONT>'
             else:
-                result += str(type(s)) + modifier
+                result += type(s).__name__ + modifier
         if self.position==len(self.clause.rhs):
             result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
         return result
@@ -406,7 +414,7 @@ class Handle:
         '''Build a restricted NFA for recognising the clause - no loops larger than self-loops, no choices.
            The NFA is a straight-line with self-loops on repeating nodes and jumps over skipable nodes.
            Translate the NFA to a DFA that we store / use for recognition.'''
-        nfaStates  = list(reversed(clause.rhs))
+        nfaStates  = list(reversed([s for s in clause.rhs if type(s) not in (Grammar.Glue,Grammar.Remover)]))
         nfaSkips   = [ s.modifier in ('optional','any') for s in nfaStates ] + [False]
         nfaRepeats = [ s.modifier in ('some','any') for s in nfaStates ]     + [False]
         nfaEdges   = [ MultiDict() for i in range(len(nfaStates)) ]          + [MultiDict()]
@@ -500,6 +508,8 @@ class AState:
         self.byNonterminal   = {}
         self.byClause        = {}
         self.byPriClause     = {}
+        self.byGlue          = None
+        self.byRemover       = None
         self.reduceBarriers  = {}
         if label is None:
             self.label = f's{AState.counter}'
@@ -576,11 +586,12 @@ class PState:
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position, discard=None):
+    def __init__(self, stack, position, keep=False, discard=None):
         self.stack = stack
         self.position = position
         self.id = PState.counter
         self.discard = discard
+        self.keep = keep
         PState.counter += 1
 
     def __hash__(self):
@@ -593,11 +604,19 @@ class PState:
         result = []
         astate = self.stack[-1]
         remaining = self.position
+        if not self.keep and self.discard is not None:
+            drop = self.discard.match(input[remaining:])
+            if drop is not None and len(drop)>0:
+                remaining += len(drop)
         for t,nextState in list(astate.byTerminal.items())+list(astate.byPriTerminal.items()):
             match = t.match(input[remaining:])
             if match is not None:
                 result.append(PState(self.stack + [Automaton.Terminal(match,t.original),nextState],
-                              remaining+len(match), discard=self.discard))
+                              remaining+len(match), discard=self.discard, keep=False))
+        if astate.byGlue is not None:
+            result.append(PState(self.stack[:-1] + [astate.byGlue], remaining, discard=self.discard, keep=True))
+        if astate.byRemover is not None:
+            result.append(PState(self.stack[:-1] + [astate.byRemover], remaining, discard=self.discard, keep=False))
         return result
 
     def reductions(self):
@@ -611,11 +630,11 @@ class PState:
                 #print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
                 returnState = newStack[-2]
                 if handle.lhs is None:
-                    result.append(PState(newStack, self.position, discard=self.discard))
+                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
                     continue
                 assert handle.lhs in returnState.byNonterminal, strs(self.stack) + ' => ' + returnState.label
                 newStack.append(returnState.byNonterminal[handle.lhs])
-                result.append(PState(newStack, self.position, discard=self.discard))
+                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
             #else:
             #    print(f'Handle failed on {strs(self.stack)}')
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
@@ -677,6 +696,20 @@ class Automaton:
                 next = worklist.add(next)
                 state.byNonterminal[name] = next
 
+            withGlue = [ c.succ() for c in state.configurations if isinstance(c.next(),Grammar.Glue) ]
+            if len(withGlue)>0:
+                next = AState(grammar, withGlue, label=f's{counter}')
+                counter += 1
+                next = worklist.add(next)
+                state.byGlue = next
+
+            withRemover = [ c.succ() for c in state.configurations if isinstance(c.next(),Grammar.Remover) ]
+            if len(withRemover)>0:
+                next = AState(grammar, withRemover, label=f's{counter}')
+                counter += 1
+                next = worklist.add(next)
+                state.byRemover = next
+
             for c in state.configurations:
                 if c.isReducing():
                     if c.clause.hasReduceBarrier():
@@ -730,19 +763,14 @@ class Automaton:
                 print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
                 print(f's{id(s)} -> {nextId} [color=orange,label=<{clause.html()}>,taillabel=<<FONT color="orange">enter {clause.lhs}</FONT>>];', file=output)
 
+            if s.byGlue is not None:
+                nextId = makeNextId(s, s.byGlue, None, output)
+                print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>G</B></FONT>>];', file=output)
 
-#                label = str(t).replace('"','\\"')
-#                print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
-#                if s.repeats[t]:
-#                    print(f's{id(s)} -> s{id(s)} [label="{label}"];', file=output)
-#            for name,next in s.byNonterminal.items():
-#                print(f's{id(s)} -> s{id(next)} [label="NT({name})"];', file=output)
-#                if s.repeats[name]:
-#                    print(f's{id(s)} -> s{id(s)} [label="NT({name})"];', file=output)
-#            for next in s.byGlue.values():
-#                print(f's{id(s)} -> s{id(next)} [label="Glue"];', file=output)
-#            for next in s.byRemover.values():
-#                print(f's{id(s)} -> s{id(next)} [label="Remover"];', file=output)
+            if s.byRemover is not None:
+                nextId = makeNextId(s, s.byRemover, None, output)
+                print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>R</B></FONT>>];', file=output)
+
         print("}", file=output)
 
     def execute(self, input, tracing=False):

@@ -7,6 +7,7 @@ def pidgin_full():
     '''The largest subset of pidgin so far (currently exprs + records).'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('binop1')
+    g.setDiscard(S(' \t\r\n',m='some'))
     g.addRule('binop1', [N('binop2'), N('binop1_lst',m='any')])
     g.addRule('binop1_lst', [T('.+'), N('binop2')],
                             [T('+.'), N('binop2')],
