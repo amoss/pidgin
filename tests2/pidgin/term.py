@@ -11,7 +11,10 @@ def pidgin_term():
     g.addRule('expr', [N('atom')], [N('ident'), T('!'), N('atom')])
     g.addRule('atom', [N('ident')], [N('str_lit')], [N('set')], [N('map')], [N('order')], [T('('),N('expr'),T(')')])
     g.addRule('set',   [T('{'), N('elem_lst',m='optional'), T('}')])
-    g.addRule('order', [T('['), N('elem_lst',m='optional'), T(']')])
+    g.addRule('order', [T('['), T(']')],
+                       [T('['), N('order_pair', m='any'), N('expr'), T(',',m='optional'), T(']')],
+                       [T('['), N('expr'), N('expr', m='some'), T(']')])
+    g.addRule('order_pair', [N('expr'), T(',')])
     g.addRule('map',   [T('{'), N('elem_kv',m='some'), T('}')],
                        [T('{'), T(':'), T('}')])
     g.addRule('elem_kv',  [N('expr'), T(':'), N('expr'), T(',',m='optional')])
@@ -30,6 +33,9 @@ def pidgin_term():
 X!Y
 X!'world"
 ['a"  'b"'c"]
+[x y12  z14 w]
+[x, y12,z14,  w]
+[x, y12,z14,  w,]
 {'a"'b"'c"}
 {'a":'"'b":'"'c":'"}
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
@@ -41,5 +47,7 @@ X!'world"
 ][
 [}
 {]
+[x y12,  z14 w]
+[x, y12 z14,  w]
 {'a":}
 '''.split('\n')
