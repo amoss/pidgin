@@ -866,6 +866,11 @@ class Automaton:
             redundant = self.redundant.values()
             return len([v for v in redundant if v]) / len(redundant)
 
+        def solutions(self):
+            if True in self.backwards.map:
+                for s,_ in self.backwards.map[True]:
+                    yield s
+
 
     class Terminal:
         def __init__(self, chars, original):

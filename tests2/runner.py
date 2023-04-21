@@ -123,7 +123,9 @@ for (u,addToDoc) in units:
                 if args.verbose: print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
             redundant = automaton.trace.measure()
             if redundant>0.5:
-                print(f'{RED}High redundancy {redundant} on on {name} positive {i} {p}{END}')
+                print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')
+            if len(results)>1:
+                print(f'{YELLOW}Ambiguous solutions on {name} positive {i} {p}{END}')
 
         for i,n in enumerate(negative):
             if args.verbose: print(f'{GRAY}Executing n{i} on {name}: {n}')
