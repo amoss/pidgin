@@ -22,6 +22,7 @@ def pidgin_full():
     g.addRule('binop3_lst', [T('@'), N('binop4')])
     g.addRule('binop4', [N('atom')],
                         [N('ident'), T('!'), N('atom')])
+
     g.addRule('atom', [T('true')],
                       [T('false')],
                       [S(string.digits,m='some')],
@@ -29,21 +30,31 @@ def pidgin_full():
                       [N('str_lit')],
                       [N('set')],
                       [N('map')],
-                      [N('order')],
                       [N('record')],
+                      [N('order')],
                       [T('('),N('binop1'),T(')')])
-    g.addRule('set',   [T('{'), N('elem_lst',m='optional'), T('}')])
-    g.addRule('order', [T('['), N('elem_lst',m='optional'), T(']')])
-    g.addRule('map',   [T('{'), N('elem_kv',m='some'), T('}')],
-                       [T('{'), T(':'), T('}')])
-    g.addRule('record',[T('['), N('elem_iv',m='some'), T(']')])
-    g.addRule('elem_kv',  [N('binop1'), T(':'), N('binop1'), T(',',m='optional')])
-    g.addRule('elem_lst', [N('repeat_elem',m='any'), N('final_elem')])
-    g.addRule('elem_iv',  [N('ident'), T(':'), N('binop1'), T(',',m='optional')])
-    g.addRule('repeat_elem', [N('binop1'),T(',',m='optional')])
-    g.addRule('final_elem', [N('binop1')])
-    g.addRule('str_lit', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
-    g.addRule('ident', [S(list(letters)+['_']),S(list(letters+string.digits)+['_'], m='any')])
+
+    g.addRule('set', [T('{'), T('}')],
+                     [T('{'), N('order_pair', m='any'), N('binop1'), T(',',m='optional'), T('}')],
+                     [T('{'), N('binop1'), N('binop1', m='some'), T('}')])
+    g.addRule('order', [T('['), T(']')],
+                       [T('['), N('order_pair', m='any'), N('binop1'), T(',',m='optional'), T(']')],
+                       [T('['), N('binop1'), N('binop1', m='some'), T(']')])
+    g.addRule('order_pair', [N('binop1'), T(',')])
+    g.addRule('record',   [T('['), T(':'), T(']')],
+                          [T('['), N('iv_comma',m='any'), N('ident'), T(':'), N('binop1'), T(',',m='optional'), T(']')],
+                          [T('['), N('iv_pair'), N('iv_pair',m='some'), T(']')])
+    g.addRule('map',   [T('{'), T(':'), T('}')],
+                       [T('{'), N('kv_comma',m='any'), N('binop1'), T(':'), N('binop1'), T(',',m='optional'), T('}')],
+                       [T('{'), N('kv_pair'), N('kv_pair',m='some'), T('}')])
+    g.addRule('iv_pair',  [N('ident'), T(':'), N('binop1')])
+    g.addRule('iv_comma',  [N('ident'), T(':'), N('binop1'), T(',')])
+    g.addRule('kv_pair',  [N('binop1'), T(':'), N('binop1')])
+    g.addRule('kv_comma', [N('binop1'), T(':'), N('binop1'), T(',')])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
+                         [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
+    g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
+
 
 # TODO: Put spaces back in after we sort out glue
     return g, \
@@ -53,8 +64,9 @@ def pidgin_full():
 'hello"
 X!Y
 X!'world"
-['a"'b"'c"]
-{'a"'b"'c"}
+['a" 'b" 'c"]
+['a"  'b"'c"]
+{'a" 	'b"  'c"}
 {'a":'"'b":'"'c":'"}
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
 {'name":{[N!'a"][T!'b"]}}
@@ -87,18 +99,6 @@ u(true)+true
 u(,,,)
 foo+blah
 22+43/66.+[]
-x+y@[2,2]+z@pos
-[]
-{}
-{:}
-'hello"
-X!Y
-X!'world"
-['a" 'b" 'c"]
-{'a" 'b" 'c"}
-{'a":'" 'b":'" 'c":'"}
-{'a":[X!'a"] 'b":[X!'b"] 'c":[]}
-{'name":{[N!'a"] [T!'b"]}}
-{'name":{[N!'a"] [T!'a",T!'b", T!'c"]}}
-{ 'expr": { [N!'atom"] [N!'binop1"] }}
-'''.split('\n'), []
+[x:2 y:{} z12:true]
+[x:2, y:{}, z12:true]
+x+y@[2,2]+z@pos'''.split('\n'), []
