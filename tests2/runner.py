@@ -54,13 +54,14 @@ argParser = argparse.ArgumentParser()
 argParser.add_argument("-v","--verbose", action="store_true")
 argParser.add_argument("-f","--filter")
 args = argParser.parse_args()
+passed, failed = 0, 0
 
 # Clean old results
 target = os.path.join(rootDir,"unitResults")
 for name in os.listdir(target):
     if name==".keep" or name=="index.md" or name=='.DS_Store':  continue
     d = os.path.join(target,name)
-    print(f"Cleaning {d}")
+    if args.verbose:                                            print(f"Cleaning {d}")
     shutil.rmtree(d)
 
 # Scan units from files
@@ -116,18 +117,29 @@ for (u,addToDoc) in units:
             automaton.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
             if len(results)==0:
                 print(f'{RED}Failed on {name} positive {i} {p}{END}')
-            elif args.verbose:
-                print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
+                failed += 1
+            else:
+                passed += 1
+                if args.verbose: print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
+            redundant = automaton.trace.measure()
+            if redundant>0.5:
+                print(f'{RED}High redundancy {redundant} on on {name} positive {i} {p}{END}')
+
         for i,n in enumerate(negative):
             if args.verbose: print(f'{GRAY}Executing n{i} on {name}: {n}')
             results = [r for r in automaton.execute(n, True)]
             automaton.trace.output( open(os.path.join(dir,f'n{i}.dot'),'wt') )
             if len(results)>0:
                 print(f'{RED}Failed on {name} negative {i} {n}{END}')
-            elif args.verbose:
-                print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
+                failed += 1
+            else:
+                if args.verbose: print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
+                passed += 1
+            if redundant>0.5:
+                print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')
     except:
         print(f"{RED}Failed to build case {u.__qualname__}{GRAY}")
         traceback.print_exc()
         print(END)
+print(f'{passed} passed / {failed} failed')
 

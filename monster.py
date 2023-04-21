@@ -803,6 +803,7 @@ class Automaton:
             self.input     = input
             self.forwards  = MultiDict()
             self.backwards = MultiDict()
+            self.redundant = None
 
         def shifts(self, source, destinations):
             if not self.recording: return
@@ -827,7 +828,7 @@ class Automaton:
             self.backwards.store(False, (state,'blocks'))
 
         def output(self, target):
-            redundant = self.calculateRedundancy()
+            self.calculateRedundancy()
             print('digraph {', file=target)
             for k,v in self.forwards.map.items():
                 if isinstance(k, PState):
@@ -837,30 +838,32 @@ class Automaton:
                             print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
                         else:
                             fontcolor = 'green' if nextState else 'red'
-                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, label={k.dotLabel(self.input,redundant[k])}];', file=target)
+                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, '+
+                              f'label={k.dotLabel(self.input,self.redundant[k])}];', file=target)
                 else:
                     print(f'Non-pstate in trace: {repr(k)}')
             print('}', file=target)
 
         def calculateRedundancy(self):
-            redundant = {}
+            if self.redundant is not None: return
+            self.redundant = {}
             for k in self.forwards.map.keys():
-                redundant[k] = True
+                self.redundant[k] = True
             # The backwards map over the trace is acyclic and performance is not a concern
             def markAncestors(state):
                 if not state in self.backwards.map:
                     pass #print(f'Orphan {state}')
                 else:
                     for next,_ in self.backwards.map[state]:
-                        redundant[next] = False
+                        self.redundant[next] = False
                         markAncestors(next)
             if True in self.backwards.map:
                 for s,_ in self.backwards.map[True]:
                     markAncestors(s)
-            return redundant
 
         def measure(self):
-            redundant = self.calculateRedundancy().values()
+            self.calculateRedundancy()
+            redundant = self.redundant.values()
             return len([v for v in redundant if v]) / len(redundant)
 
 
