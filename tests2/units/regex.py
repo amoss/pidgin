@@ -202,6 +202,7 @@ def regex_glue():
 
        Test use of glue between terminals.'''
     g = Grammar('R')
+    g.setDiscard(S(' \t\r\n',m='some'))
     g.addRule('R', [S(string.ascii_letters), Glue(), S(string.ascii_letters+string.digits,m='any'), Remove()])
     return g, ['x', 'y', 'x123', 'xyyy'], ['', '1x', 'x y']
 
@@ -210,6 +211,7 @@ def regex_glue2():
 
        Test use of glue between terminals.'''
     g = Grammar('R')
+    g.setDiscard(S(' \t\r\n',m='some'))
     g.addRule('R', [N('I',m='some')])
     g.addRule('I', [S(string.ascii_letters), Glue(), S(string.ascii_letters+string.digits,m='any'), Remove()])
     return g, ['x', 'y', 'x123', 'xyyy', 'x y z', 'xy yz zu', 'hello world','zippy    do   da'], ['', '1x', 'x 1y']

@@ -502,15 +502,11 @@ class AState:
     def __init__(self, grammar, configs, label=None):
         assert len(configs)>0
         self.grammar = grammar
-        self.byPriTerminal   = {}
-        self.shiftBarriers   = {}
-        self.byTerminal      = {}
+
         self.byNonterminal   = {}
-        self.byClause        = {}
-        self.byPriClause     = {}
-        self.byGlue          = None
-        self.byRemover       = None
-        self.reduceBarriers  = {}
+        self.byShift         = [{}]
+        self.byReduce        = [{}]
+
         if label is None:
             self.label = f's{AState.counter}'
             AState.counter += 1
@@ -525,16 +521,11 @@ class AState:
         self.validLhs        = frozenset([c.clause.lhs for c in self.configurations])
         #print(f'eclose: {accumulator} {derived}')
 
+        priority = 0
         for k,v in derived.items():
             if isinstance(k,Grammar.TermString) or isinstance(k,Grammar.TermSet):
                 barrierSrcs = barrierSources(derived,k)
-                if len(barrierSrcs)>0:
-                    self.byPriTerminal[k] = None
-                    for b in barrierSrcs:
-                        self.shiftBarriers[b] = k
-                else:
-                    self.byTerminal[k] = None
-
+                self.byShift[priority][k] = None
             # If epsilon closure expanded a nonterminal as the next symbol in a configuration then we recorded
             # symbol.name -> clause.lhs for each clause in the nonterminal's rule.
             if isinstance(k,str):
@@ -604,39 +595,50 @@ class PState:
         result = []
         astate = self.stack[-1]
         remaining = self.position
+        # Generate highest priority shifts that are possible
+        # Backtracking through here would continue iteration
+        # If we enter a pri-level and there are remaining pri-levels then this must be a barrier in the trace...
         if not self.keep and self.discard is not None:
             drop = self.discard.match(input[remaining:])
             if drop is not None and len(drop)>0:
                 remaining += len(drop)
-        for t,nextState in list(astate.byTerminal.items())+list(astate.byPriTerminal.items()):
-            match = t.match(input[remaining:])
-            if match is not None:
-                result.append(PState(self.stack + [Automaton.Terminal(match,t.original),nextState],
-                              remaining+len(match), discard=self.discard, keep=self.keep))
-        if astate.byGlue is not None:
-            result.append(PState(self.stack[:-1] + [astate.byGlue], remaining, discard=self.discard, keep=True))
-        if astate.byRemover is not None:
-            result.append(PState(self.stack[:-1] + [astate.byRemover], remaining, discard=self.discard, keep=False))
+        for priLevel in astate.byShift:
+            for t,nextState in priLevel.items():
+                if t=="glue":
+                    result.append(PState(self.stack[:-1] + [nextState], remaining, discard=self.discard, keep=True))
+                elif t=="remove":
+                    result.append(PState(self.stack[:-1] + [nextState], remaining, discard=self.discard, keep=False))
+                else:
+                    #print(f'Test shift in {astate.label} for {t} against {input[remaining:]} keep={self.keep} discard={self.discard}')
+                    match = t.match(input[remaining:])
+                    if match is not None:
+                        result.append(PState(self.stack + [Automaton.Terminal(match,t.original),nextState],
+                                      remaining+len(match), discard=self.discard, keep=self.keep))
+            if len(result)>0:
+                break
         return result
 
     def reductions(self):
         result = []
         astate = self.stack[-1]
         done = set()
-        for handle in astate.byClause.values():
-            newStack = handle.check(self.stack)
-            #print(f'Check {handle}')
-            if newStack is not None:
-                #print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
-                returnState = newStack[-2]
-                if handle.lhs is None:
+        for priLevel in astate.byReduce:
+            for handle in priLevel.values():
+                newStack = handle.check(self.stack)
+                #print(f'Check {handle}')
+                if newStack is not None:
+                    #print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
+                    returnState = newStack[-2]
+                    if handle.lhs is None:
+                        result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                        continue
+                    assert handle.lhs in returnState.byNonterminal, strs(self.stack) + ' => ' + returnState.label
+                    newStack.append(returnState.byNonterminal[handle.lhs])
                     result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
-                    continue
-                assert handle.lhs in returnState.byNonterminal, strs(self.stack) + ' => ' + returnState.label
-                newStack.append(returnState.byNonterminal[handle.lhs])
-                result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
-            #else:
-            #    print(f'Handle failed on {strs(self.stack)}')
+                #else:
+                #    print(f'Handle failed on {strs(self.stack)}')
+            if len(result)>0:
+                break
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
         # in modifiers, i.e. x+ and xx*, or x and x*.
         return list(set(result))
@@ -674,8 +676,8 @@ class Automaton:
         counter = 1
 
         for state in worklist:
-            for edges in (state.byTerminal, state.byPriTerminal):
-                for terminal in edges.keys():
+            for pri,priLevel in enumerate(state.byShift):
+                for terminal in priLevel.keys():
                     matchingConfigs = [ c for c in state.configurations if terminal.eqOne(c.next()) ]
                     possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
                                       [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
@@ -683,7 +685,7 @@ class Automaton:
                     next = AState(grammar, possibleConfigs, label=f's{counter}')
                     counter += 1
                     next = worklist.add(next)
-                    edges[terminal] = next
+                    state.byShift[pri][terminal] = next
 
             for name in list(state.byNonterminal.keys()):
                 nonterminal = Grammar.Nonterminal(name)
@@ -701,25 +703,31 @@ class Automaton:
                 next = AState(grammar, withGlue, label=f's{counter}')
                 counter += 1
                 next = worklist.add(next)
-                state.byGlue = next
+                state.byShift[0]["glue"] = next                     # Todo: what is the correct priority here??
 
             withRemover = [ c.succ() for c in state.configurations if isinstance(c.next(),Grammar.Remover) ]
             if len(withRemover)>0:
                 next = AState(grammar, withRemover, label=f's{counter}')
                 counter += 1
                 next = worklist.add(next)
-                state.byRemover = next
+                if len(state.byShift)<2:
+                    state.byShift = state.byShift + [{}]
+                state.byShift[1]["remove"] = next                  # Todo: what is the correct priority here??
 
             for c in state.configurations:
                 if c.isReducing():
                     if c.clause.hasReduceBarrier():
                         above = c.clause
                         below = c.clause.floor()
-                        state.byClause[above] = Handle(above)
-                        state.byPriClause[below] = Handle(below)
-                        state.reduceBarriers[below] = above
+                        if len(state.byReduce)<2:
+                            state.byReduce = state.byReduce + [{}]
+                        state.byReduce[0][above] = Handle(above)
+                        state.byReduce[1][below] = Handle(below)
+                        #state.byClause[above] = Handle(above)
+                        #state.byPriClause[below] = Handle(below)
+                        #state.reduceBarriers[below] = above
                     else:
-                        state.byClause[c.clause] = Handle(c.clause)
+                        state.byReduce[0][c.clause] = Handle(c.clause)
 
         self.states = worklist.set
         assert isinstance(self.states, dict)
@@ -732,44 +740,38 @@ class Automaton:
             else:
                 nextId = f's{id(next)}'
             return nextId
+        def priColor(pri):
+            if pri==0:  return 'black'
+            if pri==1:  return 'grey30'
+            if pri==2:  return 'grey60'
+            return 'grey90'
 
         print("digraph {", file=output)
         for s in self.states:
             label = "<BR/>".join([c.html() for c in s.configurations])
             print(f's{id(s)} [shape=none,label=<<font color="blue">{s.label}</font>{label} >];', file=output)
 
-            for t,next in s.byPriTerminal.items():
-                nextId = makeNextId(s, next, t, output)
-                barriers = ",".join([ k.name for k,v in s.shiftBarriers.items() if v==t ])
-                print(f's{id(s)} -> {nextId} [color=orange,' +
-                      f'label=<<FONT color="grey">shift {t.html()}</FONT>>,' +
-                      f'taillabel=<<FONT color="orange">enter {barriers}</FONT>>];', file=output)
-
-            for t,next in s.byTerminal.items():
-                nextId = makeNextId(s, next, t, output)
-                print(f's{id(s)} -> {nextId} [color=grey,label=<shift {t.html()}>];', file=output)
+            for pri,priLevel in enumerate(s.byShift):
+                color = priColor(pri)
+                for t,next in priLevel.items():
+                    nextId = makeNextId(s, next, t, output)
+                    if t=="glue":
+                        print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>G</B></FONT>>];', file=output)
+                    elif t=="remove":
+                        print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>R</B></FONT>>];', file=output)
+                    else:
+                        print(f's{id(s)} -> {nextId} [color={color},label=<shift {t.html()}>];', file=output)
 
             for nt, next in s.byNonterminal.items():
                 nextId = makeNextId(s, next, nt, output)
                 print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt}</FONT>>];', file=output)
 
-            for clause in s.byClause:
-                nextId = f's{id(s)}_{id(clause)}'
-                print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
-                print(f's{id(s)} -> {nextId} [label=<{clause.html()}>];', file=output)
-
-            for clause in s.byPriClause:
-                nextId = f's{id(s)}_{id(clause)}'
-                print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
-                print(f's{id(s)} -> {nextId} [color=orange,label=<{clause.html()}>,taillabel=<<FONT color="orange">enter {clause.lhs}</FONT>>];', file=output)
-
-            if s.byGlue is not None:
-                nextId = makeNextId(s, s.byGlue, None, output)
-                print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>G</B></FONT>>];', file=output)
-
-            if s.byRemover is not None:
-                nextId = makeNextId(s, s.byRemover, None, output)
-                print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>R</B></FONT>>];', file=output)
+            for pri,level in enumerate(s.byReduce):
+                for clause in level:
+                    nextId = f's{id(s)}_{id(clause)}'
+                    color = priColor(pri)
+                    print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
+                    print(f's{id(s)} -> {nextId} [color={color},label=<{clause.html()}>];', file=output)
 
         print("}", file=output)
 
