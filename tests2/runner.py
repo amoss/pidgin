@@ -66,6 +66,7 @@ for name in os.listdir(target):
 
 # Scan units from files
 units = []
+largePositives = {}
 injections = dict( (i.__qualname__,i) for i in (T,S,N,Glue,Remove,Grammar))
 subDirs = [ os.path.join(thisDir,e.name) for e in os.scandir(thisDir) if e.is_dir() ]
 for d in subDirs:
@@ -86,7 +87,13 @@ for d in subDirs:
             print(f"{RED}Failed to load {d}/{f}{GRAY}")
             traceback.print_exc()
             print(END)
-
+    caseSubdirs = [ os.path.join(d,e.name) for e in os.scandir(d) if e.is_dir() and e.name.startswith('positive_') ]
+    for u in caseSubdirs:
+        unitName = os.path.basename(u)[9:]
+        for e in os.scandir(u):
+            if unitName not in largePositives:
+                largePositives[unitName] = []
+            largePositives[unitName].append(os.path.join(u,e.name))
 
 index = open( os.path.join(target,"index.md"), "wt")
 for (u,addToDoc) in units:
@@ -112,7 +119,7 @@ for (u,addToDoc) in units:
         automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
 
         for i,p in enumerate(positive):
-            if args.verbose: print(f'{GRAY}Executing p{i} on {name}: {p}')
+            if args.verbose: print(f'{GRAY}Executing p{i} on {name}: {p}{END}')
             results = [r for r in automaton.execute(p, True)]
             automaton.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
             if len(results)==0:
@@ -126,6 +133,25 @@ for (u,addToDoc) in units:
                 print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')
             if len(results)>1:
                 print(f'{YELLOW}Ambiguous solutions on {name} positive {i} {p}{END}')
+
+        if name in largePositives:
+            for case in largePositives[name]:
+                basename = os.path.basename(case)
+                body = open(case).read()
+                if args.verbose: print(f'{GRAY}Executing {basename} on {name}: {len(body)}{END}')
+                results = [r for r in automaton.execute(body, True)]
+                automaton.trace.output( open(os.path.join(dir,f'{basename}.dot'),'wt') )
+                if len(results)==0:
+                    print(f'{RED}Failed on {name} positive {case}{END}')
+                    failed += 1
+                else:
+                    passed += 1
+                    if args.verbose: print(f'{GREEN}Passed on {name} positive {case}{END}')
+                redundant = automaton.trace.measure()
+                if redundant>0.5:
+                    print(f'{RED}High redundancy {redundant} on {name} positive {case}{END}')
+                if len(results)>1:
+                    print(f'{YELLOW}Ambiguous solutions on {name} positive {case}{END}')
 
         for i,n in enumerate(negative):
             if args.verbose: print(f'{GRAY}Executing n{i} on {name}: {n}')
