@@ -24,7 +24,7 @@ def pidgin_expr():
                         [N('ident'), T('!'), N('atom')])
     g.addRule('atom', [T('true')],
                       [T('false')],
-                      [S(string.digits,m='some')],
+                      [S(string.digits), Glue(), S(string.digits,m='any'), Remove()],
                       [N('ident')],
                       [N('str_lit')],
                       [N('set')],

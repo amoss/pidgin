@@ -78,3 +78,17 @@ u(world)
 [[] [], [] []]
 [['x"]'y"
 '''.split('\n')
+
+
+def toy_numberlist():
+    '''Test lists of integer literals.'''
+    letters = string.ascii_lowercase + string.ascii_uppercase
+    g = Grammar('order')
+    g.setDiscard(S(' \t\r\n',m='some'))
+    g.addRule('atom', [N('number')], [N('order')])
+    g.addRule('order', [T('['), N('elem_lst',m='any'), T(']')])
+    g.addRule('elem_lst', [N('atom'), T(',',m='optional')])
+    g.addRule('number', [S(string.digits), Glue(), S(string.digits,m='any'), Remove()])
+    return g, \
+'''[]
+[1 23 45]'''.split('\n'), []

@@ -289,7 +289,7 @@ class Grammar:
             return '[]'
 
         def sig(self):
-            return (self.chars, self.modifier, self.inverse, self.tag)
+            return (self.chars, self.modifier, self.inverse, self.tag, id(self.original))
 
         def __eq__(self,other):
             return isinstance(other,Grammar.TermSet) and self.sig()==other.sig()
@@ -635,8 +635,8 @@ class PState:
                     assert handle.lhs in returnState.byNonterminal, strs(self.stack) + ' => ' + returnState.label
                     newStack.append(returnState.byNonterminal[handle.lhs])
                     result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
-                #else:
-                #    print(f'Handle failed on {strs(self.stack)}')
+                else:
+                    print(f'Handle failed on {strs(self.stack)}')
             if len(result)>0:
                 break
         # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
@@ -781,6 +781,7 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
+                #print(f'Execute {strs(p.stack)}')
                 if not isinstance(p.stack[-1],AState):
                     if p.position==len(input) and len(p.stack)==2:
                         yield p.stack[1]
