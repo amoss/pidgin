@@ -594,7 +594,7 @@ class PState:
     def shifts(self, input):
         result = []
         astate = self.stack[-1]
-        remaining = self.position
+        origRemaining = remaining = self.position
         # Generate highest priority shifts that are possible
         # Backtracking through here would continue iteration
         # If we enter a pri-level and there are remaining pri-levels then this must be a barrier in the trace...
@@ -605,7 +605,7 @@ class PState:
         for priLevel in astate.byShift:
             for t,nextState in priLevel.items():
                 if t=="glue":
-                    result.append(PState(self.stack[:-1] + [nextState], remaining, discard=self.discard, keep=True))
+                    result.append(PState(self.stack[:-1] + [nextState], origRemaining, discard=self.discard, keep=True))
                 elif t=="remove":
                     result.append(PState(self.stack[:-1] + [nextState], remaining, discard=self.discard, keep=False))
                 else:
