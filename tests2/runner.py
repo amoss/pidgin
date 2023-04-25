@@ -55,6 +55,7 @@ argParser.add_argument("-v","--verbose", action="store_true")
 argParser.add_argument("-f","--filter")
 args = argParser.parse_args()
 passed, failed = 0, 0
+sys.setrecursionlimit(5000)
 
 # Clean old results
 target = os.path.join(rootDir,"unitResults")
@@ -91,6 +92,7 @@ for d in subDirs:
     for u in caseSubdirs:
         unitName = os.path.basename(u)[9:]
         for e in os.scandir(u):
+            if e.name[0]=='.': continue
             if unitName not in largePositives:
                 largePositives[unitName] = []
             largePositives[unitName].append(os.path.join(u,e.name))
@@ -137,7 +139,7 @@ for (u,addToDoc) in units:
         if name in largePositives:
             for case in largePositives[name]:
                 basename = os.path.basename(case)
-                body = open(case).read()
+                body = open(case,'rt').read()
                 if args.verbose: print(f'{GRAY}Executing {basename} on {name}: {len(body)}{END}')
                 results = [r for r in automaton.execute(body, True)]
                 automaton.trace.output( open(os.path.join(dir,f'{basename}.dot'),'wt') )

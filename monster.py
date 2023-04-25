@@ -468,6 +468,7 @@ class Handle:
         assert (len(stack)%2) == 1
         pos = len(stack)-2
         dfaState = self.initial
+        print(f'check: {self.dfa.map}')
         while pos>0:
             next = None
             if dfaState in self.dfa.map:   # If dfaState = { nfaExit } then it won't be in the edge map
@@ -523,6 +524,7 @@ class AState:
 
         priority = 0
         for k,v in derived.items():
+            print(f'construct {self.label} entry {k}')
             if isinstance(k,Grammar.TermString) or isinstance(k,Grammar.TermSet):
                 barrierSrcs = barrierSources(derived,k)
                 self.byShift[priority][k] = None
@@ -627,12 +629,13 @@ class PState:
                 newStack = handle.check(self.stack)
                 #print(f'Check {handle}')
                 if newStack is not None:
-                    #print(f'Handle match on {strs(self.stack)} => {strs(newStack)}')
+                    print(f'Handle match on old {strs(self.stack)}')
+                    print(f'                 => {strs(newStack)}')
                     returnState = newStack[-2]
                     if handle.lhs is None:
                         result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
                         continue
-                    assert handle.lhs in returnState.byNonterminal, strs(self.stack) + ' => ' + returnState.label
+                    assert handle.lhs in returnState.byNonterminal, f'Missing {handle.lhs} in {returnState.label} after {strs(newStack)}'
                     newStack.append(returnState.byNonterminal[handle.lhs])
                     result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
                 else:
@@ -781,23 +784,33 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                #print(f'Execute {strs(p.stack)}')
+                print(f'Execute {strs(p.stack)} at {p.position}')
                 if not isinstance(p.stack[-1],AState):
-                    if p.position==len(input) and len(p.stack)==2:
+                    remaining = p.position
+                    if not p.keep and self.discard is not None:
+                        drop = self.discard.match(input[remaining:])
+                        if drop is not None and len(drop)>0:
+                            remaining += len(drop)
+                    if remaining==len(input) and len(p.stack)==2:
                         yield p.stack[1]
                         self.trace.result(p)
                     else:
                         self.trace.blocks(p)
                 else:
-                    shifts = p.shifts(input)
-                    reduces = p.reductions()
-                    if len(shifts)+len(reduces)==0:
+                    try:
+                        shifts = p.shifts(input)
+                        reduces = p.reductions()
+                        if len(shifts)+len(reduces)==0:
+                            self.trace.blocks(p)
+                        else:
+                            next.extend(shifts)
+                            self.trace.shifts(p, shifts)
+                            next.extend(reduces)
+                            self.trace.reduces(p, reduces)
+                    except AssertionError as e:
                         self.trace.blocks(p)
-                    else:
-                        next.extend(shifts)
-                        self.trace.shifts(p, shifts)
-                        next.extend(reduces)
-                        self.trace.reduces(p, reduces)
+                        print(f'ERROR {e}')
+
             pstates = next
 
     class Trace:
@@ -882,6 +895,8 @@ class Automaton:
             self.tag = original.tag
 
         def __str__(self):
+            if isinstance(self.original,Grammar.TermSet):
+                return f'[{self.chars}]'
             return self.chars
 
         def matches(self, other):
