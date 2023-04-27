@@ -55,8 +55,7 @@ class Rule:
         self.clauses = set()
 
     def add(self, initialBody):
-        body = [ self.grammar.canonical(symbol) if symbol.isTerminal() else symbol
-                 for symbol in initialBody]
+        body = [ symbol for symbol in initialBody ]
         self.clauses.add( Clause(self.name, body) )
 
 
@@ -100,98 +99,17 @@ class Clause:
     def isTerminal(self):
         return False
 
-    def get(self, position):
-        if self.configs[position] is None:
-            self.configs[position] = Configuration(self, position)
-        return self.configs[position]
+    #def get(self, position):
+    #    if self.configs[position] is None:
+    #        self.configs[position] = Configuration(self, position)
+    #    return self.configs[position]
 
-    def hasReduceBarrier(self):
-        for symbol in self.rhs:
-            if isinstance(symbol,Grammar.Nonterminal) and \
-                    symbol.modifier in ('any','some') and \
-                    symbol.strength in ('greedy','frugal'):
-                return True
-        return False
-
-    def floor(self):
-        return Clause(self.lhs, [symbol for symbol in self.rhs
-                                        if not (isinstance(symbol,Grammar.Nonterminal) and \
-                                           symbol.modifier in ('any','some') and \
-                                           symbol.strength in ('greedy','frugal'))])
-
-class Configuration:
-    def __init__(self, clause, position):
-        self.clause = clause
-        assert -1 <= position and position <= len(self.clause.rhs)
-        self.position = position
-        self.terminating = clause.terminating and self.isReducing()
-
-    def __str__(self):
-        result = f"{self.clause.lhs} <- "
-        for i,s in enumerate(self.clause.rhs):
-            if i==self.position:
-                result += "*"
-            result += str(s)
-        if self.position==len(self.clause.rhs):
-            result += "*"
-        return result
-
-    def html(self):
-        result = f"{self.clause.lhs} &larr; "
-        for i,s in enumerate(self.clause.rhs):
-            if i==self.position:
-                result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
-            modChars = { 'just':'', 'any':'*', 'some':'+', 'optional':'?' }
-            modifier = modChars[s.modifier]
-            if isinstance(s,Grammar.Nonterminal):
-                result += s.name + f"{modifier} "
-            elif isinstance(s,Grammar.TermString):
-                result += f'<FONT face="monospace" color="grey">{html.escape(s.string)} </FONT>{modifier}'
-            elif isinstance(s,Grammar.TermSet):
-                result += f'<FONT face="monospace">[]</FONT>{modifier}'
-            elif isinstance(s,Grammar.Glue):
-                result += '<FONT color="grey"><B>G</B></FONT>'
-            elif isinstance(s,Grammar.Remover):
-                result += '<FONT color="grey"><B>R</B></FONT>'
-            else:
-                result += type(s).__name__ + modifier
-        if self.position==len(self.clause.rhs):
-            result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
-        return result
-
-    def __eq__(self, other):
-        if not isinstance(other,Configuration):
-            return False
-        return self.clause.lhs==other.clause.lhs and self.position==other.position and\
-               self.clause.rhs==other.clause.rhs
-
-    def __hash__(self):
-        return hash((self.clause.lhs, str(self.clause.rhs), self.position))
-
-    def isReducing(self):
-        return self.position == len(self.clause.rhs)
-
-    def next(self):
-        if self.position==len(self.clause.rhs):
-            return None
-        return self.clause.rhs[self.position]
-
-    def succ(self):
-        assert self.position < len(self.clause.rhs)
-        return Configuration(self.clause, self.position+1)
 
 class Grammar:
     def __init__(self, start):
         self.rules    = dict()
         self.start    = start
         self.discard  = None
-        self.canonicalTerminals = dict()
-
-    def canonical(self, terminal):
-        assert terminal.isTerminal(), terminal
-        if not terminal in self.canonicalTerminals:
-            self.canonicalTerminals[terminal] = terminal
-        return self.canonicalTerminals[terminal]
 
     def addRule(self, name, *body):
         assert not name in self.rules.keys()
@@ -219,6 +137,7 @@ class Grammar:
             self.tag = tag
             assert modifier in ("any","just","some","optional"), modifier
             self.modifier = modifier
+            self.strength = 'greedy'
             self.original = self if original is None else original
 
         def __str__(self):
@@ -268,6 +187,7 @@ class Grammar:
         def __init__(self, charset, modifier="just", inverse=False, tag='', original=None):
             assert modifier in ("any","just","some","optional"), modifier
             self.modifier = modifier
+            self.strength = "greedy"
             self.chars = frozenset(charset)
             self.inverse  = inverse
             self.tag      = tag
@@ -358,6 +278,7 @@ class Grammar:
             self.within = None
             self.position = None
             self.modifier = "just"
+            self.strength = "greedy"
 
         def __str__(self):
             return "Glue"
@@ -376,6 +297,7 @@ class Grammar:
             self.within = None
             self.position = None
             self.modifier = "just"
+            self.strength = "greedy"
 
         def __str__(self):
             return "Remover"
@@ -410,20 +332,21 @@ def barrierSources(trace, terminal):
 
 
 class Handle:
-    def __init__(self, clause):
-        '''Build a restricted NFA for recognising the clause - no loops larger than self-loops, no choices.
+    def __init__(self, config):
+        '''Build a restricted NFA for recognising the configuration - no loops larger than self-loops, no choices.
            The NFA is a straight-line with self-loops on repeating nodes and jumps over skipable nodes.
-           Translate the NFA to a DFA that we store / use for recognition.'''
-        nfaStates  = list(reversed([s for s in clause.rhs if type(s) not in (Grammar.Glue,Grammar.Remover)]))
+           Translate the NFA to a DFA that we store / use for recognition. The recogniser works in reverse so that
+           we can scan down the stack.'''
+        nfaStates  = list(reversed([s for s in config.rhs if s.isTerminal() or s.isNonterminal()]))
         nfaSkips   = [ s.modifier in ('optional','any') for s in nfaStates ] + [False]
         nfaRepeats = [ s.modifier in ('some','any') for s in nfaStates ]     + [False]
         nfaEdges   = [ MultiDict() for i in range(len(nfaStates)) ]          + [MultiDict()]
 
         for i,s in enumerate(nfaStates):
             if nfaRepeats[i]:
-                nfaEdges[i].store(s.exactlyOne(), i)
+                nfaEdges[i].store(s.eqClass, i)
             for tar in range(i+1,len(nfaStates)+2):
-                nfaEdges[i].store(s.exactlyOne(), tar)
+                nfaEdges[i].store(s.eqClass, tar)
                 if not nfaSkips[tar]:
                     break
 
@@ -434,13 +357,13 @@ class Handle:
                 break
         self.initial = frozenset(initial)
         self.exit = len(nfaStates)
-        self.lhs = clause.lhs
+        self.lhs = config.lhs
 
-        def successor(dfaState, symbol):
+        def successor(dfaState, eqClass):
             result = set()
             for nfaIdx in dfaState:
-                if symbol in nfaEdges[nfaIdx].map:
-                    result.update(nfaEdges[nfaIdx].map[symbol])
+                if eqClass in nfaEdges[nfaIdx].map:
+                    result.update(nfaEdges[nfaIdx].map[eqClass])
             return frozenset(result)
 
         def ogEdges(dfaState):
@@ -456,9 +379,9 @@ class Handle:
         for state in worklist:
             if state in self.dfa.map:
                 continue
-            for symbol in ogEdges(state):
-                succ = successor(state,symbol)
-                self.dfa.store(state, (symbol,succ))
+            for eqClass in ogEdges(state):
+                succ = successor(state, eqClass)
+                self.dfa.store(state, (eqClass,succ))
                 worklist.add(succ)
 
     def check(self, stack):
@@ -504,9 +427,9 @@ class AState:
         assert len(configs)>0
         self.grammar = grammar
 
+        self.edges = [{}]
         self.byNonterminal   = {}
-        self.byShift         = [{}]
-        self.byReduce        = [{}]
+        print(f'AState({strs(configs)})')
 
         if label is None:
             self.label = f's{AState.counter}'
@@ -519,22 +442,27 @@ class AState:
         for c in configs:
             accumulator, derived = self.epsilonClosure(c, accumulator=accumulator, trace=derived)
         self.configurations = frozenset(accumulator)
-        self.validLhs        = frozenset([c.clause.lhs for c in self.configurations])
+        self.validLhs        = frozenset([c.lhs for c in self.configurations])
         #print(f'eclose: {accumulator} {derived}')
 
         priority = 0
         for k,v in derived.items():
-            print(f'construct {self.label} entry {k}')
-            if isinstance(k,Grammar.TermString) or isinstance(k,Grammar.TermSet):
+            print(f'construct {self.label} entry {k} {type(k)} : {v}')
+            if isinstance(k, SymbolTable.TermSetEQ) or isinstance(k, SymbolTable.TermStringEQ):
                 barrierSrcs = barrierSources(derived,k)
-                self.byShift[priority][k] = None
+                self.addEdge(priority, k, None)
             # If epsilon closure expanded a nonterminal as the next symbol in a configuration then we recorded
             # symbol.name -> clause.lhs for each clause in the nonterminal's rule.
             if isinstance(k,str):
-                filtered = [ entry for entry in v if isinstance(entry,Grammar.Nonterminal) ]
+                filtered = set([ entry.eqClass for entry in v if isinstance(entry,Symbol) and entry.isNonterminal() ])
+                assert len(filtered) in (0,1), filtered
                 if len(filtered)>0:
-                    nonterminal = filtered[0].exactlyOne()
-                    self.byNonterminal[nonterminal.name] = None
+                    self.addEdge(priority, list(filtered)[0], None)
+
+    def addEdge(self, priority, eqClass, target):
+        while priority >= len(self.edges):
+            self.edges.append({})
+        self.edges[priority][eqClass] = target
 
     def __eq__(self, other):
         return isinstance(other,AState) and self.configurations==other.configurations
@@ -559,18 +487,16 @@ class AState:
         if symbol.modifier in ('any','optional'):
             accumulator, trace = self.epsilonClosure(config.succ(), accumulator, trace)
         if symbol.isTerminal():
-            norm = symbol.exactlyOne()
-            if norm not in trace:                       trace[norm] = set()
-            trace[norm].add(config.clause.lhs)
+            if symbol.eqClass not in trace:             trace[symbol.eqClass] = set()
+            trace[symbol.eqClass].add(config.lhs)
             return accumulator, trace
-        if not isinstance(symbol,Grammar.Nonterminal):  return accumulator, trace
-        if symbol.name not in trace:                    trace[symbol.name] = set()
-        trace[symbol.name].add(config.clause.lhs)
-        trace[symbol.name].add(symbol)
-        rule = self.grammar.rules[symbol.name]
-        for clause in rule.clauses:
-            initial = clause.get(0)
-            accumulator, trace = self.epsilonClosure(initial, accumulator, trace)
+        if not symbol.eqClass.isNonterminal:            return accumulator, trace
+        name = symbol.eqClass.name
+        if name not in trace:                           trace[name] = set()
+        trace[name].add(config.lhs)
+        trace[name].add(symbol)
+        for ntInitialConfig in self.grammar[name]:
+            accumulator, trace = self.epsilonClosure(ntInitialConfig, accumulator, trace)
         return accumulator, trace
 
 
@@ -667,39 +593,246 @@ class PState:
         return result
 
 
+class SymbolTable:
+    '''The collection of canonical equivalence-classes for symbols.'''
+    def __init__(self):
+        self.classes = [SymbolTable.SpecialEQ("glue"), SymbolTable.SpecialEQ("remover")]
+        self.lookup  = { ('glue',):0, ('remover',):1 }
+
+    def makeConfig(self, clause):
+        if isinstance(clause, Clause):
+            self.get(('nt', clause.lhs), lambda: SymbolTable.NonterminalEQ(clause.lhs))
+            rhs = clause.rhs
+        elif isinstance(clause, list):
+            rhs = clause
+        else:
+            assert False, clause
+        normalized = []
+        for i,s in enumerate(rhs):
+            if isinstance(s,Grammar.Glue):
+                key = ('glue',)
+            if isinstance(s,Grammar.Remover):
+                key = ('remover',)
+            if isinstance(s,Grammar.TermSet):
+                key = (clause,i)
+                cons = lambda: SymbolTable.TermSetEQ(s.chars)
+            if isinstance(s,Grammar.TermString):
+                key = ('t', s.string)
+                cons = lambda: SymbolTable.TermStringEQ(s.string)
+            if isinstance(s,Grammar.Nonterminal):
+                key = ('nt', s.name)
+                cons = lambda: SymbolTable.NonterminalEQ(s.name)
+            sClass = self.get(key,cons)
+            normalized.append(Symbol(sClass, s.modifier, s.strength))
+        return normalized
+
+    class TermSetEQ:
+        def __init__(self, chars):
+            self.chars = chars
+        def __str__(self):
+            return f'[{self.index}]'
+        def html(self, modifier=''):
+            return f'<FONT face="monospace">[{self.index}]</FONT>{modifier}'
+        def isTerminal(self):
+            return True
+        def isNonterminal(self):
+            return False
+        #def matchInput(self, input):
+        #    ...
+        #def createInstance(self):
+        #    return Symbol(
+        #    ...
+
+    class TermStringEQ:
+        def __init__(self, literal):
+            self.literal = literal
+            self.isTerminal    = True
+            self.isNonterminal = False
+        def __str__(self):
+            return self.literal
+        def html(self, modifier=''):
+            return f'<FONT face="monospace" color="grey">{html.escape(self.literal)} </FONT>{modifier}'
+        #def matchInput(self, input):
+        #    ...
+        #def createInstance(self):
+            ...
+
+    class NonterminalEQ:
+        def __init__(self, name):
+            self.name = name
+            self.isTerminal    = False
+            self.isNonterminal = True
+        def __str__(self):
+            return f'N({self.name})'
+        def html(self, modifier=''):
+            return self.name + modifier
+        #def matchInput(self, input):
+        #    return None
+        #def createInstance(self):
+
+    class SpecialEQ:
+        def __init__(self, name):
+            self.name = name
+            self.isTerminal    = False
+            self.isNonterminal = False
+        def __str__(self):
+            return self.name
+        def html(self, modifier=''):
+            return f'<FONT color="grey"><B>{self.name}</B></FONT>'
+
+
+    def get(self, key, cons):
+        if key in self.lookup:
+            return self.classes[self.lookup[key]]
+        self.lookup[key] = len(self.classes)
+        newClass = cons()
+        newClass.index = len(self.classes)
+        self.classes.append(newClass)
+        return newClass
+
+
+class Symbol:
+    def __init__(self, eqClass, modifier="just", strength="greedy"):
+        self.eqClass  = eqClass
+        self.modifier = modifier
+        self.strength = strength
+
+    def __str__(self):
+        if self.modifier=="just":     return str(self.eqClass)
+        if self.modifier=="any":      return str(self.eqClass) + '*'
+        if self.modifier=="some":     return str(self.eqClass) + '+'
+        if self.modifier=="optional": return str(self.eqClass) + '?'
+
+    def isTerminal(self):
+        return self.eqClass.isTerminal
+
+    def isNonterminal(self):
+        return self.eqClass.isNonterminal
+
+class Token:
+    def __init__(self, symbol, content):
+        self.symbol   = symbol
+        self.contents = content
+
+
 
 class Automaton:
+
+    # Are these classes or instances???
+    # AState edges: classes
+    # DFA edges: classes
+    # Stack entries: instances
+#    class Configuration:
+#        def __init__(self, clause, position):
+#            self.clause = clause
+#            assert -1 <= position and position <= len(self.clause.rhs)
+#            self.position = position
+#            self.terminating = clause.terminating and self.isReducing()
+#
+#
+#
+#        def __eq__(self, other):
+#            if not isinstance(other,Configuration):
+#                return False
+#            return self.clause.lhs==other.clause.lhs and self.position==other.position and\
+#                   self.clause.rhs==other.clause.rhs
+#
+#        def __hash__(self):
+#            return hash((self.clause.lhs, str(self.clause.rhs), self.position))
+#
+#        def next(self):
+#            if self.position==len(self.clause.rhs):
+#                return None
+#            return self.clause.rhs[self.position]
+
+
+    class Configuration:
+        def __init__(self, lhs, rhs, position=0):
+            self.lhs      = lhs
+            self.rhs      = tuple(rhs)
+            self.position = position
+
+        def __str__(self):
+            return f'{self.lhs} <- ' + " ".join(['^'+str(s) if self.position==i else str(s)
+                                                            for i,s in enumerate(self.rhs)])
+        def html(self):
+            result = f"{self.lhs} &larr; "
+            for i,s in enumerate(self.rhs):
+                if i==self.position:
+                    result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
+                modChars = { 'just':'', 'any':'*', 'some':'+', 'optional':'?' }
+                result += s.eqClass.html(modifier=modChars[s.modifier])
+            if self.position==len(self.rhs):
+                result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
+            return result
+
+        def sig(self):
+            return (self.lhs, self.rhs, self.position)
+
+        def __eq__(self, other):
+            return isinstance(other, Automaton.Configuration) and self.sig()==other.sig()
+
+        def __hash__(self):
+            return hash(self.sig())
+
+        def next(self):
+            if self.position==len(self.rhs):  return None
+            return self.rhs[self.position]
+
+        def succ(self):
+            assert self.position < len(self.rhs)
+            return Automaton.Configuration(self.lhs, self.rhs, position=self.position+1)
+
+        def isReducing(self):
+            return self.position == len(self.rhs)
+
+        def hasReduceBarrier(self):
+            return self.floor()!=self
+
+        def floor(self):
+            isBarrier = lambda s: s.isNonterminal() and s.modifier in ('any','some') and s.strength!='all'
+            return Automaton.Configuration(self.lhs, [symbol for symbol in self.rhs if not isBarrier(symbol)],
+                                           position=self.position)
+
+    def canonicalizeGrammar(self, grammar):
+        '''Rebuild grammar with initial configurations replacing each clause, where the configurations contain
+           Symbols linked to canonical equivalence classes.'''
+        self.canonGrammar = {}
+        self.symbolTable = SymbolTable()
+        for rule in grammar.rules.values():
+            s = set()
+            for clause in rule.clauses:
+                s.add(Automaton.Configuration(clause.lhs, self.symbolTable.makeConfig(clause)))
+            self.canonGrammar[rule.name] = s
+            for c in s:
+                print(c)
+
+
     def __init__(self, grammar):
-        self.grammar       = grammar
+
+        self.canonicalizeGrammar(grammar)
+        #self.grammar       = grammar
         self.discard       = grammar.discard
-        entry = Clause(None, [Grammar.Nonterminal(grammar.start)], terminating=True)
-        initial = AState(grammar, [entry.get(0)], label='s0')
+
+        entry = Automaton.Configuration(None, self.symbolTable.makeConfig([Grammar.Nonterminal(grammar.start)])) # terminating?
+        initial = AState(self.canonGrammar, [entry], label='s0')
         self.start = initial
         worklist = OrdSet([initial])
         counter = 1
 
         for state in worklist:
-            for pri,priLevel in enumerate(state.byShift):
-                for terminal in priLevel.keys():
-                    matchingConfigs = [ c for c in state.configurations if terminal.eqOne(c.next()) ]
-                    possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
-                                      [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
-                    assert len(possibleConfigs)>0, str(terminal)
-                    next = AState(grammar, possibleConfigs, label=f's{counter}')
-                    counter += 1
-                    next = worklist.add(next)
-                    state.byShift[pri][terminal] = next
-
-            for name in list(state.byNonterminal.keys()):
-                nonterminal = Grammar.Nonterminal(name)
-                matchingConfigs = [ c for c in state.configurations if nonterminal.eqOne(c.next()) ]
-                possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
-                                  [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
-                assert len(possibleConfigs)>0, str(nonterminal)
-                next = AState(grammar, possibleConfigs, label=f's{counter}')
-                counter += 1
-                next = worklist.add(next)
-                state.byNonterminal[name] = next
+            active = [c for c in state.configurations if c.next() is not None ]
+            for pri, priLevel in enumerate(state.edges):
+                for eqClass in priLevel.keys():
+                    if eqClass.isTerminal or eqClass.isNonterminal:
+                        matchingConfigs = [ c for c in active if c.next().eqClass==eqClass ]
+                        possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
+                                          [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
+                        assert len(possibleConfigs)>0, str(eqClass)
+                        next = AState(self.canonGrammar, possibleConfigs, label=f's{counter}')
+                        counter += 1
+                        next = worklist.add(next)
+                        priLevel[eqClass] = next
 
             withGlue = [ c.succ() for c in state.configurations if isinstance(c.next(),Grammar.Glue) ]
             if len(withGlue)>0:
@@ -719,18 +852,10 @@ class Automaton:
 
             for c in state.configurations:
                 if c.isReducing():
-                    if c.clause.hasReduceBarrier():
-                        above = c.clause
-                        below = c.clause.floor()
-                        if len(state.byReduce)<2:
-                            state.byReduce = state.byReduce + [{}]
-                        state.byReduce[0][above] = Handle(above)
-                        state.byReduce[1][below] = Handle(below)
-                        #state.byClause[above] = Handle(above)
-                        #state.byPriClause[below] = Handle(below)
-                        #state.reduceBarriers[below] = above
-                    else:
-                        state.byReduce[0][c.clause] = Handle(c.clause)
+                    state.addEdge(0, c, Handle(c))
+                    if c.hasReduceBarrier():
+                        below = c.floor()
+                        state.addEdge(1, below, Handle(below))
 
         self.states = worklist.set
         assert isinstance(self.states, dict)
@@ -754,28 +879,25 @@ class Automaton:
             label = "<BR/>".join([c.html() for c in s.configurations])
             print(f's{id(s)} [shape=none,label=<<font color="blue">{s.label}</font>{label} >];', file=output)
 
-            for pri,priLevel in enumerate(s.byShift):
+            for pri,priLevel in enumerate(s.edges):
                 color = priColor(pri)
-                for t,next in priLevel.items():
-                    nextId = makeNextId(s, next, t, output)
-                    if t=="glue":
-                        print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>G</B></FONT>>];', file=output)
-                    elif t=="remove":
-                        print(f's{id(s)} -> {nextId} [label=<<FONT color="grey"><B>R</B></FONT>>];', file=output)
+                for edgeLabel,next in priLevel.items():
+                    if isinstance(edgeLabel, Automaton.Configuration):
+                        nextId = f's{id(s)}_{id(edgeLabel)}'
+                        print(f'{nextId} [shape=rect,label=<reduce {edgeLabel.html()}>];', file=output)
+                        print(f's{id(s)} -> {nextId} [color={color},label=<{edgeLabel.html()}>];', file=output)
                     else:
-                        print(f's{id(s)} -> {nextId} [color={color},label=<shift {t.html()}>];', file=output)
-
-            for nt, next in s.byNonterminal.items():
-                nextId = makeNextId(s, next, nt, output)
-                print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {nt}</FONT>>];', file=output)
-
-            for pri,level in enumerate(s.byReduce):
-                for clause in level:
-                    nextId = f's{id(s)}_{id(clause)}'
-                    color = priColor(pri)
-                    print(f'{nextId} [shape=rect,label="reduce {clause.lhs}"];', file=output)
-                    print(f's{id(s)} -> {nextId} [color={color},label=<{clause.html()}>];', file=output)
-
+                        assert type(edgeLabel) in (SymbolTable.TermSetEQ,
+                                                   SymbolTable.TermStringEQ,
+                                                   SymbolTable.NonterminalEQ,
+                                                   SymbolTable.SpecialEQ), type(edgeLabel)
+                        nextId = makeNextId(s, next, edgeLabel, output)
+                        if edgeLabel.isTerminal:
+                            print(f's{id(s)} -> {nextId} [color={color},label=<shift {edgeLabel.html()}>];', file=output)
+                        elif edgeLabel.isNonterminal:
+                            print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {edgeLabel.name}</FONT>>];', file=output)
+                        else:
+                            print(f's{id(s)} -> {nextId} [label=<edgeLabel.html()>];', file=output)
         print("}", file=output)
 
     def execute(self, input, tracing=False):
