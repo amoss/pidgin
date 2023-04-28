@@ -424,10 +424,7 @@ class AState:
     def __init__(self, grammar, configs, label=None):
         assert len(configs)>0
         self.grammar = grammar
-
         self.edges = [{}]
-        print(f'AState({strs(configs)})')
-
         if label is None:
             self.label = f's{AState.counter}'
             AState.counter += 1
@@ -604,7 +601,7 @@ class SymbolTable:
                 key = ('remover',)
             if isinstance(s,Grammar.TermSet):
                 key = (clause,i)
-                cons = lambda: SymbolTable.TermSetEQ(s.chars)
+                cons = lambda: SymbolTable.TermSetEQ(s.chars,inverse=s.inverse)
             if isinstance(s,Grammar.TermString):
                 key = ('t', s.string)
                 cons = lambda: SymbolTable.TermStringEQ(s.string)
@@ -616,8 +613,9 @@ class SymbolTable:
         return result
 
     class TermSetEQ:
-        def __init__(self, chars):
-            self.chars = chars
+        def __init__(self, chars, inverse=False):
+            self.chars   = chars
+            self.inverse = inverse
         def __str__(self):
             return f'[{self.index}]'
         def html(self, modifier=''):
@@ -627,7 +625,7 @@ class SymbolTable:
         def isNonterminal(self):
             return False
         def matchInput(self, input):
-            if input[0] in self.chars:
+            if (input[0] not in self.chars) == self.inverse:
                 return input[:1]
             return None
         #def createInstance(self):
@@ -707,6 +705,11 @@ class Token:
         self.symbol   = symbol
         self.contents = content
 
+    def __str__(self):
+        if self.symbol.isTerminal:
+            return f'{self.symbol}:{self.contents}'
+        return f'{self.symbol}::'
+
     def dump(self, depth=0):
         print(f"{'  '*depth}{self.tag}")
         for c in self.children:
@@ -778,8 +781,6 @@ class Automaton:
             for clause in rule.clauses:
                 s.add(self.symbolTable.makeConfig(clause))
             self.canonGrammar[rule.name] = s
-            for c in s:
-                print(c)
 
 
     def __init__(self, grammar):
@@ -864,7 +865,7 @@ class Automaton:
                         elif edgeLabel.isNonterminal:
                             print(f's{id(s)} -> {nextId} [color=grey,label=<<FONT color="grey">accept {edgeLabel.name}</FONT>>];', file=output)
                         else:
-                            print(f's{id(s)} -> {nextId} [label=<edgeLabel.html()>];', file=output)
+                            print(f's{id(s)} -> {nextId} [label=<{edgeLabel.html()}>];', file=output)
         print("}", file=output)
 
     def execute(self, input, tracing=False):
