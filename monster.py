@@ -312,8 +312,6 @@ class Grammar:
             return False
 
 
-
-
 def barrierSources(trace, terminal):
     '''Each entry in the *trace* is a map from symbol to sources that it was derived from during epsilon-closure.
        This representation is necessary as the relation may form a DAG instead of a tree. From the given *terminal*
@@ -396,7 +394,7 @@ class Handle:
             next = None
             if dfaState in self.dfa.map:   # If dfaState = { nfaExit } then it won't be in the edge map
                 for symbol, succ in self.dfa.map[dfaState]:
-                    if stack[pos].matches(symbol) and self.lhs in stack[pos-1].validLhs:
+                    if stack[pos].symbol==symbol and self.lhs in stack[pos-1].validLhs:
                         next = succ
                         pos -= 2
                         break
@@ -428,7 +426,6 @@ class AState:
         self.grammar = grammar
 
         self.edges = [{}]
-        self.byNonterminal   = {}
         print(f'AState({strs(configs)})')
 
         if label is None:
@@ -457,7 +454,7 @@ class AState:
                 filtered = set([ entry.eqClass for entry in v if isinstance(entry,Symbol) and entry.isNonterminal() ])
                 assert len(filtered) in (0,1), filtered
                 if len(filtered)>0:
-                    self.addEdge(priority, list(filtered)[0], None)
+                    self.addEdge(0, list(filtered)[0], None)
 
     def addEdge(self, priority, eqClass, target):
         while priority >= len(self.edges):
@@ -519,58 +516,45 @@ class PState:
     def __eq__(self, other):
         return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
 
-    def shifts(self, input):
+    def successors(self, input):
         result = []
         astate = self.stack[-1]
-        origRemaining = remaining = self.position
-        # Generate highest priority shifts that are possible
-        # Backtracking through here would continue iteration
-        # If we enter a pri-level and there are remaining pri-levels then this must be a barrier in the trace...
+        remaining = self.position
         if not self.keep and self.discard is not None:
             drop = self.discard.match(input[remaining:])
             if drop is not None and len(drop)>0:
                 remaining += len(drop)
-        for priLevel in astate.byShift:
-            for t,nextState in priLevel.items():
-                if t=="glue":
-                    result.append(PState(self.stack[:-1] + [nextState], origRemaining, discard=self.discard, keep=True))
-                elif t=="remove":
-                    result.append(PState(self.stack[:-1] + [nextState], remaining, discard=self.discard, keep=False))
+        print(f'execute: {strs(self.stack)}')
+        for priLevel in astate.edges:
+            for edgeLabel,target in priLevel.items():
+                if isinstance(edgeLabel, Automaton.Configuration) and isinstance(target,Handle):
+                    newStack = target.check(self.stack)
+                    if newStack is not None:
+                        print(f'Handle match on old {strs(self.stack)}')
+                        print(f'                 => {strs(newStack)}')
+                        if handle.lhs is None:
+                            result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                            continue
+                        returnState = newStack[-2]
+                        assert target.lhs in returnState.edges[0], \
+                               f'Missing {target.lhs} in {returnState.label} after {strs(newStack)}'
+                        newStack.append(returnState.edges[0][edgeLabel.lhs])
+                        result.append( ("reduce",PState(newStack, self.position, discard=self.discard, keep=self.keep)))
+                elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
+                    result.append( ("shift",PState(self.stack[:-1] + [target], self.position, discard=self.discard, keep=True)))
+                elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="remover":
+                    result.append( ("shift",PState(self.stack[:-1] + [target], remaining, discard=self.discard, keep=False)))
                 else:
-                    #print(f'Test shift in {astate.label} for {t} against {input[remaining:]} keep={self.keep} discard={self.discard}')
-                    match = t.match(input[remaining:])
-                    if match is not None:
-                        result.append(PState(self.stack + [Automaton.Terminal(match,t.original),nextState],
-                                      remaining+len(match), discard=self.discard, keep=self.keep))
+                    assert type(edgeLabel) in (SymbolTable.TermSetEQ,
+                                               SymbolTable.TermStringEQ,
+                                               SymbolTable.NonterminalEQ), type(edgeLabel)
+                    matched = edgeLabel.matchInput(input[remaining:])
+                    if matched is not None:
+                        result.append( ("shift",PState(self.stack + [Token(edgeLabel,matched),target], remaining+len(matched),
+                                                discard=self.discard, keep=self.keep)))
             if len(result)>0:
                 break
         return result
-
-    def reductions(self):
-        result = []
-        astate = self.stack[-1]
-        done = set()
-        for priLevel in astate.byReduce:
-            for handle in priLevel.values():
-                newStack = handle.check(self.stack)
-                #print(f'Check {handle}')
-                if newStack is not None:
-                    print(f'Handle match on old {strs(self.stack)}')
-                    print(f'                 => {strs(newStack)}')
-                    returnState = newStack[-2]
-                    if handle.lhs is None:
-                        result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
-                        continue
-                    assert handle.lhs in returnState.byNonterminal, f'Missing {handle.lhs} in {returnState.label} after {strs(newStack)}'
-                    newStack.append(returnState.byNonterminal[handle.lhs])
-                    result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
-                else:
-                    print(f'Handle failed on {strs(self.stack)}')
-            if len(result)>0:
-                break
-        # Must dedup as state can contain a reducing configuration that is covered by another because of repetition
-        # in modifiers, i.e. x+ and xx*, or x and x*.
-        return list(set(result))
 
     def dotLabel(self, input, redundant):
         remaining = input[self.position:]
@@ -599,15 +583,16 @@ class SymbolTable:
         self.classes = [SymbolTable.SpecialEQ("glue"), SymbolTable.SpecialEQ("remover")]
         self.lookup  = { ('glue',):0, ('remover',):1 }
 
-    def makeConfig(self, clause):
-        if isinstance(clause, Clause):
-            self.get(('nt', clause.lhs), lambda: SymbolTable.NonterminalEQ(clause.lhs))
-            rhs = clause.rhs
-        elif isinstance(clause, list):
-            rhs = clause
+    def makeConfig(self, clause, position=0):
+        assert isinstance(clause, Clause)
+        if clause.lhs is None:
+            newLhs = None
         else:
-            assert False, clause
-        normalized = []
+            newLhs = self.get(('nt', clause.lhs), lambda: SymbolTable.NonterminalEQ(clause.lhs))
+        return Automaton.Configuration(newLhs, self.canonSentence(clause.rhs, clause=clause), position=position)
+
+    def canonSentence(self, rhs, clause=None):
+        result = []
         for i,s in enumerate(rhs):
             if isinstance(s,Grammar.Glue):
                 key = ('glue',)
@@ -623,8 +608,8 @@ class SymbolTable:
                 key = ('nt', s.name)
                 cons = lambda: SymbolTable.NonterminalEQ(s.name)
             sClass = self.get(key,cons)
-            normalized.append(Symbol(sClass, s.modifier, s.strength))
-        return normalized
+            result.append(Symbol(sClass, s.modifier, s.strength))
+        return result
 
     class TermSetEQ:
         def __init__(self, chars):
@@ -637,8 +622,10 @@ class SymbolTable:
             return True
         def isNonterminal(self):
             return False
-        #def matchInput(self, input):
-        #    ...
+        def matchInput(self, input):
+            if input[0] in self.chars:
+                return input[:1]
+            return None
         #def createInstance(self):
         #    return Symbol(
         #    ...
@@ -652,8 +639,10 @@ class SymbolTable:
             return self.literal
         def html(self, modifier=''):
             return f'<FONT face="monospace" color="grey">{html.escape(self.literal)} </FONT>{modifier}'
-        #def matchInput(self, input):
-        #    ...
+        def matchInput(self, input):
+            if input[:len(self.literal)]==self.literal:
+                return self.literal
+            return None
         #def createInstance(self):
             ...
 
@@ -666,8 +655,8 @@ class SymbolTable:
             return f'N({self.name})'
         def html(self, modifier=''):
             return self.name + modifier
-        #def matchInput(self, input):
-        #    return None
+        def matchInput(self, input):
+            return None
         #def createInstance(self):
 
     class SpecialEQ:
@@ -722,30 +711,6 @@ class Automaton:
     # AState edges: classes
     # DFA edges: classes
     # Stack entries: instances
-#    class Configuration:
-#        def __init__(self, clause, position):
-#            self.clause = clause
-#            assert -1 <= position and position <= len(self.clause.rhs)
-#            self.position = position
-#            self.terminating = clause.terminating and self.isReducing()
-#
-#
-#
-#        def __eq__(self, other):
-#            if not isinstance(other,Configuration):
-#                return False
-#            return self.clause.lhs==other.clause.lhs and self.position==other.position and\
-#                   self.clause.rhs==other.clause.rhs
-#
-#        def __hash__(self):
-#            return hash((self.clause.lhs, str(self.clause.rhs), self.position))
-#
-#        def next(self):
-#            if self.position==len(self.clause.rhs):
-#                return None
-#            return self.clause.rhs[self.position]
-
-
     class Configuration:
         def __init__(self, lhs, rhs, position=0):
             self.lhs      = lhs
@@ -802,7 +767,7 @@ class Automaton:
         for rule in grammar.rules.values():
             s = set()
             for clause in rule.clauses:
-                s.add(Automaton.Configuration(clause.lhs, self.symbolTable.makeConfig(clause)))
+                s.add(self.symbolTable.makeConfig(clause))
             self.canonGrammar[rule.name] = s
             for c in s:
                 print(c)
@@ -814,7 +779,7 @@ class Automaton:
         #self.grammar       = grammar
         self.discard       = grammar.discard
 
-        entry = Automaton.Configuration(None, self.symbolTable.makeConfig([Grammar.Nonterminal(grammar.start)])) # terminating?
+        entry = Automaton.Configuration(None, self.symbolTable.canonSentence([Grammar.Nonterminal(grammar.start)])) # terminating?
         initial = AState(self.canonGrammar, [entry], label='s0')
         self.start = initial
         worklist = OrdSet([initial])
@@ -920,15 +885,16 @@ class Automaton:
                         self.trace.blocks(p)
                 else:
                     try:
-                        shifts = p.shifts(input)
-                        reduces = p.reductions()
-                        if len(shifts)+len(reduces)==0:
+                        succ = p.successors(input)
+                        if len(succ)==0:
                             self.trace.blocks(p)
                         else:
-                            next.extend(shifts)
-                            self.trace.shifts(p, shifts)
-                            next.extend(reduces)
-                            self.trace.reduces(p, reduces)
+                            for label,state in succ:
+                                if label=="shift":
+                                    self.trace.shift(p,state)
+                                else:
+                                    self.trace.reduce(p,state)
+                                next.append(state)
                     except AssertionError as e:
                         self.trace.blocks(p)
                         print(f'ERROR {e}')
@@ -943,17 +909,15 @@ class Automaton:
             self.backwards = MultiDict()
             self.redundant = None
 
-        def shifts(self, source, destinations):
+        def shift(self, source, destination):
             if not self.recording: return
-            for d in destinations:
-                self.forwards.store(source, (d, 'shift'))
-                self.backwards.store(d,     (source, 'shift'))
+            self.forwards.store(source,  (destination, 'shift'))
+            self.backwards.store(destination, (source, 'shift'))
 
-        def reduces(self, source, destinations):
+        def reduce(self, source, destination):
             if not self.recording: return
-            for d in destinations:
-                self.forwards.store(source, (d, 'reduce'))
-                self.backwards.store(d,     (source, 'reduce'))
+            self.forwards.store(source,  (destination, 'reduce'))
+            self.backwards.store(destination, (source, 'reduce'))
 
         def result(self, state):
             if not self.recording: return
