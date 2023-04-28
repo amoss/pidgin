@@ -77,33 +77,6 @@ class Clause:
     def __lt__(self, other):
         return self.rhs[0].order() < other.rhs[0].order()
 
-    def html(self):
-        result = ""
-        for s in self.rhs:
-            modChars = { 'just':'', 'any':'*', 'some':'+', 'optional':'?' }
-            modifier = modChars[s.modifier]
-            if isinstance(s,Grammar.Nonterminal):
-                result += s.name + f"{modifier} "
-            elif isinstance(s,Grammar.TermString):
-                result += f'<FONT face="monospace" color="grey">{html.escape(s.string)} </FONT>{modifier}'
-            elif isinstance(s,Grammar.TermSet):
-                result += f'<FONT face="monospace">[]</FONT>{modifier}'
-            elif isinstance(s,Grammar.Glue):
-                result += '<FONT color="grey"><B>G</B></FONT>'
-            elif isinstance(s,Grammar.Remover):
-                result += '<FONT color="grey"><B>R</B></FONT>'
-            else:
-                result += type(s).__name__ + modifier
-        return result
-
-    def isTerminal(self):
-        return False
-
-    #def get(self, position):
-    #    if self.configs[position] is None:
-    #        self.configs[position] = Configuration(self, position)
-    #    return self.configs[position]
-
 
 class Grammar:
     def __init__(self, start):
@@ -144,44 +117,6 @@ class Grammar:
             tag = f",{self.tag}" if self.tag!="" else ""
             return f"T({repr(self.string)},{self.modifier}{tag})"
 
-        def html(self):
-            return html.escape(self.string)
-
-        def sig(self):
-            return (self.string, self.tag, self.modifier)
-
-        def __eq__(self,other):
-            return isinstance(other,Grammar.TermString) and self.sig()==other.sig()
-
-        def eqOne(self,other):
-            '''Ignoring the modifier, would a single instance of this terminal match?'''
-            return isinstance(other,Grammar.TermString) and self.string==other.string
-
-        def __hash__(self):
-            return hash(self.sig())
-
-        def isTerminal(self):
-            return True
-
-        def match(self, input):
-            limit = len(input) if self.modifier in ("any","some") else 1
-            i = 0
-            n = len(self.string)
-            original = input[:]
-            #print(f"Matching {i} {n} {self.string} {input}")
-            while i<limit and input[:n]==self.string:
-                i += 1
-                input = input[n:]
-                #print(f"Matching {i} {n} {self.string} {input}")
-            if i>0:
-                return original[:i*n]
-
-        def exactlyOne(self):
-            return Grammar.TermString(self.string, modifier="just", tag=self.tag, original=self.original)
-
-        # Does this still get used or is it dead?
-        #def order(self):
-        #    return (0, 1, self.string)
 
     class TermSet:
         def __init__(self, charset, modifier="just", inverse=False, tag='', original=None):
@@ -205,40 +140,6 @@ class Grammar:
             tag = f",{self.tag}" if self.tag!="" else ""
             return f'{result},{self.modifier}{tag})'
 
-        def html(self):
-            return '[]'
-
-        def sig(self):
-            return (self.chars, self.modifier, self.inverse, self.tag, id(self.original))
-
-        def __eq__(self,other):
-            return isinstance(other,Grammar.TermSet) and self.sig()==other.sig()
-
-        def eqOne(self,other):
-            '''Ignoring the modifier, would a single instance of this terminal match?'''
-            return isinstance(other,Grammar.TermSet) and self.chars==other.chars and self.inverse==other.inverse
-
-        def __hash__(self):
-            return hash(self.sig())
-
-        def isTerminal(self):
-            return True
-
-        def exactlyOne(self):
-            return Grammar.TermSet(self.chars, modifier="just", inverse=self.inverse, tag=self.tag, original=self.original)
-
-        # Does this still get used or is it dead?
-        #def order(self):
-        #    return (0,0,self.chars)
-
-        def match(self, input):
-            limit = len(input) if self.modifier in ("any","some") else 1
-            i = 0
-            while i<limit and i<len(input) and ((input[i] not in self.chars) == self.inverse):
-                i += 1
-            if i>0:
-                return input[:i]
-
 
     class Nonterminal:
         def __init__(self, name, strength="greedy", modifier="just"):
@@ -251,28 +152,6 @@ class Grammar:
         def __str__(self):
             return f"N({self.strength},{self.modifier},{self.name})"
 
-        # Does this still get used or is it dead?
-        #def order(self):
-        #    return (1, 0, self.name)
-
-        def sig(self):
-            return (self.name, self.modifier)
-
-        def __eq__(self, other):
-            return isinstance(other,Grammar.Nonterminal) and self.sig()==other.sig()
-
-        def __hash__(self):
-            return hash(self.sig())
-
-        def eqOne(self, other):
-            return isinstance(other,Grammar.Nonterminal) and self.name==other.name
-
-        def isTerminal(self):
-            return False
-
-        def exactlyOne(self):
-            return Grammar.Nonterminal(self.name, strength=self.strength, modifier="just")
-
     class Glue:
         def __init__(self):
             self.within = None
@@ -283,15 +162,6 @@ class Grammar:
         def __str__(self):
             return "Glue"
 
-        def __eq__(self, other):
-            return isinstance(other,Grammar.Glue) and self.within==other.within and self.position==other.position
-
-        def __hash__(self):
-            return hash((1,self.within,self.position))
-
-        def isTerminal(self):
-            return False
-
     class Remover:
         def __init__(self):
             self.within = None
@@ -301,15 +171,6 @@ class Grammar:
 
         def __str__(self):
             return "Remover"
-
-        def __eq__(self, other):
-            return isinstance(other,Grammar.Remover) and self.within==other.within and self.position==other.position
-
-        def __hash__(self):
-            return hash((2,self.within,self.position))
-
-        def isTerminal(self):
-            return False
 
 
 def barrierSources(trace, terminal):
@@ -499,11 +360,11 @@ class PState:
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position, keep=False, discard=None):
+    def __init__(self, stack, position, processDiscard, keep=False):
         self.stack = stack
         self.position = position
         self.id = PState.counter
-        self.discard = discard
+        self.processDiscard = processDiscard
         self.keep = keep
         PState.counter += 1
 
@@ -517,10 +378,8 @@ class PState:
         result = []
         astate = self.stack[-1]
         remaining = self.position
-        if not self.keep and self.discard is not None:
-            drop = self.discard.match(input[remaining:])
-            if drop is not None and len(drop)>0:
-                remaining += len(drop)
+        if not self.keep:
+            remaining += self.processDiscard(input[remaining:])
         #print(f'execute: {strs(self.stack)}')
         for priLevel in astate.edges:
             for edgeLabel,target in priLevel.items():
@@ -532,27 +391,26 @@ class PState:
                         #print(f'Handle match on old {strs(self.stack)}')
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
-                            result.append(("reduce",PState(newStack, self.position, discard=self.discard, keep=self.keep)))
+                            result.append(("reduce",PState(newStack, self.position, self.processDiscard, keep=self.keep)))
                             continue
                         returnState = newStack[-2]
                         assert target.lhs in returnState.edges[0], \
                                f'Missing {target.lhs} in {returnState.label} after {strs(newStack)}'
                         newStack.append(returnState.edges[0][edgeLabel.lhs])
-                        result.append( ("reduce",PState(newStack, self.position, discard=self.discard, keep=self.keep)))
+                        result.append( ("reduce",PState(newStack, self.position, self.processDiscard, keep=self.keep)))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
-                    result.append( ("shift",PState(self.stack[:-1] + [target], self.position, discard=self.discard, keep=True)))
+                    result.append( ("shift",PState(self.stack[:-1] + [target], self.position, self.processDiscard, keep=True)))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="remover":
-                    result.append( ("shift",PState(self.stack[:-1] + [target], remaining, discard=self.discard, keep=False)))
+                    result.append( ("shift",PState(self.stack[:-1] + [target], remaining, self.processDiscard, keep=False)))
                 else:
                     assert type(edgeLabel) in (SymbolTable.TermSetEQ,
                                                SymbolTable.TermStringEQ,
                                                SymbolTable.NonterminalEQ), type(edgeLabel)
-                    if len(input)>remaining:
-                        matched = edgeLabel.matchInput(input[remaining:])
-                        if matched is not None:
-                            result.append( ("shift",PState(self.stack + [Token(edgeLabel,matched),target],
-                                                           remaining+len(matched),
-                                                           discard=self.discard, keep=self.keep)))
+                    matched = edgeLabel.matchInput(input[remaining:])
+                    if matched is not None:
+                        result.append( ("shift",PState(self.stack + [Token(edgeLabel,matched),target],
+                                                       remaining+len(matched),
+                                                       self.processDiscard, keep=self.keep)))
             if len(result)>0:
                 break
         return result
@@ -625,12 +483,9 @@ class SymbolTable:
         def isNonterminal(self):
             return False
         def matchInput(self, input):
-            if (input[0] not in self.chars) == self.inverse:
-                return input[:1]
+            if len(input)==0:                                   return None
+            if (input[0] not in self.chars) == self.inverse:    return input[:1]
             return None
-        #def createInstance(self):
-        #    return Symbol(
-        #    ...
 
     class TermStringEQ:
         def __init__(self, literal):
@@ -642,11 +497,9 @@ class SymbolTable:
         def html(self, modifier=''):
             return f'<FONT face="monospace" color="grey">{html.escape(self.literal)} </FONT>{modifier}'
         def matchInput(self, input):
-            if input[:len(self.literal)]==self.literal:
-                return self.literal
+            if len(input)==0:                                   return None
+            if input[:len(self.literal)]==self.literal:         return self.literal
             return None
-        #def createInstance(self):
-            ...
 
     class NonterminalEQ:
         def __init__(self, name):
@@ -659,7 +512,6 @@ class SymbolTable:
             return self.name + modifier
         def matchInput(self, input):
             return None
-        #def createInstance(self):
 
     class SpecialEQ:
         def __init__(self, name):
@@ -718,59 +570,6 @@ class Token:
 
 
 class Automaton:
-
-    # Are these classes or instances???
-    # AState edges: classes
-    # DFA edges: classes
-    # Stack entries: instances
-    class Configuration:
-        def __init__(self, lhs, rhs, position=0):
-            self.lhs      = lhs
-            self.rhs      = tuple(rhs)
-            self.position = position
-
-        def __str__(self):
-            return f'{self.lhs} <- ' + " ".join(['^'+str(s) if self.position==i else str(s)
-                                                            for i,s in enumerate(self.rhs)])
-        def html(self):
-            result = f"{self.lhs} &larr; "
-            for i,s in enumerate(self.rhs):
-                if i==self.position:
-                    result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
-                modChars = { 'just':'', 'any':'*', 'some':'+', 'optional':'?' }
-                result += s.eqClass.html(modifier=modChars[s.modifier])
-            if self.position==len(self.rhs):
-                result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
-            return result
-
-        def sig(self):
-            return (self.lhs, self.rhs, self.position)
-
-        def __eq__(self, other):
-            return isinstance(other, Automaton.Configuration) and self.sig()==other.sig()
-
-        def __hash__(self):
-            return hash(self.sig())
-
-        def next(self):
-            if self.position==len(self.rhs):  return None
-            return self.rhs[self.position]
-
-        def succ(self):
-            assert self.position < len(self.rhs)
-            return Automaton.Configuration(self.lhs, self.rhs, position=self.position+1)
-
-        def isReducing(self):
-            return self.position == len(self.rhs)
-
-        def hasReduceBarrier(self):
-            return self.floor()!=self
-
-        def floor(self):
-            isBarrier = lambda s: s.isNonterminal() and s.modifier in ('any','some') and s.strength!='all'
-            return Automaton.Configuration(self.lhs, [symbol for symbol in self.rhs if not isBarrier(symbol)],
-                                           position=self.position)
-
     def canonicalizeGrammar(self, grammar):
         '''Rebuild grammar with initial configurations replacing each clause, where the configurations contain
            Symbols linked to canonical equivalence classes.'''
@@ -784,10 +583,17 @@ class Automaton:
 
 
     def __init__(self, grammar):
-
         self.canonicalizeGrammar(grammar)
-        #self.grammar       = grammar
-        self.discard       = grammar.discard
+        if grammar.discard is None:
+            self.processDiscard = lambda input: 0
+        else:
+            discardSymbol = self.symbolTable.canonSentence([grammar.discard])[0].eqClass
+            def pDiscard(input):
+                m = 0
+                while discardSymbol.matchInput(input[m:]) is not None:
+                    m += 1
+                return m
+            self.processDiscard = lambda input: pDiscard(input)
 
         entry = Automaton.Configuration(None, self.symbolTable.canonSentence([Grammar.Nonterminal(grammar.start)])) # terminating?
         initial = AState(self.canonGrammar, [entry], label='s0')
@@ -870,16 +676,12 @@ class Automaton:
 
     def execute(self, input, tracing=False):
         self.trace = Automaton.Trace(input, tracing)
-        pstates = [PState([self.start], 0, discard=self.discard)]
+        pstates = [PState([self.start], 0, self.processDiscard)]
         while len(pstates)>0:
             next = []
             for p in pstates:
                 if not isinstance(p.stack[-1],AState):
-                    remaining = p.position
-                    if not p.keep and self.discard is not None:
-                        drop = self.discard.match(input[remaining:])
-                        if drop is not None and len(drop)>0:
-                            remaining += len(drop)
+                    remaining = p.position + self.processDiscard(input[p.position:])
                     if remaining==len(input) and len(p.stack)==2:
                         yield p.stack[1]
                         self.trace.result(p)
@@ -902,6 +704,54 @@ class Automaton:
                         print(f'ERROR {e}')
 
             pstates = next
+
+    class Configuration:
+        def __init__(self, lhs, rhs, position=0):
+            self.lhs      = lhs
+            self.rhs      = tuple(rhs)
+            self.position = position
+
+        def __str__(self):
+            return f'{self.lhs} <- ' + " ".join(['^'+str(s) if self.position==i else str(s)
+                                                            for i,s in enumerate(self.rhs)])
+        def html(self):
+            result = f"{self.lhs} &larr; "
+            for i,s in enumerate(self.rhs):
+                if i==self.position:
+                    result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
+                modChars = { 'just':'', 'any':'*', 'some':'+', 'optional':'?' }
+                result += s.eqClass.html(modifier=modChars[s.modifier])
+            if self.position==len(self.rhs):
+                result += '<SUB><FONT color="blue">&uarr;</FONT></SUB>'
+            return result
+
+        def sig(self):
+            return (self.lhs, self.rhs, self.position)
+
+        def __eq__(self, other):
+            return isinstance(other, Automaton.Configuration) and self.sig()==other.sig()
+
+        def __hash__(self):
+            return hash(self.sig())
+
+        def next(self):
+            if self.position==len(self.rhs):  return None
+            return self.rhs[self.position]
+
+        def succ(self):
+            assert self.position < len(self.rhs)
+            return Automaton.Configuration(self.lhs, self.rhs, position=self.position+1)
+
+        def isReducing(self):
+            return self.position == len(self.rhs)
+
+        def hasReduceBarrier(self):
+            return self.floor()!=self
+
+        def floor(self):
+            isBarrier = lambda s: s.isNonterminal() and s.modifier in ('any','some') and s.strength!='all'
+            return Automaton.Configuration(self.lhs, [symbol for symbol in self.rhs if not isBarrier(symbol)],
+                                           position=self.position)
 
     class Trace:
         def __init__(self, input, recording):
