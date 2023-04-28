@@ -385,11 +385,11 @@ class Handle:
     def check(self, stack):
         '''Check the stack against the DFA. If we find a match then return the remaining stack after the
            handle has been removed.'''
-        assert isinstance(stack[-1], AState), stack[-1]
-        assert (len(stack)%2) == 1
+        assert isinstance(stack[-1], AState), f'Not an AState on top {stack[-1]}'
+        assert (len(stack)%2) == 1, f'Even length stack {strs(stack)}'
         pos = len(stack)-2
         dfaState = self.initial
-        print(f'check: {self.dfa.map}')
+        #print(f'check: {self.dfa.map}')
         while pos>0:
             next = None
             if dfaState in self.dfa.map:   # If dfaState = { nfaExit } then it won't be in the edge map
@@ -401,12 +401,12 @@ class Handle:
             if next is None:
                 if self.exit in dfaState:
                     onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
-                    return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+                    return stack[:pos+2] + [Token(self.lhs,onlySymbols)]
                 return None
             dfaState = next
         if self.exit in dfaState:
             onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
-            return stack[:pos+2] + [Automaton.Nonterminal(self.lhs,onlySymbols)]
+            return stack[:pos+2] + [Token(self.lhs,onlySymbols)]
         return None
 
     def __str__(self):
@@ -444,7 +444,7 @@ class AState:
 
         priority = 0
         for k,v in derived.items():
-            print(f'construct {self.label} entry {k} {type(k)} : {v}')
+            #print(f'construct {self.label} entry {k} {type(k)} : {v}')
             if isinstance(k, SymbolTable.TermSetEQ) or isinstance(k, SymbolTable.TermStringEQ):
                 barrierSrcs = barrierSources(derived,k)
                 self.addEdge(priority, k, None)
@@ -524,16 +524,18 @@ class PState:
             drop = self.discard.match(input[remaining:])
             if drop is not None and len(drop)>0:
                 remaining += len(drop)
-        print(f'execute: {strs(self.stack)}')
+        #print(f'execute: {strs(self.stack)}')
         for priLevel in astate.edges:
             for edgeLabel,target in priLevel.items():
+                #print(f'edge: {edgeLabel} target: {target}')
                 if isinstance(edgeLabel, Automaton.Configuration) and isinstance(target,Handle):
                     newStack = target.check(self.stack)
+                    #print(f'newStack={newStack}')
                     if newStack is not None:
-                        print(f'Handle match on old {strs(self.stack)}')
-                        print(f'                 => {strs(newStack)}')
-                        if handle.lhs is None:
-                            result.append(PState(newStack, self.position, discard=self.discard, keep=self.keep))
+                        #print(f'Handle match on old {strs(self.stack)}')
+                        #print(f'                 => {strs(newStack)}')
+                        if target.lhs is None:
+                            result.append(("reduce",PState(newStack, self.position, discard=self.discard, keep=self.keep)))
                             continue
                         returnState = newStack[-2]
                         assert target.lhs in returnState.edges[0], \
@@ -548,10 +550,12 @@ class PState:
                     assert type(edgeLabel) in (SymbolTable.TermSetEQ,
                                                SymbolTable.TermStringEQ,
                                                SymbolTable.NonterminalEQ), type(edgeLabel)
-                    matched = edgeLabel.matchInput(input[remaining:])
-                    if matched is not None:
-                        result.append( ("shift",PState(self.stack + [Token(edgeLabel,matched),target], remaining+len(matched),
-                                                discard=self.discard, keep=self.keep)))
+                    if len(input)>remaining:
+                        matched = edgeLabel.matchInput(input[remaining:])
+                        if matched is not None:
+                            result.append( ("shift",PState(self.stack + [Token(edgeLabel,matched),target],
+                                                           remaining+len(matched),
+                                                           discard=self.discard, keep=self.keep)))
             if len(result)>0:
                 break
         return result
@@ -703,6 +707,11 @@ class Token:
         self.symbol   = symbol
         self.contents = content
 
+    def dump(self, depth=0):
+        print(f"{'  '*depth}{self.tag}")
+        for c in self.children:
+            c.dump(depth+1)
+
 
 
 class Automaton:
@@ -799,21 +808,14 @@ class Automaton:
                         next = worklist.add(next)
                         priLevel[eqClass] = next
 
-            withGlue = [ c.succ() for c in state.configurations if isinstance(c.next(),Grammar.Glue) ]
-            if len(withGlue)>0:
-                next = AState(grammar, withGlue, label=f's{counter}')
-                counter += 1
-                next = worklist.add(next)
-                state.byShift[0]["glue"] = next                     # Todo: what is the correct priority here??
-
-            withRemover = [ c.succ() for c in state.configurations if isinstance(c.next(),Grammar.Remover) ]
-            if len(withRemover)>0:
-                next = AState(grammar, withRemover, label=f's{counter}')
-                counter += 1
-                next = worklist.add(next)
-                if len(state.byShift)<2:
-                    state.byShift = state.byShift + [{}]
-                state.byShift[1]["remove"] = next                  # Todo: what is the correct priority here??
+            for special in ("glue","remover"):
+                withSpecial = [ c for c in active
+                                  if isinstance(c.next().eqClass, SymbolTable.SpecialEQ) and c.next().eqClass.name==special ]
+                if len(withSpecial)>0:
+                    next = AState(grammar, [c.succ() for c in withSpecial], label=f's{counter}')
+                    counter += 1
+                    next = worklist.add(next)
+                    state.addEdge(0, withSpecial[0].next().eqClass, next)
 
             for c in state.configurations:
                 if c.isReducing():
@@ -871,7 +873,6 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(f'Execute {strs(p.stack)} at {p.position}')
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position
                     if not p.keep and self.discard is not None:
@@ -973,51 +974,6 @@ class Automaton:
                 for s,_ in self.backwards.map[True]:
                     yield s
 
-
-    class Terminal:
-        def __init__(self, chars, original):
-            self.chars    = chars
-            self.original = original
-            self.tag = original.tag
-
-        def __str__(self):
-            if isinstance(self.original,Grammar.TermSet):
-                return f'[{self.chars}]'
-            return self.chars
-
-        def matches(self, other):
-            if isinstance(other, Grammar.TermString):
-                return other.match(self.chars)
-            if isinstance(other, Grammar.TermSet):
-                return other.original == self.original
-            return False
-
-        def dump(self, depth=0):
-            print(f"{'  '*depth}{self.chars}")
-
-    class Nonterminal:
-        def __init__(self, tag, children ):
-            self.tag      = tag
-            self.children = tuple(children)
-            for c in self.children:
-                assert isinstance(c,Automaton.Terminal) or isinstance(c,Automaton.Nonterminal), repr(c)
-
-        def __str__(self):
-            return str(self.tag)
-
-        def __eq__(self, other):
-            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag and self.children==other.children
-
-        def __hash__(self):
-            return hash((self.tag,self.children))
-
-        def matches(self, other):
-            return isinstance(other,Grammar.Nonterminal) and self.tag == other.name
-
-        def dump(self, depth=0):
-            print(f"{'  '*depth}{self.tag}")
-            for c in self.children:
-                c.dump(depth+1)
 
 if __name__ == '__main__':
     def T(val, m=None, s=None):
