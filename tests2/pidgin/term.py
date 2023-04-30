@@ -23,19 +23,20 @@ def pidgin_term():
     g.addRule('kv_pair',  [N('expr'), T(':'), N('expr')])
     g.addRule('kv_comma', [N('expr'), T(':'), N('expr'), T(',')])
     g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
-                         [T('<<'), Glue(), S([')'],True,m='any'), T(')'), Remove()])
+                         [T('<<'), Glue(), N('str_lit2',m='any'), T('>>'), Remove()])
+    g.addRule('str_lit2', [S([">"],True)], [T('>'), S([">"],True)])
     g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
 
     return g, \
 '''[]
-{'str_lit": { [T!<<'>>, G!'", TAN!{<<">>}, T!<<">>] [T!'u(", G!'", TAN!{')"},  T!')"] }}
-{'str_lit": { [T!u('), G!'", TAN!{u(")}, T!u(")] [T!'u(", G!'", TAN!{')"},  T!')"] }}
 {}
 {:}
 'hello"
+<<hello>>
 X!Y
 X!'world"
-['a" 'b" 'c"]
+X!<<world>>
+['a" 'b" <<c>>]
 ['a"  'b"'c"]
 [x y12  z14 w]
 [x, y12,z14,  w]
@@ -44,7 +45,7 @@ X!'world"
 {'a" 'b"  'c"}
 {'a", 'b",  'c"}
 {'a", 'b",  'c",}
-{'a":'"'b":'"'c":'"}
+{'a":'"'b":'"'c":<<>>}
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
 {'a":[X!'a"], 'b":[X!'b"], 'c":[]}
 {'name":{[N!'a"][T!'b"]}}

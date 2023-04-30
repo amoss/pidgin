@@ -44,7 +44,8 @@ def pidgin_expr():
     g.addRule('kv_pair',  [N('binop1'), T(':'), N('binop1')])
     g.addRule('kv_comma', [N('binop1'), T(':'), N('binop1'), T(',')])
     g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
-                         [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
+                         [T('<<'), Glue(), N('str_lit2',m='any'), T('>>'), Remove()])
+    g.addRule('str_lit2', [S([">"],True)], [T('>'), S([">"],True)])
     g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
 
     return g, \
@@ -62,20 +63,20 @@ X!'world"
 {'name":{[N!'a"][T!'b"]}}
 {'name":{[N!'a"][T!'a",T!'b",T!'c"]}}
 {'expr":{[N!'atom"][N!'binop1"]}}
-u(abc)
+<<abc>>
 'abc"
 23
-u()
+<<>>
 '"
-u(öäå123)
+<<öäå123>>
 'öäå123"
-u(😀)
+<<😀>>
 '😀"
-u(<>[]{}😍😍😝)
+<<<>[]{}😍😍😝>>
 '<>[]{}😍😍😝"
-u(🤪⇒℞⟪⟫)
+<<🤪⇒℞⟪⟫>>
 '🤪⇒℞⟪⟫"
-u( 	)
+<< 	>>
 [1 23 4 567]
 [3,33]
 {2 3 4}
@@ -83,10 +84,10 @@ u( 	)
 [ {} {1} {2} ]
 [{},{1},{2}]
 {3:2}
-{u(hello):'world", u(who):333}
+{<<hello>>:'world", <<who>>:333}
 {{}:{}[2]:7}
-u(true)+true
-u(,,,)
+<<true>>+true
+<<,,,>>
 foo+blah
 22+43/66.+[]
 x+y@[2,2]+z@pos'''.split('\n'), []
