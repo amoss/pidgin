@@ -23,11 +23,12 @@ def pidgin_term():
     g.addRule('kv_pair',  [N('expr'), T(':'), N('expr')])
     g.addRule('kv_comma', [N('expr'), T(':'), N('expr'), T(',')])
     g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
-                         [T('u('), Glue(), S([')'],True,m='any'), T(')'), Remove()])
+                         [T('<<'), Glue(), S([')'],True,m='any'), T(')'), Remove()])
     g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
 
     return g, \
 '''[]
+{'str_lit": { [T!<<'>>, G!'", TAN!{<<">>}, T!<<">>] [T!'u(", G!'", TAN!{')"},  T!')"] }}
 {'str_lit": { [T!u('), G!'", TAN!{u(")}, T!u(")] [T!'u(", G!'", TAN!{')"},  T!')"] }}
 {}
 {:}

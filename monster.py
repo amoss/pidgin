@@ -619,7 +619,7 @@ class Automaton:
                 withSpecial = [ c for c in active
                                   if isinstance(c.next().eqClass, SymbolTable.SpecialEQ) and c.next().eqClass.name==special ]
                 if len(withSpecial)>0:
-                    next = AState(grammar, [c.succ() for c in withSpecial], label=f's{counter}')
+                    next = AState(self.canonGrammar, [c.succ() for c in withSpecial], label=f's{counter}')
                     counter += 1
                     next = worklist.add(next)
                     state.addEdge(0, withSpecial[0].next().eqClass, next)
