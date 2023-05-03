@@ -266,7 +266,7 @@ def collapsePriority(traces):
     for trace in traces:
         pris    = [ marker for marker in trace if isinstance(marker, str) ]
         symbols = [ symbol for symbol in trace if isinstance(symbol, Symbol) ]
-        print(pris,strs(symbols))
+        #print(pris,strs(symbols))
 
         # Treat the path markers as fractional binary strings to project onto a set that preserves ordering.
         # This is correct as long as the mantissa in the sum does not overflow, which will occur if there is
@@ -284,8 +284,9 @@ def collapsePriority(traces):
         noncontiguous.append( (sum,symbols) )
 
     noncontiguous.sort(key=lambda pair:pair[0])    # TODO: uppy or downy??
-    print(noncontiguous)
+    #print(f'non={noncontiguous})')
     contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
+    #print(f'con={contiguous})')
     return contiguous
 
 
@@ -312,12 +313,12 @@ class AState:
         self.configurations = frozenset(accumulator)
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
 
-        print(f'{self.label}:')
+        #print(f'{self.label}:')
         priDerivations = collapsePriority(derivations)
 
         for pri,trace in priDerivations:
-            if trace[-1].isTerminal():
-                self.addEdge(pri, trace[-1].eqClass, None)
+            assert trace[-1].isTerminal() or isinstance(trace[-1].eqClass,SymbolTable.SpecialEQ), trace[-1]
+            self.addEdge(pri, trace[-1].eqClass, None)
 
         nonterminals = set()
         for pri,trace in priDerivations:
@@ -374,16 +375,15 @@ class AState:
             prefix=prefix+('hi',)               # TODO: something for "some"
         prefix += (symbol,)
 
-        if symbol.isTerminal():
-            traceAcc.add( prefix )
-            return configAcc, traceAcc
-
         if symbol.isNonterminal():
+            print(symbol,symbol.eqClass)
             name = symbol.eqClass.name
             for ntInitialConfig in self.grammar[name]:
                 configAcc, traceAcc = self.epsilonClosure(ntInitialConfig, prefix, configAcc, traceAcc)
             return configAcc, traceAcc
-        return configAcc, traceAcc              # Specials
+
+        traceAcc.add( prefix )      # Both terminals and specials
+        return configAcc, traceAcc
 
 
 class PState:
@@ -505,6 +505,8 @@ class SymbolTable:
         def __init__(self, chars, inverse=False):
             self.chars   = chars
             self.inverse = inverse
+            self.isTerminal    = True
+            self.isNonterminal = False
         def __str__(self):
             return f'[{self.index}]'
         def html(self, modifier=''):
@@ -636,7 +638,7 @@ class Automaton:
             active = [c for c in state.configurations if c.next() is not None ]
             for pri, priLevel in enumerate(state.edges):
                 for eqClass in priLevel.keys():
-                    if eqClass.isTerminal or eqClass.isNonterminal:
+                    #if eqClass.isTerminal or eqClass.isNonterminal:
                         matchingConfigs = [ c for c in active if c.next().eqClass==eqClass ]
                         possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
                                           [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
@@ -646,14 +648,14 @@ class Automaton:
                         next = worklist.add(next)
                         priLevel[eqClass] = next
 
-            for special in ("glue","remover"):
-                withSpecial = [ c for c in active
-                                  if isinstance(c.next().eqClass, SymbolTable.SpecialEQ) and c.next().eqClass.name==special ]
-                if len(withSpecial)>0:
-                    next = AState(self.canonGrammar, [c.succ() for c in withSpecial], label=f's{counter}')
-                    counter += 1
-                    next = worklist.add(next)
-                    state.addEdge(0, withSpecial[0].next().eqClass, next)
+#            for special in ("glue","remover"):
+#                withSpecial = [ c for c in active
+#                                  if isinstance(c.next().eqClass, SymbolTable.SpecialEQ) and c.next().eqClass.name==special ]
+#                if len(withSpecial)>0:
+#                    next = AState(self.canonGrammar, [c.succ() for c in withSpecial], label=f's{counter}')
+#                    counter += 1
+#                    next = worklist.add(next)
+#                    state.addEdge(0, withSpecial[0].next().eqClass, next)
 
             for c in state.configurations:
                 if c.isReducing():
