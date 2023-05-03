@@ -366,6 +366,7 @@ class AState:
         if configAcc is None:                           configAcc = set()
         if traceAcc is None:                            traceAcc  = set()
         if prefix is None:                              prefix = ()
+        if config in configAcc:                         return configAcc, traceAcc
         configAcc.add(config)
         symbol = config.next()
         if symbol is None:                              return configAcc, traceAcc
@@ -376,7 +377,6 @@ class AState:
         prefix += (symbol,)
 
         if symbol.isNonterminal():
-            print(symbol,symbol.eqClass)
             name = symbol.eqClass.name
             for ntInitialConfig in self.grammar[name]:
                 configAcc, traceAcc = self.epsilonClosure(ntInitialConfig, prefix, configAcc, traceAcc)

@@ -165,8 +165,6 @@ for (u,addToDoc) in units:
             else:
                 if args.verbose: print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
                 passed += 1
-            if redundant>0.5:
-                print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')
     except:
         print(f"{RED}Failed to build case {u.__qualname__}{GRAY}")
         traceback.print_exc()
