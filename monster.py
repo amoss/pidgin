@@ -173,23 +173,6 @@ class Grammar:
             return "Remover"
 
 
-def barrierSources(trace, terminal):
-    '''Each entry in the *trace* is a map from symbol to sources that it was derived from during epsilon-closure.
-       This representation is necessary as the relation may form a DAG instead of a tree. From the given *terminal*
-       walk back through the DAG and check for greedy repeating symbols.'''
-    result = set()
-    worklist = OrdSet()
-    for src in trace[terminal]:
-        worklist.add(src)
-    for item in worklist:
-        if isinstance(item,str) and item in trace:
-            for src in trace[item]:
-                worklist.add(src)
-        elif isinstance(item,Grammar.Nonterminal) and item.modifier in ('any','some') and item.strength in ('greedy','frugal'):
-            result.add(item)
-    return result
-
-
 class Handle:
     def __init__(self, config):
         '''Build a restricted NFA for recognising the configuration - no loops larger than self-loops, no choices.
@@ -278,6 +261,36 @@ class Handle:
             res += ']'
         return res
 
+def collapsePriority(traces):
+    noncontiguous = []
+    for trace in traces:
+        pris    = [ marker for marker in trace if isinstance(marker, str) ]
+        symbols = [ symbol for symbol in trace if isinstance(symbol, Symbol) ]
+        print(pris,strs(symbols))
+
+        # Treat the path markers as fractional binary strings to project onto a set that preserves ordering.
+        # This is correct as long as the mantissa in the sum does not overflow, which will occur if there is
+        # a chain of priority-relevant non-terminals longer than 53 in the epsilon closure. So... don't make
+        # grammars that do that :)
+        radix = 1.
+        if len(pris)==0:
+            sum = -1.
+        else:
+            sum = 0.
+            for p in pris:
+                if p=="hi":
+                    sum += radix
+                radix = radix / 2.0
+        noncontiguous.append( (sum,symbols) )
+
+    noncontiguous.sort(key=lambda pair:pair[0])    # TODO: uppy or downy??
+    print(noncontiguous)
+    contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
+    return contiguous
+
+
+
+
 
 class AState:
     counter = 1
@@ -293,26 +306,39 @@ class AState:
             self.label = label
 
         accumulator = None
-        derived = {}
+        derivations = None
         for c in configs:
-            accumulator, derived = self.epsilonClosure(c, accumulator=accumulator, trace=derived)
+            accumulator, derivations = self.epsilonClosure(c, configAcc=accumulator, traceAcc=derivations)
         self.configurations = frozenset(accumulator)
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
-        #print(f'eclose: {accumulator} {derived}')
 
-        priority = 0
-        for k,v in derived.items():
-            #print(f'construct {self.label} entry {k} {type(k)} : {v}')
-            if isinstance(k, SymbolTable.TermSetEQ) or isinstance(k, SymbolTable.TermStringEQ):
-                barrierSrcs = barrierSources(derived,k)
-                self.addEdge(priority, k, None)
-            # If epsilon closure expanded a nonterminal as the next symbol in a configuration then we recorded
-            # symbol.name -> clause.lhs for each clause in the nonterminal's rule.
-            if isinstance(k,str):
-                filtered = set([ entry.eqClass for entry in v if isinstance(entry,Symbol) and entry.isNonterminal() ])
-                assert len(filtered) in (0,1), filtered
-                if len(filtered)>0:
-                    self.addEdge(0, list(filtered)[0], None)
+        print(f'{self.label}:')
+        priDerivations = collapsePriority(derivations)
+
+        for pri,trace in priDerivations:
+            if trace[-1].isTerminal():
+                self.addEdge(pri, trace[-1].eqClass, None)
+
+        nonterminals = set()
+        for pri,trace in priDerivations:
+            for symbol in trace:
+                if symbol.isNonterminal():
+                    nonterminals.add(symbol)
+        for symbol in nonterminals:
+            self.addEdge(0, symbol.eqClass, None)           # TODO: Hmmm, so many questions????
+
+#        priority = 0
+#        for k,v in derived.items():
+#            #print(f'construct {self.label} entry {k} {type(k)} : {v}')
+#            if isinstance(k, SymbolTable.TermSetEQ) or isinstance(k, SymbolTable.TermStringEQ):
+#                self.addEdge(priority, k, None)
+#            # If epsilon closure expanded a nonterminal as the next symbol in a configuration then we recorded
+#            # symbol.name -> clause.lhs for each clause in the nonterminal's rule.
+#            if isinstance(k,str):
+#                filtered = set([ entry.eqClass for entry in v if isinstance(entry,Symbol) and entry.isNonterminal() ])
+#                assert len(filtered) in (0,1), filtered
+#                if len(filtered)>0:
+#                    self.addEdge(0, list(filtered)[0], None)
 
     def addEdge(self, priority, eqClass, target):
         while priority >= len(self.edges):
@@ -328,31 +354,36 @@ class AState:
     def __str__(self):
         return self.label
 
-    def epsilonClosure(self, config, accumulator=None, trace=None):
-        '''Process the single *config* to produce a set of derived configurations to add to the closure. Use an
-           *accumulator* for the set of configurations to terminate recursion. Record the derivations in the
-           *trace* so that we can infer barriers for the state.'''
-        #print(f"closure: {config} {accumulator} {trace}")
-        if accumulator is None:                         accumulator = set()
-        if trace is None:                               trace = {}
-        if config in accumulator:                       return accumulator, trace
-        accumulator.add(config)
+    def epsilonClosure(self, config, prefix=None, configAcc=None, traceAcc=None):
+        '''Process the single *config* to produce a set of derived configurations to add to the closure. Use
+           the next symbol in the *config* to decide on how to expand the closure, terminals are recorded in
+           the traces accumulated in traceAcc. Non-terminals are looked up in the grammar to add their
+           initial configurations to the accumulator *configAcc*. The accumulators are used to terminate on
+           the least fixed-point. Where looping modifiers cause a divergence in the chain of symbols insert
+           textual markers into the *prefix* trace to indicate the priority of each path. These will be
+           reconstructed into the edge-priority for the state.'''
+        if configAcc is None:                           configAcc = set()
+        if traceAcc is None:                            traceAcc  = set()
+        if prefix is None:                              prefix = ()
+        configAcc.add(config)
         symbol = config.next()
-        if symbol is None:                              return accumulator, trace
+        if symbol is None:                              return configAcc, traceAcc
+
         if symbol.modifier in ('any','optional'):
-            accumulator, trace = self.epsilonClosure(config.succ(), accumulator, trace)
+            configAcc, traceAcc = self.epsilonClosure(config.succ(), prefix+('lo',), configAcc, traceAcc)
+            prefix=prefix+('hi',)               # TODO: something for "some"
+        prefix += (symbol,)
+
         if symbol.isTerminal():
-            if symbol.eqClass not in trace:             trace[symbol.eqClass] = set()
-            trace[symbol.eqClass].add(config.lhs)
-            return accumulator, trace
-        if not symbol.eqClass.isNonterminal:            return accumulator, trace
-        name = symbol.eqClass.name
-        if name not in trace:                           trace[name] = set()
-        trace[name].add(config.lhs)
-        trace[name].add(symbol)
-        for ntInitialConfig in self.grammar[name]:
-            accumulator, trace = self.epsilonClosure(ntInitialConfig, accumulator, trace)
-        return accumulator, trace
+            traceAcc.add( prefix )
+            return configAcc, traceAcc
+
+        if symbol.isNonterminal():
+            name = symbol.eqClass.name
+            for ntInitialConfig in self.grammar[name]:
+                configAcc, traceAcc = self.epsilonClosure(ntInitialConfig, prefix, configAcc, traceAcc)
+            return configAcc, traceAcc
+        return configAcc, traceAcc              # Specials
 
 
 class PState:
