@@ -53,6 +53,7 @@ def Remove():
 argParser = argparse.ArgumentParser()
 argParser.add_argument("-v","--verbose", action="store_true")
 argParser.add_argument("-f","--filter")
+argParser.add_argument("-p","--positive", type=int, default=-1)
 args = argParser.parse_args()
 passed, failed = 0, 0
 sys.setrecursionlimit(5000)
@@ -121,6 +122,7 @@ for (u,addToDoc) in units:
         automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
 
         for i,p in enumerate(positive):
+            if args.positive!=-1 and i!=args.positive: continue
             if args.verbose: print(f'{GRAY}Executing p{i} on {name}: {p}{END}')
             results = [r for r in automaton.execute(p, True)]
             automaton.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
@@ -156,6 +158,7 @@ for (u,addToDoc) in units:
                     print(f'{YELLOW}Ambiguous solutions on {name} positive {case}{END}')
 
         for i,n in enumerate(negative):
+            if args.positive!=-1: continue
             if args.verbose: print(f'{GRAY}Executing n{i} on {name}: {n}')
             results = [r for r in automaton.execute(n, True)]
             automaton.trace.output( open(os.path.join(dir,f'n{i}.dot'),'wt') )

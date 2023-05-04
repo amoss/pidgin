@@ -261,9 +261,48 @@ class Handle:
             res += ']'
         return res
 
+def removeEmpties(traces):
+    result = set()
+    for t in traces:
+        if len([s for s in t if not isinstance(s,str)])>0:
+            result.add(t)
+    return result
+
+def partialProducts(traces):
+    '''In order to terminate the recursion at a fixed-point within the epsilon-closure we have
+       contructed path-fragments that cover the set of paths within the closure. In order to
+       use them to define the priority of edges originating at the state we need to perform a
+       step similar to the pumping lemma on the fragments to reconstruct a minimal set of
+       paths that we can measure the priorities on (by scanning the priority markers on the
+       reconstructed paths).'''
+    #print(f'pp={[strs(t) for t in traces]}')
+    partials = [ t for t in traces if isinstance(t[-1],Symbol) and t[-1].isNonterminal() ]
+    #print(f'partials={[strs(t) for t in partials]}')
+    terminated = traces - set(partials)
+    def firstEQ(trace):
+        return next(itertools.dropwhile(lambda s:isinstance(s,str),trace)).eqClass
+    products = set()
+    remaining = set()
+    while len(partials)>0:
+        #print('terminated:',[strs(t) for t in terminated])
+        initials = set([firstEQ(t) for t in terminated])
+        for p in partials:
+            joining = [ t for t in terminated if firstEQ(t)==p[-1].eqClass ]
+            if len(joining)>0:
+                newTs = [ p[:-1]+t for t in joining ]
+                #print(f'partials={[strs(t) for t in newTs]}')
+                terminated.update(newTs)
+            else:
+                remaining.add(p)
+        assert partials!=remaining, [strs(p) for p in partials]   # We did descend towards the kernel
+        partials = remaining
+    return terminated
+
+
 def collapsePriority(traces):
     noncontiguous = []
     for trace in traces:
+        #print(strs(trace))
         pris    = [ marker for marker in trace if isinstance(marker, str) ]
         symbols = [ symbol for symbol in trace if isinstance(symbol, Symbol) ]
         #print(pris,strs(symbols))
@@ -314,9 +353,11 @@ class AState:
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
 
         #print(f'{self.label}:')
-        priDerivations = collapsePriority(derivations)
+        #print(f'derivations={[strs(t) for t in derivations]}')
+        priDerivations = collapsePriority( partialProducts( removeEmpties(derivations)) )
 
         for pri,trace in priDerivations:
+            #print(pri,strs(trace))
             assert trace[-1].isTerminal() or isinstance(trace[-1].eqClass,SymbolTable.SpecialEQ), trace[-1]
             self.addEdge(pri, trace[-1].eqClass, None)
 
@@ -327,19 +368,6 @@ class AState:
                     nonterminals.add(symbol)
         for symbol in nonterminals:
             self.addEdge(0, symbol.eqClass, None)           # TODO: Hmmm, so many questions????
-
-#        priority = 0
-#        for k,v in derived.items():
-#            #print(f'construct {self.label} entry {k} {type(k)} : {v}')
-#            if isinstance(k, SymbolTable.TermSetEQ) or isinstance(k, SymbolTable.TermStringEQ):
-#                self.addEdge(priority, k, None)
-#            # If epsilon closure expanded a nonterminal as the next symbol in a configuration then we recorded
-#            # symbol.name -> clause.lhs for each clause in the nonterminal's rule.
-#            if isinstance(k,str):
-#                filtered = set([ entry.eqClass for entry in v if isinstance(entry,Symbol) and entry.isNonterminal() ])
-#                assert len(filtered) in (0,1), filtered
-#                if len(filtered)>0:
-#                    self.addEdge(0, list(filtered)[0], None)
 
     def addEdge(self, priority, eqClass, target):
         while priority >= len(self.edges):
@@ -366,7 +394,9 @@ class AState:
         if configAcc is None:                           configAcc = set()
         if traceAcc is None:                            traceAcc  = set()
         if prefix is None:                              prefix = ()
-        if config in configAcc:                         return configAcc, traceAcc
+        if config in configAcc:
+            traceAcc.add(prefix)
+            return configAcc, traceAcc
         configAcc.add(config)
         symbol = config.next()
         if symbol is None:                              return configAcc, traceAcc
