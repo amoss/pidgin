@@ -276,6 +276,7 @@ class EpsilonRecord:
         self.grammar  = grammar
         self.internal = {}
         self.exit     = {}
+        self.accept   = set()
         self.initial  = frozenset(initialConfigs)
         for c in initialConfigs:
             self.closure(c)
@@ -288,7 +289,7 @@ class EpsilonRecord:
         self.exit[config]     = set()
         symbol = config.next()
         if symbol is None:
-            self.exit[config].add( (None,config.lhs) )
+            self.exit[config].add( (None,config) )
         else:
             todo = []
             if symbol.modifier in ('any','optional'):
@@ -302,6 +303,7 @@ class EpsilonRecord:
                 for ntInitial in self.grammar[symbol.eqClass.name]:
                     self.internal[config].add( (pri,ntInitial) )
                     todo.append(ntInitial)
+                self.accept.add(symbol.eqClass)
             else:
                 self.exit[config].add( (pri,symbol.eqClass) )
 
@@ -372,6 +374,8 @@ class AState:
         print(f'{self.label}:')
         record = EpsilonRecord(grammar, configs)
         self.configurations = record.configs()
+        for c in self.configurations:
+            print(f'  {c}')
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
 
         noncontiguous = list(record.paths())
@@ -383,13 +387,11 @@ class AState:
             print(f'pri={pri}, symbol={symbol}')
             #assert trace[-1].isTerminal() or isinstance(trace[-1].eqClass,SymbolTable.SpecialEQ), trace[-1]
             # HANDLE NONE FOR THE FINAL REDUCTION HERE!!!!
-            if symbol is None:
+            if isinstance(symbol,Automaton.Configuration):
                 continue
             if symbol.isTerminal or isinstance(symbol,SymbolTable.SpecialEQ):
                 self.addEdge(pri, symbol, None)
-            if symbol.isNonterminal:
-                nonterminals.add(symbol)
-        for symbol in nonterminals:
+        for symbol in record.accept:
             self.addEdge(0, symbol, None)           # TODO: Hmmm, so many questions????
 
     def addEdge(self, priority, eqClass, target):
@@ -440,10 +442,10 @@ class PState:
         remaining = self.position
         if not self.keep:
             remaining += self.processDiscard(input[remaining:])
-        #print(f'execute: {strs(self.stack)}')
+        print(f'execute: {strs(self.stack)}')
         for priLevel in astate.edges:
             for edgeLabel,target in priLevel.items():
-                #print(f'edge: {edgeLabel} target: {target}')
+                print(f'edge: {edgeLabel} target: {target}')
                 if isinstance(edgeLabel, Automaton.Configuration) and isinstance(target,Handle):
                     newStack = target.check(self.stack)
                     #print(f'newStack={newStack}')
