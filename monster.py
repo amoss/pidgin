@@ -261,73 +261,97 @@ class Handle:
             res += ']'
         return res
 
-def removeEmpties(traces):
-    result = set()
-    for t in traces:
-        if len([s for s in t if not isinstance(s,str)])>0:
-            result.add(t)
-    return result
 
-def partialProducts(traces):
     '''In order to terminate the recursion at a fixed-point within the epsilon-closure we have
        contructed path-fragments that cover the set of paths within the closure. In order to
        use them to define the priority of edges originating at the state we need to perform a
        step similar to the pumping lemma on the fragments to reconstruct a minimal set of
        paths that we can measure the priorities on (by scanning the priority markers on the
        reconstructed paths).'''
-    #print(f'pp={[strs(t) for t in traces]}')
-    partials = [ t for t in traces if isinstance(t[-1],Symbol) and t[-1].isNonterminal() ]
-    #print(f'partials={[strs(t) for t in partials]}')
-    terminated = traces - set(partials)
-    def firstEQ(trace):
-        return next(itertools.dropwhile(lambda s:isinstance(s,str),trace)).eqClass
-    products = set()
-    remaining = set()
-    while len(partials)>0:
-        #print('terminated:',[strs(t) for t in terminated])
-        initials = set([firstEQ(t) for t in terminated])
-        for p in partials:
-            joining = [ t for t in terminated if firstEQ(t)==p[-1].eqClass ]
-            if len(joining)>0:
-                newTs = [ p[:-1]+t for t in joining ]
-                #print(f'partials={[strs(t) for t in newTs]}')
-                terminated.update(newTs)
-            else:
-                remaining.add(p)
-        assert partials!=remaining, [strs(p) for p in partials]   # We did descend towards the kernel
-        partials = remaining
-    return terminated
 
 
-def collapsePriority(traces):
-    noncontiguous = []
-    for trace in traces:
-        #print(strs(trace))
-        pris    = [ marker for marker in trace if isinstance(marker, str) ]
-        symbols = [ symbol for symbol in trace if isinstance(symbol, Symbol) ]
-        #print(pris,strs(symbols))
 
-        # Treat the path markers as fractional binary strings to project onto a set that preserves ordering.
-        # This is correct as long as the mantissa in the sum does not overflow, which will occur if there is
-        # a chain of priority-relevant non-terminals longer than 53 in the epsilon closure. So... don't make
-        # grammars that do that :)
-        radix = 1.
-        if len(pris)==0:
-            sum = -1.
+class EpsilonRecord:
+    def __init__(self, grammar, initialConfigs):
+        self.grammar  = grammar
+        self.internal = {}
+        self.exit     = {}
+        self.initial  = frozenset(initialConfigs)
+        for c in initialConfigs:
+            self.closure(c)
+
+
+    def closure(self, config):
+        if config in self.internal:
+            return
+        self.internal[config] = set()
+        self.exit[config]     = set()
+        symbol = config.next()
+        if symbol is None:
+            self.exit[config].add( (None,config.lhs) )
         else:
-            sum = 0.
-            for p in pris:
-                if p=="hi":
-                    sum += radix
-                radix = radix / 2.0
-        noncontiguous.append( (sum,symbols) )
+            todo = []
+            if symbol.modifier in ('any','optional'):
+                self.internal[config].add( ('lo',config.succ()) )
+                todo.append(config.succ())
+                pri = 'hi'
+            else:
+                pri = None
 
-    noncontiguous.sort(key=lambda pair:pair[0])    # TODO: uppy or downy??
-    #print(f'non={noncontiguous})')
-    contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
-    #print(f'con={contiguous})')
-    return contiguous
+            if symbol.isNonterminal():
+                for ntInitial in self.grammar[symbol.eqClass.name]:
+                    self.internal[config].add( (pri,ntInitial) )
+                    todo.append(ntInitial)
+            else:
+                self.exit[config].add( (pri,symbol.eqClass) )
 
+            for c in todo:
+                self.closure(c)
+
+
+    def configs(self):
+        return frozenset(self.internal.keys())
+
+
+    def paths(self):
+        def prepend(priority, seq):
+            if priority is not None:
+                return (priority,)+seq
+            return seq
+
+        def followPath(node, marked):
+            result = set()
+            marked = marked | set([node])
+            for (priority,symbol) in self.exit[node]:
+                result.add( prepend(priority, (symbol,)) )
+            for (priority,next) in self.internal[node]:
+                if next not in marked:
+                    for p in followPath(next, marked):
+                        result.add( prepend(priority,p) )
+            return result
+
+        def normalize(seq):
+            symbol = seq[-1]
+            markers = seq[:-1]
+            # Treat the path markers as fractional binary strings to project onto a set that preserves ordering.
+            # This is correct as long as the mantissa in the sum does not overflow, which will occur if there is
+            # a chain of priority-relevant non-terminals longer than 53 in the epsilon closure. So... don't make
+            # grammars that do that :)
+            radix = 1.
+            if len(markers)==0:
+                sum = -1.
+            else:
+                sum = 0.
+                for pri in markers:
+                    if pri=="hi":
+                        sum += radix
+                    radix = radix / 2.0
+            return (sum,symbol)
+
+        allResults = set()
+        for seed in self.initial:
+            allResults.update( normalize(p) for p in followPath(seed, marked=set()) )
+        return allResults
 
 
 
@@ -345,29 +369,28 @@ class AState:
         else:
             self.label = label
 
-        accumulator = None
-        derivations = None
-        for c in configs:
-            accumulator, derivations = self.epsilonClosure(c, configAcc=accumulator, traceAcc=derivations)
-        self.configurations = frozenset(accumulator)
+        print(f'{self.label}:')
+        record = EpsilonRecord(grammar, configs)
+        self.configurations = record.configs()
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
 
-        #print(f'{self.label}:')
-        #print(f'derivations={[strs(t) for t in derivations]}')
-        priDerivations = collapsePriority( partialProducts( removeEmpties(derivations)) )
-
-        for pri,trace in priDerivations:
-            #print(pri,strs(trace))
-            assert trace[-1].isTerminal() or isinstance(trace[-1].eqClass,SymbolTable.SpecialEQ), trace[-1]
-            self.addEdge(pri, trace[-1].eqClass, None)
+        noncontiguous = list(record.paths())
+        noncontiguous.sort(key=lambda pair:pair[0], reverse=True)
+        contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
 
         nonterminals = set()
-        for pri,trace in priDerivations:
-            for symbol in trace:
-                if symbol.isNonterminal():
-                    nonterminals.add(symbol)
+        for pri,symbol in contiguous:
+            print(f'pri={pri}, symbol={symbol}')
+            #assert trace[-1].isTerminal() or isinstance(trace[-1].eqClass,SymbolTable.SpecialEQ), trace[-1]
+            # HANDLE NONE FOR THE FINAL REDUCTION HERE!!!!
+            if symbol is None:
+                continue
+            if symbol.isTerminal or isinstance(symbol,SymbolTable.SpecialEQ):
+                self.addEdge(pri, symbol, None)
+            if symbol.isNonterminal:
+                nonterminals.add(symbol)
         for symbol in nonterminals:
-            self.addEdge(0, symbol.eqClass, None)           # TODO: Hmmm, so many questions????
+            self.addEdge(0, symbol, None)           # TODO: Hmmm, so many questions????
 
     def addEdge(self, priority, eqClass, target):
         while priority >= len(self.edges):
@@ -383,7 +406,6 @@ class AState:
     def __str__(self):
         return self.label
 
-    def epsilonClosure(self, config, prefix=None, configAcc=None, traceAcc=None):
         '''Process the single *config* to produce a set of derived configurations to add to the closure. Use
            the next symbol in the *config* to decide on how to expand the closure, terminals are recorded in
            the traces accumulated in traceAcc. Non-terminals are looked up in the grammar to add their
@@ -391,29 +413,6 @@ class AState:
            the least fixed-point. Where looping modifiers cause a divergence in the chain of symbols insert
            textual markers into the *prefix* trace to indicate the priority of each path. These will be
            reconstructed into the edge-priority for the state.'''
-        if configAcc is None:                           configAcc = set()
-        if traceAcc is None:                            traceAcc  = set()
-        if prefix is None:                              prefix = ()
-        if config in configAcc:
-            traceAcc.add(prefix)
-            return configAcc, traceAcc
-        configAcc.add(config)
-        symbol = config.next()
-        if symbol is None:                              return configAcc, traceAcc
-
-        if symbol.modifier in ('any','optional'):
-            configAcc, traceAcc = self.epsilonClosure(config.succ(), prefix+('lo',), configAcc, traceAcc)
-            prefix=prefix+('hi',)               # TODO: something for "some"
-        prefix += (symbol,)
-
-        if symbol.isNonterminal():
-            name = symbol.eqClass.name
-            for ntInitialConfig in self.grammar[name]:
-                configAcc, traceAcc = self.epsilonClosure(ntInitialConfig, prefix, configAcc, traceAcc)
-            return configAcc, traceAcc
-
-        traceAcc.add( prefix )      # Both terminals and specials
-        return configAcc, traceAcc
 
 
 class PState:
@@ -678,15 +677,6 @@ class Automaton:
                         next = worklist.add(next)
                         priLevel[eqClass] = next
 
-#            for special in ("glue","remover"):
-#                withSpecial = [ c for c in active
-#                                  if isinstance(c.next().eqClass, SymbolTable.SpecialEQ) and c.next().eqClass.name==special ]
-#                if len(withSpecial)>0:
-#                    next = AState(self.canonGrammar, [c.succ() for c in withSpecial], label=f's{counter}')
-#                    counter += 1
-#                    next = worklist.add(next)
-#                    state.addEdge(0, withSpecial[0].next().eqClass, next)
-
             for c in state.configurations:
                 if c.isReducing():
                     state.addEdge(0, c, Handle(c))
@@ -776,7 +766,8 @@ class Automaton:
 
         def __str__(self):
             return f'{self.lhs} <- ' + " ".join(['^'+str(s) if self.position==i else str(s)
-                                                            for i,s in enumerate(self.rhs)])
+                                                            for i,s in enumerate(self.rhs)]) \
+                                     + ('^' if self.position==len(self.rhs) else '')
         def html(self):
             result = f"{self.lhs} &larr; "
             for i,s in enumerate(self.rhs):
