@@ -371,11 +371,11 @@ class AState:
         else:
             self.label = label
 
-        print(f'{self.label}:')
+        #print(f'{self.label}:')
         record = EpsilonRecord(grammar, configs)
         self.configurations = record.configs()
-        for c in self.configurations:
-            print(f'  {c}')
+        #for c in self.configurations:
+        #    print(f'  {c}')
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
 
         noncontiguous = list(record.paths())
@@ -384,13 +384,8 @@ class AState:
 
         nonterminals = set()
         for pri,symbol in contiguous:
-            print(f'pri={pri}, symbol={symbol}')
-            #assert trace[-1].isTerminal() or isinstance(trace[-1].eqClass,SymbolTable.SpecialEQ), trace[-1]
-            # HANDLE NONE FOR THE FINAL REDUCTION HERE!!!!
-            if isinstance(symbol,Automaton.Configuration):
-                continue
-            if symbol.isTerminal or isinstance(symbol,SymbolTable.SpecialEQ):
-                self.addEdge(pri, symbol, None)
+            #print(f'pri={pri}, symbol={symbol}')
+            self.addEdge(pri, symbol, None)
         for symbol in record.accept:
             self.addEdge(0, symbol, None)           # TODO: Hmmm, so many questions????
 
@@ -442,10 +437,11 @@ class PState:
         remaining = self.position
         if not self.keep:
             remaining += self.processDiscard(input[remaining:])
-        print(f'execute: {strs(self.stack)}')
+        #print(f'execute: {strs(self.stack)}')
         for priLevel in astate.edges:
+            #print(f'prilevel: {priLevel}')
             for edgeLabel,target in priLevel.items():
-                print(f'edge: {edgeLabel} target: {target}')
+                #print(f'edge: {edgeLabel} target: {target}')
                 if isinstance(edgeLabel, Automaton.Configuration) and isinstance(target,Handle):
                     newStack = target.check(self.stack)
                     #print(f'newStack={newStack}')
@@ -669,7 +665,12 @@ class Automaton:
             active = [c for c in state.configurations if c.next() is not None ]
             for pri, priLevel in enumerate(state.edges):
                 for eqClass in priLevel.keys():
-                    #if eqClass.isTerminal or eqClass.isNonterminal:
+                    if isinstance(eqClass, Automaton.Configuration):
+                        state.addEdge(pri, eqClass, Handle(eqClass))
+                        if eqClass.hasReduceBarrier():
+                            below = eqClass.floor()
+                            state.addEdge(pri+1, below, Handle(below))
+                    else:
                         matchingConfigs = [ c for c in active if c.next().eqClass==eqClass ]
                         possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
                                           [ c        for c in matchingConfigs if c.next().modifier in ('any','some') ]
@@ -679,12 +680,6 @@ class Automaton:
                         next = worklist.add(next)
                         priLevel[eqClass] = next
 
-            for c in state.configurations:
-                if c.isReducing():
-                    state.addEdge(0, c, Handle(c))
-                    if c.hasReduceBarrier():
-                        below = c.floor()
-                        state.addEdge(1, below, Handle(below))
 
         self.states = worklist.set
         assert isinstance(self.states, dict)
