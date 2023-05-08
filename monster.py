@@ -356,6 +356,16 @@ class EpsilonRecord:
         return allResults
 
 
+# TODO:
+#       quoted_str2: fails because we don't try lower pri when barriered region fails
+#       recurse_degenseq3:  non-deterministic failure. This is the one with the free reduction to
+#                           R on an empty string at the beginning of the trace. Looks like the shift
+#                           fromt he second state should not be lower priority than the reduce?
+#       recurse_termplusvianonterm: non-deterministic failure on p0, p1-p3 always fail
+#                                   The order of the three reductions from the second state should work when
+#                                   we have failure on the barriered region.
+#       regex_selfalignboundedright2: non-deterministic failure
+#       pidgin_term: blocks on the >> sequence, same problem as quoted_str2
 
 
 class AState:
