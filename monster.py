@@ -421,18 +421,42 @@ class AState:
            textual markers into the *prefix* trace to indicate the priority of each path. These will be
            reconstructed into the edge-priority for the state.'''
 
+class Barrier:
+    counter = 1
+    def __init__(self, continuation):
+        self.states = set()
+        self.continuation = continuation
+        self.id = Barrier.counter
+        Barrier.counter += 1
+
+    def register(self, state):
+        state.barrier = self
+        self.states.add(state)
+
+    def cancel(self):
+        for state in self.states:
+            state.barrier = None
+        self.states = set()
+        self.continuation = []
+
+    def complete(self, state):
+        self.states.remove(state)
+        if len(self.states)==0:
+            return self.continuation
 
 class PState:
     counter = 1
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position, processDiscard, keep=False):
-        self.stack = stack
-        self.position = position
-        self.id = PState.counter
+    def __init__(self, stack, position, processDiscard, keep=False, label=""):
+        self.stack          = stack
+        self.position       = position
+        self.id             = PState.counter
         self.processDiscard = processDiscard
-        self.keep = keep
+        self.keep           = keep
+        self.label          = label
+        self.barrier        = None
         PState.counter += 1
 
     def __hash__(self):
@@ -440,6 +464,18 @@ class PState:
 
     def __eq__(self, other):
         return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
+
+    def register(self, barrier):
+        if barrier is not None:
+            barrier.register(self)
+
+    def cancel(self):
+        if self.barrier is not None:
+            self.barrier.cancel()
+
+    def complete(self):
+        if self.barrier is not None:
+            return self.barrier.complete(self)
 
     def successors(self, input):
         result = []
@@ -449,6 +485,7 @@ class PState:
             remaining += self.processDiscard(input[remaining:])
         #print(f'execute: {strs(self.stack)}')
         for priLevel in astate.edges:
+            result.append([])
             #print(f'prilevel: {priLevel}')
             for edgeLabel,target in priLevel.items():
                 #print(f'edge: {edgeLabel} target: {target}')
@@ -459,40 +496,40 @@ class PState:
                         #print(f'Handle match on old {strs(self.stack)}')
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
-                            result.append(("reduce",PState(newStack, self.position, self.processDiscard, keep=self.keep)))
+                            result[-1].append(PState(newStack, self.position, self.processDiscard, self.keep, "reduce"))
                             continue
                         returnState = newStack[-2]
                         assert target.lhs in returnState.edges[0], \
                                f'Missing {target.lhs} in {returnState.label} after {strs(newStack)}'
                         newStack.append(returnState.edges[0][edgeLabel.lhs])
-                        result.append( ("reduce",PState(newStack, self.position, self.processDiscard, keep=self.keep)))
+                        result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep, "reduce"))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
-                    result.append( ("shift",PState(self.stack[:-1] + [target], self.position, self.processDiscard, keep=True)))
+                    result[-1].append( PState(self.stack[:-1] + [target], self.position,
+                                              self.processDiscard, True, "shift"))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="remover":
-                    result.append( ("shift",PState(self.stack[:-1] + [target], remaining, self.processDiscard, keep=False)))
+                    result[-1].append( PState(self.stack[:-1] + [target], remaining,
+                                              self.processDiscard, False, "shift"))
                 else:
                     assert type(edgeLabel) in (SymbolTable.TermSetEQ,
                                                SymbolTable.TermStringEQ,
                                                SymbolTable.NonterminalEQ), type(edgeLabel)
                     matched = edgeLabel.matchInput(input[remaining:])
                     if matched is not None:
-                        result.append( ("shift",PState(self.stack + [Token(edgeLabel,matched),target],
-                                                       remaining+len(matched),
-                                                       self.processDiscard, keep=self.keep)))
-            if len(result)>0:
-                break
-        return result
+                        result[-1].append( PState(self.stack + [Token(edgeLabel,matched),target],
+                                                  remaining+len(matched), self.processDiscard, self.keep, "shift"))
+        return [ p for p in result if len(p)>0 ]
 
     def dotLabel(self, input, redundant):
         remaining = input[self.position:]
         astate = self.stack[-1]
         cell = ' bgcolor="#ffdddd"' if redundant else ''
+        barrier = f'<font color="orange">b{self.barrier.id}</font>' if self.barrier is not None else ''
         if not isinstance(astate,AState):
             return "<Terminated>"
         if len(remaining)>30:
-            result =  f'< <table border="0"><tr><td{cell}>{html.escape(remaining[:30])}...</td></tr><hr/>'
+            result =  f'< <table border="0"><tr><td{cell}>{barrier}{html.escape(remaining[:30])}...</td></tr><hr/>'
         else:
-            result =  f'< <table border="0"><tr><td{cell}>{html.escape(remaining)}</td></tr><hr/>'
+            result =  f'< <table border="0"><tr><td{cell}>{barrier}{html.escape(remaining)}</td></tr><hr/>'
 
         stackStrs = []
         for s in self.stack[-8:]:
@@ -744,6 +781,7 @@ class Automaton:
                     remaining = p.position + self.processDiscard(input[p.position:])
                     if remaining==len(input) and len(p.stack)==2:
                         yield p.stack[1]
+                        p.cancel()
                         self.trace.result(p)
                     else:
                         self.trace.blocks(p)
@@ -753,15 +791,24 @@ class Automaton:
                         if len(succ)==0:
                             self.trace.blocks(p)
                         else:
-                            for label,state in succ:
-                                if label=="shift":
+                            barrier = None
+                            if len(succ)>1:
+                                print(f'Insert barrier here')
+                                barrier = Barrier(succ[1:])
+
+                            for state in succ[0]:
+                                if state.label=="shift":
                                     self.trace.shift(p,state)
                                 else:
                                     self.trace.reduce(p,state)
                                 next.append(state)
+                                state.register(barrier)
                     except AssertionError as e:
                         self.trace.blocks(p)
                         print(f'ERROR {e}')
+                continuation = p.complete()
+                if continuation is not None:
+                    print(f'Continuation: {continuation}')
 
             pstates = next
 
