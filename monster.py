@@ -350,10 +350,20 @@ class EpsilonRecord:
                     radix = radix / 2.0
             return (sum,symbol)
 
+        def removeShadows(pairs):
+            if len(pairs)<2:
+                return pairs
+            return pairs[:1] + removeShadows([p for p in pairs[1:] if p[1]!=pairs[0][1] ])
+
         allResults = set()
         for seed in self.initial:
             allResults.update( normalize(p) for p in followPath(seed, marked=set()) )
-        return allResults
+        noncontiguous = list(allResults)
+        noncontiguous.sort(key=lambda pair:pair[0], reverse=True)
+        noncontiguous = removeShadows(noncontiguous)
+        contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
+        print(contiguous)
+        return contiguous
 
 
 # TODO:
@@ -384,17 +394,11 @@ class AState:
         #print(f'{self.label}:')
         record = EpsilonRecord(grammar, configs)
         self.configurations = record.configs()
-        #for c in self.configurations:
-        #    print(f'  {c}')
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
-
-        noncontiguous = list(record.paths())
-        noncontiguous.sort(key=lambda pair:pair[0], reverse=True)
-        contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
+        contiguous = record.paths()
 
         nonterminals = set()
         for pri,symbol in contiguous:
-            #print(f'pri={pri}, symbol={symbol}')
             self.addEdge(pri, symbol, None)
         for symbol in record.accept:
             self.addEdge(0, symbol, None)           # TODO: Hmmm, so many questions????
@@ -431,7 +435,7 @@ class Barrier:
 
     def register(self, state):
         assert state.barrier is None,\
-               "Already inside barrier" # This will be removed when there are test cases to update the representation
+               f"Register in {self.id} but already inside barrier {state.barrier.id}"
         state.barrier = self
         self.states.add(state)
 
@@ -442,7 +446,7 @@ class Barrier:
         self.continuation = []
 
     def complete(self, state):
-        print(f'b{self.id}: {self.states} - {state}')
+        #print(f'b{self.id}: {self.states} - {state}')
         self.states.remove(state)
         if len(self.states)==0:
             return self.continuation
@@ -801,7 +805,6 @@ class Automaton:
                         else:
                             barrier = None
                             if len(succ)>1:
-                                print(f'Insert barrier here', succ[1:])
                                 barrier = Barrier(succ[1:])
 
                             for state in succ[0]:
@@ -816,10 +819,8 @@ class Automaton:
                         print(f'ERROR {e}')
                 continuation = p.complete()
                 if continuation is not None:
-                    print(f'Continuation: {continuation}')
                     barrier = None
                     if len(continuation)>1:
-                        print(f'Insert barrier here')
                         barrier = Barrier(continuation[1:])
 
                     for state in continuation[0]:
