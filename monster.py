@@ -435,7 +435,7 @@ class Barrier:
 
     def register(self, state):
         assert state.barrier is None,\
-               f"Register in {self.id} but already inside barrier {state.barrier.id}"
+               f"Register in {self.id} but already inside barrier {state.barrier.id} for s{state.id}"
         state.barrier = self
         self.states.add(state)
 
@@ -677,7 +677,7 @@ class Token:
         self.contents = content
 
     def __str__(self):
-        if self.symbol.isTerminal:
+        if self.symbol is not None and self.symbol.isTerminal:
             return f'{self.symbol}:{self.contents}'
         return f'{self.symbol}::'
 
@@ -789,6 +789,9 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
+                print(f'Execute {strs(p.stack)}')
+                if p.barrier is not None:
+                    self.trace.barrier(p,p.barrier)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.processDiscard(input[p.position:])
                     if remaining==len(input) and len(p.stack)==2:
@@ -817,19 +820,19 @@ class Automaton:
                     except AssertionError as e:
                         self.trace.blocks(p)
                         print(f'ERROR {e}')
-                continuation = p.complete()
-                if continuation is not None:
-                    barrier = None
-                    if len(continuation)>1:
-                        barrier = Barrier(continuation[1:])
+                    continuation = p.complete()
+                    if continuation is not None:
+                        barrier = None
+                        if len(continuation)>1:
+                            barrier = Barrier(continuation[1:])
 
-                    for state in continuation[0]:
-                        if state.label=="shift":
-                            self.trace.shift(p,state)
-                        else:
-                            self.trace.reduce(p,state)
-                        next.append(state)
-                        state.register(barrier)
+                        for state in continuation[0]:
+                            if state.label=="shift":
+                                self.trace.shift(p.barrier,state)
+                            else:
+                                self.trace.reduce(p.barrier,state)
+                            next.append(state)
+                            state.register(barrier)
 
             pstates = next
 
@@ -910,6 +913,12 @@ class Automaton:
             self.forwards.store(state, (False, 'blocks'))
             self.backwards.store(False, (state,'blocks'))
 
+        def barrier(self, source, destination):
+            if not self.recording: return
+            self.forwards.store(source,  (destination, 'barrier'))
+            self.backwards.store(destination, (source, 'barrier'))
+
+
         def output(self, target):
             self.calculateRedundancy()
             print('digraph {', file=target)
@@ -919,10 +928,16 @@ class Automaton:
                         fontcolor = 'black'
                         if isinstance(nextState,PState):
                             print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
+                        elif isinstance(nextState,Barrier):
+                            print(f's{k.id} -> b{nextState.id} [label="inside",color=orange,fontcolor=orange];', file=target)
                         else:
                             fontcolor = 'green' if nextState else 'red'
-                        print(f's{k.id} [shape=none, fontcolor={fontcolor}, '+
-                              f'label={k.dotLabel(self.input,self.redundant[k])}];', file=target)
+                    print(f's{k.id} [shape=none, fontcolor={fontcolor}, '+
+                          f'label={k.dotLabel(self.input,self.redundant[k])}];', file=target)
+                elif isinstance(k, Barrier):
+                    for nextState, label in v:
+                        print(f'b{k.id} -> s{nextState.id} [label="continues",color=orange,fontcolor=orange];', file=target)
+                    print(f'b{k.id} [shape=none, fontcolor=orange, label="Barrier {k.id}"];', file=target)
                 else:
                     print(f'Non-pstate in trace: {repr(k)}')
             print('}', file=target)
