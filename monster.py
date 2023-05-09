@@ -430,6 +430,8 @@ class Barrier:
         Barrier.counter += 1
 
     def register(self, state):
+        assert state.barrier is None,\
+               "Already inside barrier" # This will be removed when there are test cases to update the representation
         state.barrier = self
         self.states.add(state)
 
@@ -440,6 +442,7 @@ class Barrier:
         self.continuation = []
 
     def complete(self, state):
+        print(f'b{self.id}: {self.states} - {state}')
         self.states.remove(state)
         if len(self.states)==0:
             return self.continuation
@@ -449,14 +452,16 @@ class PState:
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
        just be the stack, but we are building a fused lexer/parser that operates on a stream of characters
        instead of terminals.'''
-    def __init__(self, stack, position, processDiscard, keep=False, label=""):
+    def __init__(self, stack, position, processDiscard, keep=False, label="", barrier=None):
         self.stack          = stack
         self.position       = position
         self.id             = PState.counter
         self.processDiscard = processDiscard
         self.keep           = keep
         self.label          = label
-        self.barrier        = None
+        self.barrier        = barrier
+        if barrier is not None:
+            barrier.register(self)
         PState.counter += 1
 
     def __hash__(self):
@@ -496,19 +501,21 @@ class PState:
                         #print(f'Handle match on old {strs(self.stack)}')
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
-                            result[-1].append(PState(newStack, self.position, self.processDiscard, self.keep, "reduce"))
+                            result[-1].append(PState(newStack, self.position, self.processDiscard,
+                                                     self.keep, "reduce", self.barrier))
                             continue
                         returnState = newStack[-2]
                         assert target.lhs in returnState.edges[0], \
                                f'Missing {target.lhs} in {returnState.label} after {strs(newStack)}'
                         newStack.append(returnState.edges[0][edgeLabel.lhs])
-                        result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep, "reduce"))
+                        result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep, 
+                                                  "reduce", self.barrier))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
                     result[-1].append( PState(self.stack[:-1] + [target], self.position,
-                                              self.processDiscard, True, "shift"))
+                                              self.processDiscard, True, "shift", self.barrier))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="remover":
                     result[-1].append( PState(self.stack[:-1] + [target], remaining,
-                                              self.processDiscard, False, "shift"))
+                                              self.processDiscard, False, "shift", self.barrier))
                 else:
                     assert type(edgeLabel) in (SymbolTable.TermSetEQ,
                                                SymbolTable.TermStringEQ,
@@ -516,7 +523,8 @@ class PState:
                     matched = edgeLabel.matchInput(input[remaining:])
                     if matched is not None:
                         result[-1].append( PState(self.stack + [Token(edgeLabel,matched),target],
-                                                  remaining+len(matched), self.processDiscard, self.keep, "shift"))
+                                                  remaining+len(matched), self.processDiscard, self.keep,
+                                                  "shift", self.barrier))
         return [ p for p in result if len(p)>0 ]
 
     def dotLabel(self, input, redundant):
@@ -793,7 +801,7 @@ class Automaton:
                         else:
                             barrier = None
                             if len(succ)>1:
-                                print(f'Insert barrier here')
+                                print(f'Insert barrier here', succ[1:])
                                 barrier = Barrier(succ[1:])
 
                             for state in succ[0]:
@@ -809,6 +817,18 @@ class Automaton:
                 continuation = p.complete()
                 if continuation is not None:
                     print(f'Continuation: {continuation}')
+                    barrier = None
+                    if len(continuation)>1:
+                        print(f'Insert barrier here')
+                        barrier = Barrier(continuation[1:])
+
+                    for state in continuation[0]:
+                        if state.label=="shift":
+                            self.trace.shift(p,state)
+                        else:
+                            self.trace.reduce(p,state)
+                        next.append(state)
+                        state.register(barrier)
 
             pstates = next
 
