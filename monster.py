@@ -435,7 +435,7 @@ class Barrier:
 
     def register(self, state):
         assert state.barrier is None,\
-               f"Register in {self.id} but already inside barrier {state.barrier.id} for s{state.id}"
+               f"Register in {self.id} but already inside barrier {state.barrier.id} for p{state.id}"
         state.barrier = self
         self.states.add(state)
 
@@ -463,7 +463,7 @@ class PState:
         self.processDiscard = processDiscard
         self.keep           = keep
         self.label          = label
-        self.barrier        = barrier
+        self.barrier        = None
         if barrier is not None:
             barrier.register(self)
         PState.counter += 1
@@ -509,11 +509,13 @@ class PState:
                                                      self.keep, "reduce", self.barrier))
                             continue
                         returnState = newStack[-2]
-                        assert target.lhs in returnState.edges[0], \
-                               f'Missing {target.lhs} in {returnState.label} after {strs(newStack)}'
-                        newStack.append(returnState.edges[0][edgeLabel.lhs])
-                        result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep, 
-                                                  "reduce", self.barrier))
+                        # When there is a merge in the automaton with identical edges coming into the same
+                        # state from distinct prior states, handle checking must only follow the valid path
+                        # in reverse.
+                        if target.lhs in returnState.edges[0]:
+                            newStack.append(returnState.edges[0][edgeLabel.lhs])
+                            result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep,
+                                                      "reduce", self.barrier))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
                     result[-1].append( PState(self.stack[:-1] + [target], self.position,
                                               self.processDiscard, True, "shift", self.barrier))
@@ -789,7 +791,7 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(f'Execute {strs(p.stack)}')
+                print(f'Execute p{p.id} {strs(p.stack)}')
                 if p.barrier is not None:
                     self.trace.barrier(p,p.barrier)
                 if not isinstance(p.stack[-1],AState):
@@ -801,25 +803,26 @@ class Automaton:
                     else:
                         self.trace.blocks(p)
                 else:
-                    try:
-                        succ = p.successors(input)
-                        if len(succ)==0:
-                            self.trace.blocks(p)
-                        else:
-                            barrier = None
-                            if len(succ)>1:
-                                barrier = Barrier(succ[1:])
-
-                            for state in succ[0]:
-                                if state.label=="shift":
-                                    self.trace.shift(p,state)
-                                else:
-                                    self.trace.reduce(p,state)
-                                next.append(state)
-                                state.register(barrier)
-                    except AssertionError as e:
+                    #try:
+                    succ = p.successors(input)
+                    print(f'succ {[st.id for pri in succ for st in pri ]}')
+                    if len(succ)==0:
                         self.trace.blocks(p)
-                        print(f'ERROR {e}')
+                    else:
+                        barrier = None
+                        if len(succ)>1:
+                            barrier = Barrier(succ[1:])
+
+                        for state in succ[0]:
+                            if state.label=="shift":
+                                self.trace.shift(p,state)
+                            else:
+                                self.trace.reduce(p,state)
+                            next.append(state)
+                            state.register(barrier)
+                    #except AssertionError as e:
+                    #    self.trace.blocks(p)
+                    #    print(f'ERROR {e}')
                     continuation = p.complete()
                     if continuation is not None:
                         barrier = None
