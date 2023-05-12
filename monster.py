@@ -362,7 +362,6 @@ class EpsilonRecord:
         noncontiguous.sort(key=lambda pair:pair[0], reverse=True)
         noncontiguous = removeShadows(noncontiguous)
         contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
-        print(contiguous)
         return contiguous
 
 
@@ -434,9 +433,6 @@ class Barrier:
         Barrier.counter += 1
 
     def register(self, state):
-        assert state.barrier is None,\
-               f"Register in {self.id} but already inside barrier {state.barrier.id} for p{state.id}"
-        state.barrier = self
         self.states.add(state)
 
     def cancel(self):
@@ -463,9 +459,12 @@ class PState:
         self.processDiscard = processDiscard
         self.keep           = keep
         self.label          = label
-        self.barrier        = None
-        if barrier is not None:
-            barrier.register(self)
+        if barrier is None:
+            self.barriers       = []
+        else:
+            self.barriers       = barrier[:]
+            for b in barrier:
+                b.register(self)
         PState.counter += 1
 
     def __hash__(self):
@@ -474,17 +473,21 @@ class PState:
     def __eq__(self, other):
         return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
 
-    def register(self, barrier):
+    def enter(self, barrier):
         if barrier is not None:
+            self.barriers.append(barrier)
             barrier.register(self)
 
     def cancel(self):
-        if self.barrier is not None:
-            self.barrier.cancel()
+        for b in self.barriers:
+            b.cancel()
 
     def complete(self):
-        if self.barrier is not None:
-            return self.barrier.complete(self)
+        for b in reversed(self.barriers):
+            continuation = b.complete(self)
+            if continuation is not None:
+                return b, continuation
+        return None, None
 
     def successors(self, input):
         result = []
@@ -506,7 +509,7 @@ class PState:
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
                             result[-1].append(PState(newStack, self.position, self.processDiscard,
-                                                     self.keep, "reduce", self.barrier))
+                                                     self.keep, "reduce", self.barriers))
                             continue
                         returnState = newStack[-2]
                         # When there is a merge in the automaton with identical edges coming into the same
@@ -515,13 +518,13 @@ class PState:
                         if target.lhs in returnState.edges[0]:
                             newStack.append(returnState.edges[0][edgeLabel.lhs])
                             result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep,
-                                                      "reduce", self.barrier))
+                                                      "reduce", self.barriers))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
                     result[-1].append( PState(self.stack[:-1] + [target], self.position,
-                                              self.processDiscard, True, "shift", self.barrier))
+                                              self.processDiscard, True, "shift", self.barriers))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="remover":
                     result[-1].append( PState(self.stack[:-1] + [target], remaining,
-                                              self.processDiscard, False, "shift", self.barrier))
+                                              self.processDiscard, False, "shift", self.barriers))
                 else:
                     assert type(edgeLabel) in (SymbolTable.TermSetEQ,
                                                SymbolTable.TermStringEQ,
@@ -530,20 +533,19 @@ class PState:
                     if matched is not None:
                         result[-1].append( PState(self.stack + [Token(edgeLabel,matched),target],
                                                   remaining+len(matched), self.processDiscard, self.keep,
-                                                  "shift", self.barrier))
+                                                  "shift", self.barriers))
         return [ p for p in result if len(p)>0 ]
 
     def dotLabel(self, input, redundant):
         remaining = input[self.position:]
         astate = self.stack[-1]
         cell = ' bgcolor="#ffdddd"' if redundant else ''
-        barrier = f'<font color="orange">b{self.barrier.id}</font>' if self.barrier is not None else ''
         if not isinstance(astate,AState):
             return "<Terminated>"
         if len(remaining)>30:
-            result =  f'< <table border="0"><tr><td{cell}>{barrier}{html.escape(remaining[:30])}...</td></tr><hr/>'
+            result =  f'< <table border="0"><tr><td{cell}>{html.escape(remaining[:30])}...</td></tr><hr/>'
         else:
-            result =  f'< <table border="0"><tr><td{cell}>{barrier}{html.escape(remaining)}</td></tr><hr/>'
+            result =  f'< <table border="0"><tr><td{cell}>{html.escape(remaining)}</td></tr><hr/>'
 
         stackStrs = []
         for s in self.stack[-8:]:
@@ -791,21 +793,22 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(f'Execute p{p.id} {strs(p.stack)}')
-                if p.barrier is not None:
-                    self.trace.barrier(p,p.barrier)
+                #print(f'Execute p{p.id} {strs(p.stack)}')
+                self.trace.barrier(p)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.processDiscard(input[p.position:])
                     if remaining==len(input) and len(p.stack)==2:
                         yield p.stack[1]
                         p.cancel()
                         self.trace.result(p)
+                        continue
                     else:
                         self.trace.blocks(p)
+                        # Fall-through to completion
                 else:
                     #try:
                     succ = p.successors(input)
-                    print(f'succ {[st.id for pri in succ for st in pri ]}')
+                    #print(f'succ {[st.id for pri in succ for st in pri ]}')
                     if len(succ)==0:
                         self.trace.blocks(p)
                     else:
@@ -819,23 +822,23 @@ class Automaton:
                             else:
                                 self.trace.reduce(p,state)
                             next.append(state)
-                            state.register(barrier)
+                            state.enter(barrier)
                     #except AssertionError as e:
                     #    self.trace.blocks(p)
                     #    print(f'ERROR {e}')
-                    continuation = p.complete()
-                    if continuation is not None:
-                        barrier = None
-                        if len(continuation)>1:
-                            barrier = Barrier(continuation[1:])
+                closedBarrier, continuation = p.complete()
+                if continuation is not None:
+                    barrier = None
+                    if len(continuation)>1:
+                        barrier = Barrier(continuation[1:])
 
-                        for state in continuation[0]:
-                            if state.label=="shift":
-                                self.trace.shift(p.barrier,state)
-                            else:
-                                self.trace.reduce(p.barrier,state)
-                            next.append(state)
-                            state.register(barrier)
+                    for state in continuation[0]:
+                        if state.label=="shift":
+                            self.trace.shift(closedBarrier, state)
+                        else:
+                            self.trace.reduce(closedBarrier, state)
+                        next.append(state)
+                        state.enter(barrier)
 
             pstates = next
 
@@ -916,14 +919,16 @@ class Automaton:
             self.forwards.store(state, (False, 'blocks'))
             self.backwards.store(False, (state,'blocks'))
 
-        def barrier(self, source, destination):
+        def barrier(self, pstate):
             if not self.recording: return
-            self.forwards.store(source,  (destination, 'barrier'))
-            self.backwards.store(destination, (source, 'barrier'))
+            for b in pstate.barriers:
+                self.forwards.store(pstate,  (b, 'barrier'))
+                self.backwards.store(b, (pstate, 'barrier'))
 
 
         def output(self, target):
             self.calculateRedundancy()
+            found, completed = set(), set()
             print('digraph {', file=target)
             for k,v in self.forwards.map.items():
                 if isinstance(k, PState):
@@ -933,6 +938,7 @@ class Automaton:
                             print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
                         elif isinstance(nextState,Barrier):
                             print(f's{k.id} -> b{nextState.id} [label="inside",color=orange,fontcolor=orange];', file=target)
+                            found.add(nextState)
                         else:
                             fontcolor = 'green' if nextState else 'red'
                     print(f's{k.id} [shape=none, fontcolor={fontcolor}, '+
@@ -941,8 +947,12 @@ class Automaton:
                     for nextState, label in v:
                         print(f'b{k.id} -> s{nextState.id} [label="continues",color=orange,fontcolor=orange];', file=target)
                     print(f'b{k.id} [shape=none, fontcolor=orange, label="Barrier {k.id}"];', file=target)
+                    completed.add(k)
                 else:
                     print(f'Non-pstate in trace: {repr(k)}')
+            incomplete = found - completed
+            for b in incomplete:
+                print(f'b{b.id} [shape=none, fontcolor=orange, label="Barrier {b.id}"];', file=target)
             print('}', file=target)
 
         def calculateRedundancy(self):
