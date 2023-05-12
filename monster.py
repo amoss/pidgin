@@ -448,6 +448,9 @@ class Barrier:
         if len(self.states)==0:
             return self.continuation
 
+    def remove(self, state):
+        self.states.remove(state)
+
 class PState:
     counter = 1
     '''A state of the parser (i.e. a stack and input position). In a conventional GLR parser this would
@@ -484,9 +487,12 @@ class PState:
             b.cancel()
 
     def complete(self):
-        for b in reversed(self.barriers):
+        for i in range(len(self.barriers)-1, -1, -1):
+            b = self.barriers[i]
             continuation = b.complete(self)
             if continuation is not None:
+                for j in range(i-1, -1, -1):
+                    self.barriers[j].remove(self)
                 return b, continuation
         return None, None
 
