@@ -429,6 +429,7 @@ class Barrier:
     def __init__(self, continuation):
         self.states = set()
         self.continuation = continuation
+        print(f'Barrier {Barrier.counter}: {[[st.id for st in pri] for pri in continuation]}')
         self.id = Barrier.counter
         Barrier.counter += 1
 
@@ -442,7 +443,7 @@ class Barrier:
         self.continuation = []
 
     def complete(self, state):
-        #print(f'b{self.id}: {self.states} - {state}')
+        print(f'b{self.id} completes: {[p.id for p in self.states]} - {state.id}')
         self.states.remove(state)
         if len(self.states)==0:
             return self.continuation
@@ -793,7 +794,7 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                #print(f'Execute p{p.id} {strs(p.stack)}')
+                print(f'Execute p{p.id} {strs(p.stack)}')
                 self.trace.barrier(p)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.processDiscard(input[p.position:])
@@ -808,7 +809,7 @@ class Automaton:
                 else:
                     #try:
                     succ = p.successors(input)
-                    #print(f'succ {[st.id for pri in succ for st in pri ]}')
+                    print(f'succ {[[st.id for st in pri] for pri in succ]}')
                     if len(succ)==0:
                         self.trace.blocks(p)
                     else:
@@ -840,6 +841,7 @@ class Automaton:
                         next.append(state)
                         state.enter(barrier)
 
+            print(f'next {[st.id for st in next]}')
             pstates = next
 
     class Configuration:

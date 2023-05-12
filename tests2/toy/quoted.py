@@ -1,6 +1,9 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import string
+
+# TODO: where is the glue?
 def quoted_str():
     '''Q: ' [^"]* " | u( [^)]* \)
 
@@ -76,3 +79,15 @@ def quoted_str3():
                '"x"y',
                'x"y"']
 
+def quoted_str4():
+    '''L: I  | I ! L | Q    Q: ' [^"]* " | u( [^)]* \)    I: [a-z] Glue [a-z0-9]* Remover
+
+       Test pidgin-style strings in a language with a single binary operator.'''
+    letters = string.ascii_lowercase + string.ascii_uppercase
+    g = Grammar('L')
+    g.addRule('L', [N("I")], [N("I"), T("!"), N("L")], [N("Q")])
+    g.addRule('Q', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
+    g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
+    return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
+               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z'], \
+              ['', '2x', '\'"!\'"', 'T!""', 'T!\'\'']
