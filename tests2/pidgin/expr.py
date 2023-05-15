@@ -59,6 +59,10 @@ X!'world"
 ['a"  'b"'c"]
 {'a" 	'b"  'c"}
 {'a":'"'b":'"'c":'"}
+[T!'alpha"]
+[T!'alpha" T!'beta"]
+[T!'alpha" T!'beta" T!'gamma"]
+[T!'a" T!'b" T!'c"]
 {'a":[X!'a"]'b":[X!'b"]'c":[]}
 {'name":{[N!'a"][T!'b"]}}
 {'name":{[N!'a"][T!'a",T!'b",T!'c"]}}

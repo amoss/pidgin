@@ -426,27 +426,34 @@ class AState:
 
 class Barrier:
     counter = 1
-    def __init__(self, continuation):
+    def __init__(self, continuation, parent=None):
         self.states = set()
         self.continuation = continuation
-        print(f'Barrier {Barrier.counter}: {[[st.id for st in pri] for pri in continuation]}')
+        self.parent = parent
+        #print(f'Barrier {Barrier.counter}: {[[st.id for st in pri] for pri in continuation]}')
         self.id = Barrier.counter
         Barrier.counter += 1
 
     def register(self, state):
         self.states.add(state)
+        if self.parent is not None:
+            self.parent.register(state)
 
     def cancel(self):
         for state in self.states:
-            state.barrier = None
+            if state.barrier == self:
+                state.barrier = None
         self.states = set()
         self.continuation = []
 
     def complete(self, state):
-        print(f'b{self.id} completes: {[p.id for p in self.states]} - {state.id}')
+        #print(f'b{self.id} completes: {[p.id for p in self.states]} - {state.id}')
         self.states.remove(state)
         if len(self.states)==0:
-            return self.continuation
+            if self.parent is not None:
+                self.parent.remove(state)
+            return self, self.continuation
+        return None, None
 
     def remove(self, state):
         self.states.remove(state)
@@ -463,12 +470,9 @@ class PState:
         self.processDiscard = processDiscard
         self.keep           = keep
         self.label          = label
-        if barrier is None:
-            self.barriers       = []
-        else:
-            self.barriers       = barrier[:]
-            for b in barrier:
-                b.register(self)
+        self.barrier        = barrier
+        if barrier is not None:
+            barrier.register(self)
         PState.counter += 1
 
     def __hash__(self):
@@ -479,22 +483,19 @@ class PState:
 
     def enter(self, barrier):
         if barrier is not None:
-            self.barriers.append(barrier)
+            assert barrier.parent == self.barrier
+            self.barrier = barrier
             barrier.register(self)
 
     def cancel(self):
-        for b in self.barriers:
-            b.cancel()
+        if self.barrier is not None:
+            self.barrier.cancel()
 
     def complete(self):
-        for i in range(len(self.barriers)-1, -1, -1):
-            b = self.barriers[i]
-            continuation = b.complete(self)
-            if continuation is not None:
-                for j in range(i-1, -1, -1):
-                    self.barriers[j].remove(self)
-                return b, continuation
+        if self.barrier is not None:
+            return self.barrier.complete(self)
         return None, None
+
 
     def successors(self, input):
         result = []
@@ -516,7 +517,7 @@ class PState:
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
                             result[-1].append(PState(newStack, self.position, self.processDiscard,
-                                                     self.keep, "reduce", self.barriers))
+                                                     self.keep, "reduce", self.barrier))
                             continue
                         returnState = newStack[-2]
                         # When there is a merge in the automaton with identical edges coming into the same
@@ -525,13 +526,13 @@ class PState:
                         if target.lhs in returnState.edges[0]:
                             newStack.append(returnState.edges[0][edgeLabel.lhs])
                             result[-1].append( PState(newStack, self.position, self.processDiscard, self.keep,
-                                                      "reduce", self.barriers))
+                                                      "reduce", self.barrier))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="glue":
                     result[-1].append( PState(self.stack[:-1] + [target], self.position,
-                                              self.processDiscard, True, "shift", self.barriers))
+                                              self.processDiscard, True, "shift", self.barrier))
                 elif isinstance(edgeLabel, SymbolTable.SpecialEQ) and edgeLabel.name=="remover":
                     result[-1].append( PState(self.stack[:-1] + [target], remaining,
-                                              self.processDiscard, False, "shift", self.barriers))
+                                              self.processDiscard, False, "shift", self.barrier))
                 else:
                     assert type(edgeLabel) in (SymbolTable.TermSetEQ,
                                                SymbolTable.TermStringEQ,
@@ -540,7 +541,7 @@ class PState:
                     if matched is not None:
                         result[-1].append( PState(self.stack + [Token(edgeLabel,matched),target],
                                                   remaining+len(matched), self.processDiscard, self.keep,
-                                                  "shift", self.barriers))
+                                                  "shift", self.barrier))
         return [ p for p in result if len(p)>0 ]
 
     def dotLabel(self, input, redundant):
@@ -800,7 +801,7 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(f'Execute p{p.id} {strs(p.stack)}')
+                #print(f'Execute p{p.id} {strs(p.stack)}')
                 self.trace.barrier(p)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.processDiscard(input[p.position:])
@@ -815,13 +816,13 @@ class Automaton:
                 else:
                     #try:
                     succ = p.successors(input)
-                    print(f'succ {[[st.id for st in pri] for pri in succ]}')
+                    #print(f'succ {[[st.id for st in pri] for pri in succ]}')
                     if len(succ)==0:
                         self.trace.blocks(p)
                     else:
                         barrier = None
                         if len(succ)>1:
-                            barrier = Barrier(succ[1:])
+                            barrier = Barrier(succ[1:], parent=p.barrier)
 
                         for state in succ[0]:
                             if state.label=="shift":
@@ -847,7 +848,7 @@ class Automaton:
                         next.append(state)
                         state.enter(barrier)
 
-            print(f'next {[st.id for st in next]}')
+            #print(f'next {[st.id for st in next]}')
             pstates = next
 
     class Configuration:
@@ -929,9 +930,11 @@ class Automaton:
 
         def barrier(self, pstate):
             if not self.recording: return
-            for b in pstate.barriers:
-                self.forwards.store(pstate,  (b, 'barrier'))
-                self.backwards.store(b, (pstate, 'barrier'))
+            self.forwards.store(pstate,  (pstate.barrier, 'barrier'))
+            self.backwards.store(pstate.barrier, (pstate, 'barrier'))
+            if pstate.barrier is not None  and  pstate.barrier.parent is not None:
+                self.forwards.store(pstate.barrier.parent,  (pstate.barrier, 'barrier'))
+                self.backwards.store(pstate.barrier, (pstate.barrier.parent, 'barrier'))
 
 
         def output(self, target):
