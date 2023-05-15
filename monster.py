@@ -798,13 +798,19 @@ class Automaton:
                             print(f's{id(s)} -> {nextId} [label=<{edgeLabel.html()}>];', file=output)
         print("}", file=output)
 
+    ############################################################################
+    # The current problem actually has two parts:
+    #       * Why do we lose states in both the working and broken traces??
+    #       * Why is the priority inverted in the working and broken trace??
+    ############################################################################
+
     def execute(self, input, tracing=False):
         self.trace = Automaton.Trace(input, tracing)
         pstates = [PState([self.start], 0, self.processDiscard)]
         while len(pstates)>0:
             next = []
             for p in pstates:
-                #print(f'Execute p{p.id} {strs(p.stack)}')
+                print(f'Execute p{p.id} {strs(p.stack)}')
                 self.trace.barrier(p)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.processDiscard(input[p.position:])
@@ -819,14 +825,14 @@ class Automaton:
                 else:
                     #try:
                     succ = p.successors(input)
-                    #print(f'succ {[[st.id for st in pri] for pri in succ]}')
+                    print(f'succ {[[st.id for st in pri] for pri in succ]}')
                     if len(succ)==0:
                         self.trace.blocks(p)
                     else:
                         barrier = None
                         if len(succ)>1:
                             barrier = Barrier(succ[1:], parent=p.barrier)
-                            #print(f'p{p.id} creates b{barrier.id}: {barrier}')
+                            print(f'p{p.id} creates b{barrier.id}: {barrier}')
 
                         for state in succ[0]:
                             if state.label=="shift":
@@ -852,7 +858,7 @@ class Automaton:
                         next.append(state)
                         state.enter(barrier)
 
-            #print(f'next {[st.id for st in next]}')
+            print(f'next {[st.id for st in next]}')
             pstates = next
 
     class Configuration:

@@ -89,5 +89,21 @@ def quoted_str4():
     g.addRule('Q', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
     g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
     return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
-               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z'], \
+               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z', 'T!\'longer string"'], \
+              ['', '2x', '\'"!\'"', 'T!""', 'T!\'\'']
+
+def quoted_str5():
+    '''Binop: I ! Binop | Atom   Atom: I | Q    Q: ' [^"]* " | u( [^)]* \)    I: [a-z] Glue [a-z0-9]* Remover
+
+       Test pidgin-style strings in a language with a single binary operator. Differs to the previous
+       case by splitting the ident and indent-plus-operator into separate rules to simulate a piece
+       of the pidgin grammar.'''
+    letters = string.ascii_lowercase + string.ascii_uppercase
+    g = Grammar('Binop')
+    g.addRule('Binop', [N("I"), T("!"), N("Binop")], [N("Atom")])
+    g.addRule('Atom', [N("I")], [N("Q")])
+    g.addRule('Q', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
+    g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
+    return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
+               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z', 'T!\'longer string"'], \
               ['', '2x', '\'"!\'"', 'T!""', 'T!\'\'']

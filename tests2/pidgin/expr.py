@@ -52,6 +52,7 @@ def pidgin_expr():
 '''[]
 {}
 {:}
+{true:false}
 'hello"
 X!Y
 X!'world"
