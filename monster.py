@@ -940,7 +940,20 @@ class Automaton:
         def output(self, target):
             self.calculateRedundancy()
             found, completed = set(), set()
+            nodes = set(self.forwards.map.keys()) | set(self.backwards.map.keys())
             print('digraph {', file=target)
+            for n in nodes:
+                if isinstance(n, PState):
+                    print(f's{n.id} [shape=none, ' +
+                          f'label={n.dotLabel(self.input,self.redundant[n])}];', file=target)
+                elif isinstance(n, Barrier):
+                    print(f'b{n.id} [shape=none, fontcolor=orange, label="Barrier {n.id}"];', file=target)
+                    if n.parent is not None:
+                        print(f'b{n.parent.id} -> b{n.id} [label="nested", fontcolor=orange, color=orange]',
+                              file=target)
+                else:
+                    print(f'Unrecognised node in trace: {repr(n)}')
+
             for k,v in self.forwards.map.items():
                 if isinstance(k, PState):
                     for nextState, label in v:
@@ -949,21 +962,9 @@ class Automaton:
                             print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
                         elif isinstance(nextState,Barrier):
                             print(f's{k.id} -> b{nextState.id} [label="inside",color=orange,fontcolor=orange];', file=target)
-                            found.add(nextState)
-                        else:
-                            fontcolor = 'green' if nextState else 'red'
-                    print(f's{k.id} [shape=none, fontcolor={fontcolor}, '+
-                          f'label={k.dotLabel(self.input,self.redundant[k])}];', file=target)
                 elif isinstance(k, Barrier):
                     for nextState, label in v:
                         print(f'b{k.id} -> s{nextState.id} [label="continues",color=orange,fontcolor=orange];', file=target)
-                    print(f'b{k.id} [shape=none, fontcolor=orange, label="Barrier {k.id}"];', file=target)
-                    completed.add(k)
-                else:
-                    print(f'Non-pstate in trace: {repr(k)}')
-            incomplete = found - completed
-            for b in incomplete:
-                print(f'b{b.id} [shape=none, fontcolor=orange, label="Barrier {b.id}"];', file=target)
             print('}', file=target)
 
         def calculateRedundancy(self):
