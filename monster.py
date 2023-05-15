@@ -823,6 +823,7 @@ class Automaton:
                         barrier = None
                         if len(succ)>1:
                             barrier = Barrier(succ[1:], parent=p.barrier)
+                            #print(f'p{p.id} creates b{barrier.id}: {barrier}')
 
                         for state in succ[0]:
                             if state.label=="shift":
@@ -932,9 +933,6 @@ class Automaton:
             if not self.recording: return
             self.forwards.store(pstate,  (pstate.barrier, 'barrier'))
             self.backwards.store(pstate.barrier, (pstate, 'barrier'))
-            if pstate.barrier is not None  and  pstate.barrier.parent is not None:
-                self.forwards.store(pstate.barrier.parent,  (pstate.barrier, 'barrier'))
-                self.backwards.store(pstate.barrier, (pstate.barrier.parent, 'barrier'))
 
 
         def output(self, target):
@@ -944,7 +942,7 @@ class Automaton:
             print('digraph {', file=target)
             for n in nodes:
                 if isinstance(n, PState):
-                    print(f's{n.id} [shape=none, ' +
+                    print(f'p{n.id} [shape=none, ' +
                           f'label={n.dotLabel(self.input,self.redundant[n])}];', file=target)
                 elif isinstance(n, Barrier):
                     print(f'b{n.id} [shape=none, fontcolor=orange, label="Barrier {n.id}"];', file=target)
@@ -959,12 +957,12 @@ class Automaton:
                     for nextState, label in v:
                         fontcolor = 'black'
                         if isinstance(nextState,PState):
-                            print(f's{k.id} -> s{nextState.id} [label="{label}"];', file=target)
+                            print(f'p{k.id} -> p{nextState.id} [label="{label}"];', file=target)
                         elif isinstance(nextState,Barrier):
-                            print(f's{k.id} -> b{nextState.id} [label="inside",color=orange,fontcolor=orange];', file=target)
+                            print(f'p{k.id} -> b{nextState.id} [label="inside",color=orange,fontcolor=orange];', file=target)
                 elif isinstance(k, Barrier):
                     for nextState, label in v:
-                        print(f'b{k.id} -> s{nextState.id} [label="continues",color=orange,fontcolor=orange];', file=target)
+                        print(f'b{k.id} -> p{nextState.id} [label="continues",color=orange,fontcolor=orange];', file=target)
             print('}', file=target)
 
         def calculateRedundancy(self):
