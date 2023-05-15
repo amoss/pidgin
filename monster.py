@@ -434,6 +434,9 @@ class Barrier:
         self.id = Barrier.counter
         Barrier.counter += 1
 
+    def __str__(self):
+        return f'b{self.id}:{repr(self)}'
+
     def register(self, state):
         self.states.add(state)
         if self.parent is not None:
@@ -483,7 +486,7 @@ class PState:
 
     def enter(self, barrier):
         if barrier is not None:
-            assert barrier.parent == self.barrier
+            assert barrier.parent == self.barrier, f'p{self.id} {barrier} {barrier.parent} {self.barrier}'
             self.barrier = barrier
             barrier.register(self)
 
@@ -839,7 +842,7 @@ class Automaton:
                 if continuation is not None:
                     barrier = None
                     if len(continuation)>1:
-                        barrier = Barrier(continuation[1:])
+                        barrier = Barrier(continuation[1:], closedBarrier.parent)
 
                     for state in continuation[0]:
                         if state.label=="shift":
