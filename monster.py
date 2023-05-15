@@ -911,26 +911,33 @@ class Automaton:
 
         def shift(self, source, destination):
             if not self.recording: return
+            assert source is not None
+            assert destination is not None
             self.forwards.store(source,  (destination, 'shift'))
             self.backwards.store(destination, (source, 'shift'))
 
         def reduce(self, source, destination):
             if not self.recording: return
+            assert source is not None
+            assert destination is not None
             self.forwards.store(source,  (destination, 'reduce'))
             self.backwards.store(destination, (source, 'reduce'))
 
         def result(self, state):
             if not self.recording: return
+            assert state is not None
             self.forwards.store(state, (True, 'emit'))
             self.backwards.store(True, (state,'emit'))
 
         def blocks(self, state):
             if not self.recording: return
+            assert state is not None
             self.forwards.store(state, (False, 'blocks'))
             self.backwards.store(False, (state,'blocks'))
 
         def barrier(self, pstate):
             if not self.recording: return
+            if pstate.barrier is None: return
             self.forwards.store(pstate,  (pstate.barrier, 'barrier'))
             self.backwards.store(pstate.barrier, (pstate, 'barrier'))
 
@@ -949,7 +956,7 @@ class Automaton:
                     if n.parent is not None:
                         print(f'b{n.parent.id} -> b{n.id} [label="nested", fontcolor=orange, color=orange]',
                               file=target)
-                else:
+                elif n not in (True,False):
                     print(f'Unrecognised node in trace: {repr(n)}')
 
             for k,v in self.forwards.map.items():
