@@ -13,8 +13,9 @@ import shutil
 import traceback
 
 #from bootstrap.grammar import Grammar
-import monster
-Grammar = monster.Grammar
+import bootstrap.monster
+Grammar = bootstrap.monster.Grammar
+monster = bootstrap.monster
 
 GRAY = "\033[0;37m"
 RED = "\033[1;31m"

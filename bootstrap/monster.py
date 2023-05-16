@@ -5,6 +5,7 @@ from functools import total_ordering
 import html
 import itertools
 import sys
+from .grammar import Rule, Clause, Grammar
 
 def strs(iterable):
     return " ".join([str(x) for x in iterable])
@@ -46,131 +47,6 @@ class MultiDict:
         self.map[k].add(v)
 
 
-
-
-class Rule:
-    def __init__(self, name, grammar):
-        self.name = name
-        self.grammar = grammar
-        self.clauses = set()
-
-    def add(self, initialBody):
-        body = [ symbol for symbol in initialBody ]
-        self.clauses.add( Clause(self.name, body) )
-
-
-@total_ordering
-class Clause:
-    def __init__(self, name, body, terminating=False):
-        self.lhs = name
-        self.rhs = body
-        for i,symbol in enumerate(self.rhs):
-            if isinstance(symbol, Grammar.Glue):
-                symbol.within = self
-                symbol.position = i
-        self.terminating = terminating
-        self.configs = [None] * (len(body)+1)
-
-    def __str__(self):
-        return f"{self.lhs} <- {' '.join([str(x) for x in self.rhs])}"
-
-    def __lt__(self, other):
-        return self.rhs[0].order() < other.rhs[0].order()
-
-
-class Grammar:
-    def __init__(self, start):
-        self.rules    = dict()
-        self.start    = start
-        self.discard  = None
-
-    def addRule(self, name, *body):
-        assert not name in self.rules.keys()
-        rule = Rule(name, self)
-        for b in body:
-            rule.add(b)
-        self.rules[name] = rule
-        return rule
-
-    def setDiscard(self, terminal):
-        self.discard = terminal
-
-    def dump(self):
-        for rule in self.rules.values():
-            print(f"{rule.name}:")
-            for clause in rule.clauses:
-                print(f"  {strs(clause.rhs)}")
-
-    class TermString:
-        def __init__(self, match, modifier="just", tag='', original=None):
-            '''A terminal symbol that matches a string literal *match*. If the *modifier* is repeating then
-               the match is always greedy. If non-greedy matching is required then it can be simulated by
-               wrapping in a non-terminal (with glue if appropriate).'''
-            self.string = match
-            self.tag = tag
-            assert modifier in ("any","just","some","optional"), modifier
-            self.modifier = modifier
-            self.strength = 'greedy'
-            self.original = self if original is None else original
-
-        def __str__(self):
-            tag = f",{self.tag}" if self.tag!="" else ""
-            return f"T({repr(self.string)},{self.modifier}{tag})"
-
-
-    class TermSet:
-        def __init__(self, charset, modifier="just", inverse=False, tag='', original=None):
-            assert modifier in ("any","just","some","optional"), modifier
-            self.modifier = modifier
-            self.strength = "greedy"
-            self.chars = frozenset(charset)
-            self.inverse  = inverse
-            self.tag      = tag
-            self.original = self if original is None else original
-
-        def __str__(self):
-            if len(self.chars)<=5:
-                charset = "".join([c for c in self.chars])
-            else:
-                charset = "".join([c for c in list(self.chars)[:5]]) + f' +{len(self.chars)-5}'
-            if self.inverse:
-                result = 'T(^{' + charset + '}'
-            else:
-                result = 'T({' + charset + '}'
-            tag = f",{self.tag}" if self.tag!="" else ""
-            return f'{result},{self.modifier}{tag})'
-
-
-    class Nonterminal:
-        def __init__(self, name, strength="greedy", modifier="just"):
-            assert modifier in ("any", "just", "some", "optional"), modifier
-            assert strength in ("all", "frugal", "greedy"), strength
-            self.name     = name
-            self.modifier = modifier
-            self.strength = strength
-
-        def __str__(self):
-            return f"N({self.strength},{self.modifier},{self.name})"
-
-    class Glue:
-        def __init__(self):
-            self.within = None
-            self.position = None
-            self.modifier = "just"
-            self.strength = "greedy"
-
-        def __str__(self):
-            return "Glue"
-
-    class Remover:
-        def __init__(self):
-            self.within = None
-            self.position = None
-            self.modifier = "just"
-            self.strength = "greedy"
-
-        def __str__(self):
-            return "Remover"
 
 
 class Handle:
