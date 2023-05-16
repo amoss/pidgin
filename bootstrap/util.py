@@ -26,15 +26,29 @@ class OrdSet:
         for x in self.ord:
             yield x
 
+
 def strs(iterable):
     return " ".join([str(x) for x in iterable])
+
 
 def prefixesOf(s) :
     for i in range(1,len(s)+1):
         yield s[:i]
+
 
 def dump(node, depth=0):
     print(f"{'  '*depth}{type(node)}{node}")
     if hasattr(node,'children'):
         for c in node.children:
             dump(c,depth+1)
+
+
+class MultiDict:
+    '''This class stores a representation of graph edges as a two-level structure of keys -> value(-sets).'''
+    def __init__(self):
+        self.map = {}
+
+    def store(self, k, v):
+        if not k in self.map.keys():
+            self.map[k] = set()
+        self.map[k].add(v)
