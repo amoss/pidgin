@@ -355,26 +355,27 @@ class EpsilonRecord:
                 return pairs
             return pairs[:1] + removeShadows([p for p in pairs[1:] if p[1]!=pairs[0][1] ])
 
+        def repack(pairs):
+            '''Convert the non-contiguous (but ordered) priorites into a contiguous numbering.'''
+            currentPri, path = pairs[0]
+            densePri = 0
+            result = [(densePri,path)]
+            for pri, path in pairs[1:]:
+                if pri!=currentPri:
+                    densePri = 1
+                currentPri = pri
+                result.append( (densePri, path) )
+            return result
+
+
         allResults = set()
         for seed in self.initial:
             allResults.update( normalize(p) for p in followPath(seed, marked=set()) )
         noncontiguous = list(allResults)
         noncontiguous.sort(key=lambda pair:pair[0], reverse=True)
         noncontiguous = removeShadows(noncontiguous)
-        contiguous = list(enumerate([ symbols for pri,symbols in noncontiguous ]))
+        contiguous = repack(noncontiguous)
         return contiguous
-
-
-# TODO:
-#       quoted_str2: fails because we don't try lower pri when barriered region fails
-#       recurse_degenseq3:  non-deterministic failure. This is the one with the free reduction to
-#                           R on an empty string at the beginning of the trace. Looks like the shift
-#                           fromt he second state should not be lower priority than the reduce?
-#       recurse_termplusvianonterm: non-deterministic failure on p0, p1-p3 always fail
-#                                   The order of the three reductions from the second state should work when
-#                                   we have failure on the barriered region.
-#       regex_selfalignboundedright2: non-deterministic failure
-#       pidgin_term: blocks on the >> sequence, same problem as quoted_str2
 
 
 class AState:
@@ -810,7 +811,7 @@ class Automaton:
         while len(pstates)>0:
             next = []
             for p in pstates:
-                print(f'Execute p{p.id} {strs(p.stack)}')
+                #print(f'Execute p{p.id} {strs(p.stack)}')
                 self.trace.barrier(p)
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.processDiscard(input[p.position:])
@@ -825,14 +826,14 @@ class Automaton:
                 else:
                     #try:
                     succ = p.successors(input)
-                    print(f'succ {[[st.id for st in pri] for pri in succ]}')
+                    #print(f'succ {[[st.id for st in pri] for pri in succ]}')
                     if len(succ)==0:
                         self.trace.blocks(p)
                     else:
                         barrier = None
                         if len(succ)>1:
                             barrier = Barrier(succ[1:], parent=p.barrier)
-                            print(f'p{p.id} creates b{barrier.id}: {barrier}')
+                            #print(f'p{p.id} creates b{barrier.id}: {barrier}')
 
                         for state in succ[0]:
                             if state.label=="shift":
@@ -858,7 +859,7 @@ class Automaton:
                         next.append(state)
                         state.enter(barrier)
 
-            print(f'next {[st.id for st in next]}')
+            #print(f'next {[st.id for st in next]}')
             pstates = next
 
     class Configuration:

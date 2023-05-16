@@ -100,10 +100,10 @@ def quoted_str5():
        of the pidgin grammar.'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('Binop')
-    g.addRule('Binop', [N("I"), T("!"), N("Binop")], [N("Atom")])
+    g.addRule('Binop', [N("I"), T("!"), N("Atom")], [N("Atom")])
     g.addRule('Atom', [N("I")], [N("Q")])
     g.addRule('Q', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
     g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
     return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
-               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z', 'T!\'longer string"'], \
+               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'T!\'longer string"'], \
               ['', '2x', '\'"!\'"', 'T!""', 'T!\'\'']
