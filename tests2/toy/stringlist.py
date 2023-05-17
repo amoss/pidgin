@@ -4,7 +4,9 @@
 import string
 
 def toy_stringlist():
-    '''Test lists of pidgin-style string literals.'''
+    '''atom: str_lit | order   order: [ elem_lst* ]   elem_lst: atom?   str_lit: ' [^"]* " | u( [^)]* )
+
+       Test lists of pidgin-style string literals.'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('atom')
     g.setDiscard(S(' \t\r\n',m='some'))

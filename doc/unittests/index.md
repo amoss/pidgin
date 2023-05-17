@@ -1,4 +1,54 @@
 
+## toy_numberlist
+`Test lists of integer literals.`
+
+
+![eclr machine](toy_numberlist/eclr.dot.png)
+
+## toy_stringlist
+`atom: str_lit | order   order: [ elem_lst* ]   elem_lst: atom?   str_lit: ' [^"]* " | u( [^)]* )`
+       Test lists of pidgin-style string literals.
+
+![eclr machine](toy_stringlist/eclr.dot.png)
+
+## toy_stringlist2
+`A: S | O   O: [ ] | [ P* A ,?] | [ A A+ ]   P: A ,   S: ' [^"]* " | u( [^)]* )`
+       Test lists of pidgin-style string literals with uniform but optional commas.
+
+![eclr machine](toy_stringlist2/eclr.dot.png)
+
+## quoted_str
+`Q: ' [^"]* " | u( [^)]* \)`
+       Test inverted character sets and glue.
+
+![eclr machine](quoted_str/eclr.dot.png)
+
+## quoted_str2
+`Q: ' [^"]* " | << ([^>] | > [^>])* >>`
+       Test inverted character sets and glue, matching a two-symbol terminator.
+
+![eclr machine](quoted_str2/eclr.dot.png)
+
+## quoted_str3
+`Q: " ([^"] | \ [^] )* "`
+       Test C-style strings with two-symbol escape sequences.
+
+![eclr machine](quoted_str3/eclr.dot.png)
+
+## quoted_str4
+`L: I  | I ! L | Q    Q: ' [^"]* " | u( [^)]* \)    I: [a-z] Glue [a-z0-9]* Remover`
+       Test pidgin-style strings in a language with a single binary operator.
+
+![eclr machine](quoted_str4/eclr.dot.png)
+
+## quoted_str5
+`Binop: I ! Binop | Atom   Atom: I | Q    Q: ' [^"]* " | u( [^)]* \)    I: [a-z] Glue [a-z0-9]* Remover`
+       Test pidgin-style strings in a language with a single binary operator. Differs to the previous
+       case by splitting the ident and indent-plus-operator into separate rules to simulate a piece
+       of the pidgin grammar.
+
+![eclr machine](quoted_str5/eclr.dot.png)
+
 ## recurse_degenseq
 `R: R* x`
        Test degenerate form of terminal repetition, same language as x+ but combinatorially ambiguous without
@@ -82,6 +132,18 @@
        Test sequence of repeated choices with overlapping cases.
 
 ![eclr machine](regex_choicestar/eclr.dot.png)
+
+## regex_glue
+`R: [a-z] Glue [a-z0-9]* Remover`
+       Test use of glue between terminals.
+
+![eclr machine](regex_glue/eclr.dot.png)
+
+## regex_glue2
+`R: [a-z] Glue [a-z0-9]* Remover`
+       Test use of glue between terminals.
+
+![eclr machine](regex_glue2/eclr.dot.png)
 
 ## regex_selfalignboundedboth
 `R: l (x y)* r`

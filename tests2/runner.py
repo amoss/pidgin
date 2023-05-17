@@ -86,7 +86,7 @@ for d in subDirs:
                 if name not in injections.keys() and name[:2]!='__':
                     entry = getattr(module,name)
                     if callable(entry):     # Filter out imports and data declarations
-                        units.append((entry,d=='units'))
+                        units.append((entry,os.path.basename(d) in ('units','toy')))
         except:
             print(f"{RED}Failed to load {d}/{f}{GRAY}")
             traceback.print_exc()
