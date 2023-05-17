@@ -5,16 +5,12 @@ import html
 
 from .util import MultiDict, OrdSet
 from .grammar import Clause, Grammar
-'''In order to terminate the recursion at a fixed-point within the epsilon-closure we have
-   contructed path-fragments that cover the set of paths within the closure. In order to
-   use them to define the priority of edges originating at the state we need to perform a
-   step similar to the pumping lemma on the fragments to reconstruct a minimal set of
-   paths that we can measure the priorities on (by scanning the priority markers on the
-   reconstructed paths).'''
-
 
 
 class EpsilonRecord:
+    '''A record of how the epsilon-closure was calculated on an AState. The closure defines which
+       symbols may be accepted next in the AState, and retracing the steps used to add configurations
+       to the closure allows calculation of the symbol priority.'''
     def __init__(self, grammar, initialConfigs):
         self.grammar  = grammar
         self.internal = {}
@@ -26,6 +22,11 @@ class EpsilonRecord:
 
 
     def closure(self, config):
+        '''Process the single *config* to produce a set of derived configurations to add to the closure. Use
+           the next symbol in the *config* to decide on how to expand the closure. Non-terminals are looked
+           up in the grammar to add their initial configurations. Each next symbol can be viewed as an edge
+           in a DAG that holds the configurations in the closure. These edges are partitioned into thei
+           *internal* and *exit* collections as the record.'''
         if config in self.internal:
             return
         self.internal[config] = set()
@@ -110,7 +111,6 @@ class EpsilonRecord:
                 result.append( (densePri, path) )
             return result
 
-
         allResults = set()
         for seed in self.initial:
             allResults.update( normalize(p) for p in followPath(seed, marked=set()) )
@@ -123,7 +123,7 @@ class EpsilonRecord:
 
 class AState:
     counter = 1
-    '''A state in the LR(0) automaton'''
+    '''A state (collection of configurations) in the LR(0) automaton'''
     def __init__(self, grammar, configs, label=None):
         assert len(configs)>0
         self.grammar = grammar
@@ -144,7 +144,7 @@ class AState:
         for pri,symbol in contiguous:
             self.addEdge(pri, symbol, None)
         for symbol in record.accept:
-            self.addEdge(0, symbol, None)           # TODO: Hmmm, so many questions????
+            self.addEdge(0, symbol, None)
 
     def addEdge(self, priority, eqClass, target):
         while priority >= len(self.edges):
@@ -160,13 +160,6 @@ class AState:
     def __str__(self):
         return self.label
 
-        '''Process the single *config* to produce a set of derived configurations to add to the closure. Use
-           the next symbol in the *config* to decide on how to expand the closure, terminals are recorded in
-           the traces accumulated in traceAcc. Non-terminals are looked up in the grammar to add their
-           initial configurations to the accumulator *configAcc*. The accumulators are used to terminate on
-           the least fixed-point. Where looping modifiers cause a divergence in the chain of symbols insert
-           textual markers into the *prefix* trace to indicate the priority of each path. These will be
-           reconstructed into the edge-priority for the state.'''
 
 class Handle:
     def __init__(self, config):
@@ -221,6 +214,7 @@ class Handle:
                 self.dfa.store(state, (eqClass,succ))
                 worklist.add(succ)
 
+
     def check(self, stack):
         '''Check the stack against the DFA. If we find a match then split the stack to return the new stack
            and the handle with AStates filtered out.'''
@@ -248,6 +242,7 @@ class Handle:
             return stack[:pos+2], onlySymbols
         return None, None
 
+
     def __str__(self):
         res = ""
         for k,v in self.dfa.map.items():
@@ -268,14 +263,17 @@ class Symbol:
         self.modifier = modifier
         self.strength = strength
 
+
     def __str__(self):
         if self.modifier=="just":     return str(self.eqClass)
         if self.modifier=="any":      return str(self.eqClass) + '*'
         if self.modifier=="some":     return str(self.eqClass) + '+'
         if self.modifier=="optional": return str(self.eqClass) + '?'
 
+
     def isTerminal(self):
         return self.eqClass.isTerminal
+
 
     def isNonterminal(self):
         return self.eqClass.isNonterminal
@@ -287,6 +285,7 @@ class SymbolTable:
         self.classes = [SymbolTable.SpecialEQ("glue"), SymbolTable.SpecialEQ("remover")]
         self.lookup  = { ('glue',):0, ('remover',):1 }
 
+
     def makeConfig(self, clause, position=0):
         assert isinstance(clause, Clause)
         if clause.lhs is None:
@@ -294,6 +293,7 @@ class SymbolTable:
         else:
             newLhs = self.get(('nt', clause.lhs), lambda: SymbolTable.NonterminalEQ(clause.lhs))
         return Automaton.Configuration(newLhs, self.canonSentence(clause.rhs, clause=clause), position=position)
+
 
     def canonSentence(self, rhs, clause=None):
         result = []
@@ -315,6 +315,7 @@ class SymbolTable:
             result.append(Symbol(sClass, s.modifier, s.strength))
         return result
 
+
     class TermSetEQ:
         def __init__(self, chars, inverse=False):
             self.chars   = chars
@@ -334,6 +335,7 @@ class SymbolTable:
             if (input[0] not in self.chars) == self.inverse:    return input[:1]
             return None
 
+
     class TermStringEQ:
         def __init__(self, literal):
             self.literal = literal
@@ -348,6 +350,7 @@ class SymbolTable:
             if input[:len(self.literal)]==self.literal:         return self.literal
             return None
 
+
     class NonterminalEQ:
         def __init__(self, name):
             self.name = name
@@ -359,6 +362,7 @@ class SymbolTable:
             return self.name + modifier
         def matchInput(self, input):
             return None
+
 
     class SpecialEQ:
         def __init__(self, name):

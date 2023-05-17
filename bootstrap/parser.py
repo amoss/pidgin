@@ -21,13 +21,16 @@ class Barrier:
         self.id = Barrier.counter
         Barrier.counter += 1
 
+
     def __str__(self):
         return f'b{self.id}:{repr(self)}'
+
 
     def register(self, state):
         self.states.add(state)
         if self.parent is not None:
             self.parent.register(state)
+
 
     def cancel(self):
         for state in self.states:
@@ -35,6 +38,7 @@ class Barrier:
                 state.barrier = None
         self.states = set()
         self.continuation = []
+
 
     def complete(self, state):
         #print(f'b{self.id} completes: {[p.id for p in self.states]} - {state.id}')
@@ -44,6 +48,7 @@ class Barrier:
                 self.parent.remove(state)
             return self, self.continuation
         return None, None
+
 
     def remove(self, state):
         self.states.remove(state)
@@ -68,11 +73,14 @@ class PState:
             barrier.register(self)
         PState.counter += 1
 
+
     def __hash__(self):
         return hash((tuple(self.stack),self.position))
 
+
     def __eq__(self, other):
         return isinstance(other,PState) and self.stack==other.stack and self.position==other.position
+
 
     def enter(self, barrier):
         if barrier is not None:
@@ -80,9 +88,11 @@ class PState:
             self.barrier = barrier
             barrier.register(self)
 
+
     def cancel(self):
         if self.barrier is not None:
             self.barrier.cancel()
+
 
     def complete(self):
         if self.barrier is not None:
@@ -138,6 +148,7 @@ class PState:
                                                   "shift", self.barrier))
         return [ p for p in result if len(p)>0 ]
 
+
     def dotLabel(self, input, redundant):
         remaining = input[self.position:]
         astate = self.stack[-1]
@@ -164,10 +175,12 @@ class Token:
         self.symbol   = symbol
         self.contents = content
 
+
     def __str__(self):
         if self.symbol is not None and self.symbol.isTerminal:
             return f'{self.symbol}:{self.contents}'
         return f'{self.symbol}::'
+
 
     def dump(self, depth=0):
         print(f"{'  '*depth}{self.tag}")
@@ -178,6 +191,7 @@ class Token:
 class Parser:
     def __init__(self, machine):
         self.machine = machine
+
 
     def execute(self, input, tracing=False):
         self.trace = Trace(input, tracing)

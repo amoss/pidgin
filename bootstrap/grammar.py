@@ -6,6 +6,7 @@ from .util import strs
 
 
 class Rule:
+    '''The collection of clauses that define a production in the grammar.'''
     def __init__(self, name, grammar):
         self.name = name
         self.grammar = grammar
@@ -18,6 +19,8 @@ class Rule:
 
 @total_ordering
 class Clause:
+    '''A sentence of symbols that forms a r.h.s of a production rule. Each clause
+       is a non-prioritized choice of symbols.'''
     def __init__(self, name, body, terminating=False):
         self.lhs = name
         self.rhs = body
@@ -36,6 +39,7 @@ class Clause:
 
 
 class Grammar:
+    '''The collection of rules that define a language.'''
     def __init__(self, start):
         self.rules    = dict()
         self.start    = start
@@ -60,9 +64,7 @@ class Grammar:
 
     class TermString:
         def __init__(self, match, modifier="just", tag='', original=None):
-            '''A terminal symbol that matches a string literal *match*. If the *modifier* is repeating then
-               the match is always greedy. If non-greedy matching is required then it can be simulated by
-               wrapping in a non-terminal (with glue if appropriate).'''
+            '''A terminal symbol with a *modifier* that matches a string literal *match*.'''
             self.string = match
             self.tag = tag
             assert modifier in ("any","just","some","optional"), modifier
@@ -77,6 +79,9 @@ class Grammar:
 
     class TermSet:
         def __init__(self, charset, modifier="just", inverse=False, tag='', original=None):
+            '''A terminal symbol with a *modifier* that matches a set of characters. These work
+               the same as character-classes in regex and allow an *inverse* match. The *tag*
+               is an opaque value that can be recovered from the parse-tree node.'''
             assert modifier in ("any","just","some","optional"), modifier
             self.modifier = modifier
             self.strength = "greedy"
@@ -100,6 +105,7 @@ class Grammar:
 
     class Nonterminal:
         def __init__(self, name, strength="greedy", modifier="just"):
+            '''A non-terminal symbol in the grammar. Equality is over *name*.'''
             assert modifier in ("any", "just", "some", "optional"), modifier
             assert strength in ("all", "frugal", "greedy"), strength
             self.name     = name
@@ -111,6 +117,8 @@ class Grammar:
 
     class Glue:
         def __init__(self):
+            '''Glue is a special-symbol that disables the discard channel (gluing together symbols
+               without spacing.'''
             self.within = None
             self.position = None
             self.modifier = "just"
@@ -121,6 +129,7 @@ class Grammar:
 
     class Remover:
         def __init__(self):
+            '''Remover is a special-symbol that enables the discard channel (removing the effect of Glue).'''
             self.within = None
             self.position = None
             self.modifier = "just"
@@ -128,5 +137,4 @@ class Grammar:
 
         def __str__(self):
             return "Remover"
-
 
