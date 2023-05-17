@@ -1,7 +1,16 @@
 
-## toy_numberlist
-`Test lists of integer literals.`
+## toy_maybe2list
+`Atom: [0-9]+ | Order   Order: [ Atom? Atom? ]`
+       A (recursive) definition of a list that may contain up to two items. The better way to define this
+       would be a choice of [ Atom ] | [ Atom Atom ] as it produces an unambiguous parse. This version is
+       useful for examining ambiguity.
+    
 
+![eclr machine](toy_maybe2list/eclr.dot.png)
+
+## toy_numberlist
+`order: [ elem_lst* ]   elem_lst: atom?   atom: number | order   number: [0-9] Glue [0-9]* Remover`
+       Test lists of integer literals.
 
 ![eclr machine](toy_numberlist/eclr.dot.png)
 

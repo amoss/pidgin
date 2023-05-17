@@ -96,3 +96,21 @@ def toy_numberlist():
     return g, \
 '''[]
 [1 23 45]'''.split('\n'), []
+
+def toy_maybe2list():
+    '''Atom: [0-9]+ | Order   Order: [ Atom? Atom? ]
+
+       A (recursive) definition of a list that may contain up to two items. The better way to define this
+       would be a choice of [ Atom ] | [ Atom Atom ] as it produces an unambiguous parse. This version is
+       useful for examining ambiguity.
+    '''
+    g = Grammar("Atom")
+    g.setDiscard(S(" \t\r\n", m="some"))
+
+    g.addRule("Atom", [S(string.digits,m="some")], [N("Order")])
+    g.addRule("Order", [T('['), N("Atom", m="optional"), N("Atom",m="optional"), T("]")])
+
+    return g, ['1', '123', '[]', '[1]', '[1 123]', '[[] 123]', '[[]]', '[[[]]]', '[[123] [[1] 123]]'], \
+              ['', '123 1', '[] []', '[1 1 1]', '[[] [] []]']
+
+
