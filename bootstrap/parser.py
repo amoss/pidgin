@@ -2,7 +2,7 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import html
-from .machine import SymbolTable, Automaton, Handle, AState
+from .machine import SymbolTable, Automaton, Handle, AState, Symbol
 from .util import MultiDict, OrdSet, strs
 
 class Barrier:
@@ -116,13 +116,16 @@ class PState:
                     newStack, handle = target.check(self.stack)
                     #print(f'newStack={newStack}')
                     if newStack is not None:
-                        newStack.append( Token(target.lhs,handle) )
                         #print(f'Handle match on old {strs(self.stack)}')
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
+                            # This is the synthesized rule that acted as entry point, unpack result
+                            assert len(handle)==1
+                            newStack.append( handle[0] )
                             result[-1].append(PState(newStack, self.position, self.processDiscard,
                                                      self.keep, "reduce", self.barrier))
                             continue
+                        newStack.append( Token(target.lhs,handle,None) )
                         returnState = newStack[-2]
                         # When there is a merge in the automaton with identical edges coming into the same
                         # state from distinct prior states, handle checking must only follow the valid path
@@ -143,7 +146,7 @@ class PState:
                                                SymbolTable.NonterminalEQ), type(edgeLabel)
                     matched = edgeLabel.matchInput(input[remaining:])
                     if matched is not None:
-                        result[-1].append( PState(self.stack + [Token(edgeLabel,matched),target],
+                        result[-1].append( PState(self.stack + [Token(edgeLabel,(),matched),target],
                                                   remaining+len(matched), self.processDiscard, self.keep,
                                                   "shift", self.barrier))
         return [ p for p in result if len(p)>0 ]
@@ -171,19 +174,24 @@ class PState:
 
 
 class Token:
-    def __init__(self, symbol, content):
+    def __init__(self, symbol, children, span):
         self.symbol   = symbol
-        self.contents = content
+        assert type(symbol) in (SymbolTable.TermSetEQ, SymbolTable.TermStringEQ, SymbolTable.NonterminalEQ),\
+               f'{symbol} is {repr(symbol)}'
+        self.children = children
+        self.span     = span
+        for c in children:
+            assert isinstance(c, Token), c
 
 
     def __str__(self):
         if self.symbol is not None and self.symbol.isTerminal:
-            return f'{self.symbol}:{self.contents}'
-        return f'{self.symbol}::'
+            return f'T({self.symbol},{self.span})'
+        return f'N({self.symbol.name})'
 
 
     def dump(self, depth=0):
-        print(f"{'  '*depth}{self.tag}")
+        print(f"{'  '*depth}{self}")
         for c in self.children:
             c.dump(depth+1)
 

@@ -55,6 +55,7 @@ argParser.add_argument("-v","--verbose", action="store_true")
 argParser.add_argument("-f","--filter")
 argParser.add_argument("-p","--positive", type=int, default=-1)
 argParser.add_argument("-n","--negative", type=int, default=-1)
+argParser.add_argument("-s","--showtrees", action="store_true")
 args = argParser.parse_args()
 passed, failed = 0, 0
 sys.setrecursionlimit(5000)
@@ -135,6 +136,10 @@ for (u,addToDoc) in units:
             else:
                 passed += 1
                 if args.verbose: print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
+                if args.showtrees:
+                    for j,r in enumerate(results):
+                        print(f'Result {j}')
+                        r.dump()
             redundant = parser.trace.measure()
             if redundant>0.5:
                 print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')

@@ -233,12 +233,12 @@ class Handle:
                         break
             if next is None:
                 if self.exit in dfaState:
-                    onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
+                    onlySymbols = tuple( s for s in stack[pos+2:] if not isinstance(s,AState) )
                     return stack[:pos+2], onlySymbols
                 return None, None
             dfaState = next
         if self.exit in dfaState:
-            onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
+            onlySymbols = tuple( s for s in stack[pos+2:] if not isinstance(s,AState) )
             return stack[:pos+2], onlySymbols
         return None, None
 
@@ -253,11 +253,12 @@ class Handle:
 
 
 class Symbol:
-    '''A symbol is a unit of matching in a grammar (either a terminal from the alphabet or a non-terminal
-       covering a sequence of terminals), or a special symbol that alters the glue-state / discard-channel
-       in the parser. Raw symbols in the initial grammar are represented by inner classes of Grammar. These
-       symbols exist after canonicalization calculates the equivalence classes, and are used in Configurations
-       of the machine and wrapped in Tokens for the stack during a parse.'''
+    '''A symbol is a unit of matching in a grammar: an equivalence class from the SymbolTable combined with
+       a modifier. The equivalance class can be a terminal from the alphabet, a non-terminal covering a
+       sequence of terminals, or a special symbol that alters the glue-state / discard-channel in the parser.
+       Raw symbols in the initial grammar are represented by inner classes of Grammar. These symbols exist
+       after canonicalization calculates the equivalence classes, and are used in Configurations of the machine
+       and wrapped in Tokens for the stack during a parse.'''
     def __init__(self, eqClass, modifier="just", strength="greedy"):
         self.eqClass  = eqClass
         self.modifier = modifier
