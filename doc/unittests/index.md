@@ -145,6 +145,12 @@
 
 ![eclr machine](regex_glue2/eclr.dot.png)
 
+## regex_optional
+`R: x y? z`
+       Test the use of optional modifier on terminals in a grammar.
+
+![eclr machine](regex_optional/eclr.dot.png)
+
 ## regex_selfalignboundedboth
 `R: l (x y)* r`
        Test self aligned repeating sequence with a non-overlapping boundary on both sides.
@@ -241,3 +247,9 @@
        Test repetition of a terminal with an overlapping boundary on the right, equivalent to x+
 
 ![eclr machine](regex_starboundedright2/eclr.dot.png)
+
+## regex_stringstar
+`R: prefix word* suffix`
+       Test the use of star modifier on terminal strings in a grammar.
+
+![eclr machine](regex_stringstar/eclr.dot.png)

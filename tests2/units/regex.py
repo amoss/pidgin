@@ -2,6 +2,25 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import string
 
+def regex_stringstar():
+    '''R: prefix word* suffix
+
+       Test the use of star modifier on terminal strings in a grammar.'''
+    g = Grammar('R')
+    g.addRule('R', [T('prefix'), T('word','any'), T('suffix')])
+    return g, ['prefixsuffix', 'prefixwordsuffix', 'prefixwordwordsuffix', 'prefixwordwordwordsuffix'], \
+           ['', 'suffix', 'prefix', 'prefixworsuffix', 'prefixworddsuffix']
+
+def regex_optional():
+    '''R: x y? z
+
+       Test the use of optional modifier on terminals in a grammar.'''
+    g = Grammar('R')
+    g.addRule('R', [T('x'), T('y','optional'), T('z')])
+    return g, ['xz', 'xyz'], \
+           ['','x','z', 'xyyz', 'y']
+
+
 def regex_seq():
     '''R: x y z
 
