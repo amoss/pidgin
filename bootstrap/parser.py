@@ -2,7 +2,7 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import html
-from .machine import SymbolTable, Automaton, Token, Handle, AState
+from .machine import SymbolTable, Automaton, Handle, AState
 from .util import MultiDict, OrdSet, strs
 
 class Barrier:
@@ -103,9 +103,10 @@ class PState:
             for edgeLabel,target in priLevel.items():
                 #print(f'edge: {edgeLabel} target: {target}')
                 if isinstance(edgeLabel, Automaton.Configuration) and isinstance(target,Handle):
-                    newStack = target.check(self.stack)
+                    newStack, handle = target.check(self.stack)
                     #print(f'newStack={newStack}')
                     if newStack is not None:
+                        newStack.append( Token(target.lhs,handle) )
                         #print(f'Handle match on old {strs(self.stack)}')
                         #print(f'                 => {strs(newStack)}')
                         if target.lhs is None:
@@ -157,6 +158,21 @@ class PState:
         result += f'<tr><td{cell}>' + " ".join([s for s in stackStrs]) + '</td></tr></table> >';
         return result
 
+
+class Token:
+    def __init__(self, symbol, content):
+        self.symbol   = symbol
+        self.contents = content
+
+    def __str__(self):
+        if self.symbol is not None and self.symbol.isTerminal:
+            return f'{self.symbol}:{self.contents}'
+        return f'{self.symbol}::'
+
+    def dump(self, depth=0):
+        print(f"{'  '*depth}{self.tag}")
+        for c in self.children:
+            c.dump(depth+1)
 
 
 class Parser:

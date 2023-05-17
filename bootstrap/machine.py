@@ -222,8 +222,8 @@ class Handle:
                 worklist.add(succ)
 
     def check(self, stack):
-        '''Check the stack against the DFA. If we find a match then return the remaining stack after the
-           handle has been removed.'''
+        '''Check the stack against the DFA. If we find a match then split the stack to return the new stack
+           and the handle with AStates filtered out.'''
         assert isinstance(stack[-1], AState), f'Not an AState on top {stack[-1]}'
         assert (len(stack)%2) == 1, f'Even length stack {strs(stack)}'
         pos = len(stack)-2
@@ -240,13 +240,13 @@ class Handle:
             if next is None:
                 if self.exit in dfaState:
                     onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
-                    return stack[:pos+2] + [Token(self.lhs,onlySymbols)]
-                return None
+                    return stack[:pos+2], onlySymbols
+                return None, None
             dfaState = next
         if self.exit in dfaState:
             onlySymbols = ( s for s in stack[pos+2:] if not isinstance(s,AState) )
-            return stack[:pos+2] + [Token(self.lhs,onlySymbols)]
-        return None
+            return stack[:pos+2], onlySymbols
+        return None, None
 
     def __str__(self):
         res = ""
@@ -255,22 +255,6 @@ class Handle:
             res += " ".join([str(term) + '->' + ",".join([str(state) for state in target]) for (term,target) in v])
             res += ']'
         return res
-
-
-class Token:
-    def __init__(self, symbol, content):
-        self.symbol   = symbol
-        self.contents = content
-
-    def __str__(self):
-        if self.symbol is not None and self.symbol.isTerminal:
-            return f'{self.symbol}:{self.contents}'
-        return f'{self.symbol}::'
-
-    def dump(self, depth=0):
-        print(f"{'  '*depth}{self.tag}")
-        for c in self.children:
-            c.dump(depth+1)
 
 
 class Symbol:
@@ -295,6 +279,7 @@ class Symbol:
 
     def isNonterminal(self):
         return self.eqClass.isNonterminal
+
 
 class SymbolTable:
     '''The collection of canonical equivalence-classes for symbols.'''
