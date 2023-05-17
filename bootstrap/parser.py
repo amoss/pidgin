@@ -3,7 +3,7 @@
 
 import html
 from .machine import SymbolTable, Automaton, Token, Handle, AState
-from .util import OrdSet, strs
+from .util import MultiDict, OrdSet, strs
 
 class Barrier:
     counter = 1
@@ -159,6 +159,167 @@ class PState:
 
 
 
+class Parser:
+    def __init__(self, machine):
+        self.machine = machine
+
+    def execute(self, input, tracing=False):
+        self.trace = Trace(input, tracing)
+        pstates = [PState([self.machine.start], 0, self.machine.processDiscard)]
+        while len(pstates)>0:
+            next = []
+            for p in pstates:
+                #print(f'Execute p{p.id} {strs(p.stack)}')
+                self.trace.barrier(p)
+                if not isinstance(p.stack[-1],AState):
+                    remaining = p.position + self.machine.processDiscard(input[p.position:])
+                    if remaining==len(input) and len(p.stack)==2:
+                        yield p.stack[1]
+                        p.cancel()
+                        self.trace.result(p)
+                        continue
+                    else:
+                        self.trace.blocks(p)
+                        # Fall-through to completion
+                else:
+                    #try:
+                    succ = p.successors(input)
+                    #print(f'succ {[[st.id for st in pri] for pri in succ]}')
+                    if len(succ)==0:
+                        self.trace.blocks(p)
+                    else:
+                        barrier = None
+                        if len(succ)>1:
+                            barrier = Barrier(succ[1:], parent=p.barrier)
+                            #print(f'p{p.id} creates b{barrier.id}: {barrier}')
+
+                        for state in succ[0]:
+                            if state.label=="shift":
+                                self.trace.shift(p,state)
+                            else:
+                                self.trace.reduce(p,state)
+                            next.append(state)
+                            state.enter(barrier)
+                    #except AssertionError as e:
+                    #    self.trace.blocks(p)
+                    #    print(f'ERROR {e}')
+                closedBarrier, continuation = p.complete()
+                if continuation is not None:
+                    barrier = None
+                    if len(continuation)>1:
+                        barrier = Barrier(continuation[1:], closedBarrier.parent)
+
+                    for state in continuation[0]:
+                        if state.label=="shift":
+                            self.trace.shift(closedBarrier, state)
+                        else:
+                            self.trace.reduce(closedBarrier, state)
+                        next.append(state)
+                        state.enter(barrier)
+
+            #print(f'next {[st.id for st in next]}')
+            pstates = next
+
+
+
+class Trace:
+    def __init__(self, input, recording):
+        self.recording = recording
+        self.input     = input
+        self.forwards  = MultiDict()
+        self.backwards = MultiDict()
+        self.redundant = None
+
+    def shift(self, source, destination):
+        if not self.recording: return
+        assert source is not None
+        assert destination is not None
+        self.forwards.store(source,  (destination, 'shift'))
+        self.backwards.store(destination, (source, 'shift'))
+
+    def reduce(self, source, destination):
+        if not self.recording: return
+        assert source is not None
+        assert destination is not None
+        self.forwards.store(source,  (destination, 'reduce'))
+        self.backwards.store(destination, (source, 'reduce'))
+
+    def result(self, state):
+        if not self.recording: return
+        assert state is not None
+        self.forwards.store(state, (True, 'emit'))
+        self.backwards.store(True, (state,'emit'))
+
+    def blocks(self, state):
+        if not self.recording: return
+        assert state is not None
+        self.forwards.store(state, (False, 'blocks'))
+        self.backwards.store(False, (state,'blocks'))
+
+    def barrier(self, pstate):
+        if not self.recording: return
+        if pstate.barrier is None: return
+        self.forwards.store(pstate,  (pstate.barrier, 'barrier'))
+        self.backwards.store(pstate.barrier, (pstate, 'barrier'))
+
+
+    def output(self, target):
+        from .parser import PState, Barrier      #### TEMP TEMP TEMP
+        self.calculateRedundancy()
+        found, completed = set(), set()
+        nodes = set(self.forwards.map.keys()) | set(self.backwards.map.keys())
+        print('digraph {', file=target)
+        for n in nodes:
+            if isinstance(n, PState):
+                print(f'p{n.id} [shape=none, ' +
+                      f'label={n.dotLabel(self.input,self.redundant[n])}];', file=target)
+            elif isinstance(n, Barrier):
+                print(f'b{n.id} [shape=none, fontcolor=orange, label="Barrier {n.id}"];', file=target)
+                if n.parent is not None:
+                    print(f'b{n.parent.id} -> b{n.id} [label="nested", fontcolor=orange, color=orange]',
+                          file=target)
+            elif n not in (True,False):
+                print(f'Unrecognised node in trace: {repr(n)}')
+
+        for k,v in self.forwards.map.items():
+            if isinstance(k, PState):
+                for nextState, label in v:
+                    fontcolor = 'black'
+                    if isinstance(nextState,PState):
+                        print(f'p{k.id} -> p{nextState.id} [label="{label}"];', file=target)
+                    elif isinstance(nextState,Barrier):
+                        print(f'p{k.id} -> b{nextState.id} [label="inside",color=orange,fontcolor=orange];', file=target)
+            elif isinstance(k, Barrier):
+                for nextState, label in v:
+                    print(f'b{k.id} -> p{nextState.id} [label="continues",color=orange,fontcolor=orange];', file=target)
+        print('}', file=target)
+
+    def calculateRedundancy(self):
+        if self.redundant is not None: return
+        self.redundant = {}
+        for k in self.forwards.map.keys():
+            self.redundant[k] = True
+        # The backwards map over the trace is acyclic and performance is not a concern
+        def markAncestors(state):
+            if not state in self.backwards.map:
+                pass #print(f'Orphan {state}')
+            else:
+                for next,_ in self.backwards.map[state]:
+                    self.redundant[next] = False
+                    markAncestors(next)
+        if True in self.backwards.map:
+            for s,_ in self.backwards.map[True]:
+                markAncestors(s)
+
+    def measure(self):
+        self.calculateRedundancy()
+        redundant = self.redundant.values()
+        return len([v for v in redundant if v]) / len(redundant)
+
+    def solutions(self):
+        if True in self.backwards.map:
+            for s,_ in self.backwards.map[True]:
+                yield s
 ### The fold
 
 #class Parser:

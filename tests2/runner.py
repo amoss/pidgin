@@ -12,10 +12,9 @@ import re
 import shutil
 import traceback
 
-#from bootstrap.grammar import Grammar
-import bootstrap.monster
-Grammar = bootstrap.monster.Grammar
-monster = bootstrap.monster
+from bootstrap.grammar import Grammar
+from bootstrap.machine import Automaton
+from bootstrap.parser import Parser
 
 GRAY = "\033[0;37m"
 RED = "\033[1;31m"
@@ -120,22 +119,23 @@ for (u,addToDoc) in units:
         #grammar.dump()
         dir = os.path.join(target,name)
         os.makedirs(dir, exist_ok=True)
-        automaton = monster.Automaton(grammar)
+        automaton = Automaton(grammar)
         automaton.dot( open(os.path.join(dir,"eclr.dot"), "wt") )
+        parser = Parser(automaton)
 
         for i,p in enumerate(positive):
             if args.negative!=-1: continue
             if args.positive!=-1 and i!=args.positive: continue
             if args.verbose: print(f'{GRAY}Executing p{i} on {name}: {p}{END}')
-            results = [r for r in automaton.execute(p, True)]
-            automaton.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
+            results = [r for r in parser.execute(p, True)]
+            parser.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
             if len(results)==0:
                 print(f'{RED}Failed on {name} positive {i} {p}{END}')
                 failed += 1
             else:
                 passed += 1
                 if args.verbose: print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
-            redundant = automaton.trace.measure()
+            redundant = parser.trace.measure()
             if redundant>0.5:
                 print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')
             if len(results)>1:
@@ -146,15 +146,15 @@ for (u,addToDoc) in units:
                 basename = os.path.basename(case)
                 body = open(case,'rt').read()
                 if args.verbose: print(f'{GRAY}Executing {basename} on {name}: {len(body)}{END}')
-                results = [r for r in automaton.execute(body, True)]
-                automaton.trace.output( open(os.path.join(dir,f'{basename}.dot'),'wt') )
+                results = [r for r in parser.execute(body, True)]
+                parser.trace.output( open(os.path.join(dir,f'{basename}.dot'),'wt') )
                 if len(results)==0:
                     print(f'{RED}Failed on {name} positive {case}{END}')
                     failed += 1
                 else:
                     passed += 1
                     if args.verbose: print(f'{GREEN}Passed on {name} positive {case}{END}')
-                redundant = automaton.trace.measure()
+                redundant = parser.trace.measure()
                 if redundant>0.5:
                     print(f'{RED}High redundancy {redundant} on {name} positive {case}{END}')
                 if len(results)>1:
@@ -164,8 +164,8 @@ for (u,addToDoc) in units:
             if args.positive!=-1: continue
             if args.negative!=-1 and i!=args.negative: continue
             if args.verbose: print(f'{GRAY}Executing n{i} on {name}: {n}')
-            results = [r for r in automaton.execute(n, True)]
-            automaton.trace.output( open(os.path.join(dir,f'n{i}.dot'),'wt') )
+            results = [r for r in parser.execute(n, True)]
+            parser.trace.output( open(os.path.join(dir,f'n{i}.dot'),'wt') )
             if len(results)>0:
                 print(f'{RED}Failed on {name} negative {i} {n}{END}')
                 failed += 1
