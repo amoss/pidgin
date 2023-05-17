@@ -83,7 +83,9 @@ u(world)
 
 
 def toy_numberlist():
-    '''Test lists of integer literals.'''
+    '''order: [ elem_lst* ]   elem_lst: atom?   atom: number | order   number: [0-9] Glue [0-9]* Remover
+
+       Test lists of integer literals.'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('order')
     g.setDiscard(S(' \t\r\n',m='some'))
