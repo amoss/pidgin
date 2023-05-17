@@ -107,7 +107,7 @@ def toy_maybe2list():
     g = Grammar("Atom")
     g.setDiscard(S(" \t\r\n", m="some"))
 
-    g.addRule("Atom", [S(string.digits,m="some")], [N("Order")])
+    g.addRule("Atom", [S(string.digits), Glue(), S(string.digits,m="any"), Remove()], [N("Order")])
     g.addRule("Order", [T('['), N("Atom", m="optional"), N("Atom",m="optional"), T("]")])
 
     return g, ['1', '123', '[]', '[1]', '[1 123]', '[[] 123]', '[[]]', '[[[]]]', '[[123] [[1] 123]]'], \
