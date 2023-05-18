@@ -3,7 +3,7 @@
 
 import html
 
-from .util import MultiDict, OrdSet
+from .util import MultiDict, OrdSet, strs
 from .grammar import Clause, Grammar
 
 
@@ -25,7 +25,7 @@ class EpsilonRecord:
         '''Process the single *config* to produce a set of derived configurations to add to the closure. Use
            the next symbol in the *config* to decide on how to expand the closure. Non-terminals are looked
            up in the grammar to add their initial configurations. Each next symbol can be viewed as an edge
-           in a DAG that holds the configurations in the closure. These edges are partitioned into thei
+           in a DAG that holds the configurations in the closure. These edges are partitioned into the
            *internal* and *exit* collections as the record.'''
         if config in self.internal:
             return
@@ -100,7 +100,7 @@ class EpsilonRecord:
             return pairs[:1] + removeShadows([p for p in pairs[1:] if p[1]!=pairs[0][1] ])
 
         def repack(pairs):
-            '''Convert the non-contiguous (but ordered) priorites into a contiguous numbering.'''
+            '''Convert the non-contiguous (but ordered) priorities into a contiguous numbering.'''
             currentPri, path = pairs[0]
             densePri = 0
             result = [(densePri,path)]
@@ -134,7 +134,6 @@ class AState:
         else:
             self.label = label
 
-        #print(f'{self.label}:')
         record = EpsilonRecord(grammar, configs)
         self.configurations = record.configs()
         self.validLhs        = frozenset([c.lhs for c in self.configurations])
@@ -270,6 +269,18 @@ class Symbol:
         if self.modifier=="any":      return str(self.eqClass) + '*'
         if self.modifier=="some":     return str(self.eqClass) + '+'
         if self.modifier=="optional": return str(self.eqClass) + '?'
+
+
+    def sig(self):
+        return (self.eqClass, self.modifier)
+
+
+    def __eq__(self, other):
+        return isinstance(other,Symbol) and self.sig()==other.sig()
+
+
+    def __hash__(self):
+        return hash(self.sig())
 
 
     def isTerminal(self):
@@ -419,14 +430,23 @@ class Automaton:
         counter = 1
 
         for state in worklist:
+            #print(f'Constructing {state.label}')
             active = [c for c in state.configurations if c.next() is not None ]
             for pri, priLevel in enumerate(state.edges):
                 for eqClass in priLevel.keys():
                     if isinstance(eqClass, Automaton.Configuration):
                         state.addEdge(pri, eqClass, Handle(eqClass))
-                        if eqClass.hasReduceBarrier():
-                            below = eqClass.floor()
-                            state.addEdge(pri+1, below, Handle(below))
+                        #if eqClass.hasReduceBarrier():
+                        #    below = eqClass.floor()
+                        #    # Check that the floor is not masked at a higher priority level
+                        #    for p in range(pri+1):
+                        #        for k in state.edges[p]:
+                        #            if isinstance(k, Automaton.Configuration):
+                        #                print(f'{k} {k.rhs[0]} {below} {below.rhs[0]} {k.rhs[0]==below.rhs[0]}')
+                        #    print(f' below: {pri+1} {below} {[below in set(edges.keys()) for edges in state.edges[:pri+1]]}')
+                        #    print(f' below: {pri+1} {below} {[strs(edges.keys()) for edges in state.edges[:pri+1]]}')
+                        #    if not any([below in edges.keys() for edges in state.edges[:pri+1]]):
+                        #        state.addEdge(pri+1, below, Handle(below))
                     else:
                         matchingConfigs = [ c for c in active if c.next().eqClass==eqClass ]
                         possibleConfigs = [ c.succ() for c in matchingConfigs ] + \
@@ -487,6 +507,7 @@ class Automaton:
             self.lhs      = lhs
             self.rhs      = tuple(rhs)
             self.position = position
+            assert position<=len(rhs)
 
         def __str__(self):
             return f'{self.lhs} <- ' + " ".join(['^'+str(s) if self.position==i else str(s)
@@ -528,6 +549,7 @@ class Automaton:
 
         def floor(self):
             isBarrier = lambda s: s.isNonterminal() and s.modifier in ('any','some') and s.strength!='all'
-            return Automaton.Configuration(self.lhs, [symbol for symbol in self.rhs if not isBarrier(symbol)],
-                                           position=self.position)
+            filtered = [symbol for symbol in self.rhs if not isBarrier(symbol)]
+            return Automaton.Configuration(self.lhs, filtered,
+                                           position=self.position if self.position <= len(filtered) else len(filtered))
 

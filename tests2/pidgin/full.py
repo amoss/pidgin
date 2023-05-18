@@ -96,10 +96,7 @@ X!'world"
 {3:2}
 {<<hello>>:'world", <<who>>:333}
 {{}:{}[2]:7}
-<<true>>+true
 <<,,,>>
 foo+blah
 22+43/66.+[]
-[x:2 y:{} z12:true]
-[x:2, y:{}, z12:true]
-x+y@[2,2]+z@pos'''.split('\n'), []
+x+y@[2,2]+z@pos'''.split('\n'), [], ['<<true>>+true', '[x:2 y:{} z12:true]', '[x:2, y:{}, z12:true]']

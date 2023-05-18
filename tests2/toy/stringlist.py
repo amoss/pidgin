@@ -37,7 +37,7 @@ u(world)
 ['a"
 [u(a]
 [['x"]'y"
-'''.split('\n')
+'''.split('\n'), []
 
 def toy_stringlist2():
     '''A: S | O   O: [ ] | [ P* A ,?] | [ A A+ ]   P: A ,   S: ' [^"]* " | u( [^)]* )
@@ -79,7 +79,7 @@ u(world)
 [[] [], [], []]
 [[] [], [] []]
 [['x"]'y"
-'''.split('\n')
+'''.split('\n'), []
 
 
 def toy_numberlist():
@@ -95,7 +95,7 @@ def toy_numberlist():
     g.addRule('number', [S(string.digits), Glue(), S(string.digits,m='any'), Remove()])
     return g, \
 '''[]
-[1 23 45]'''.split('\n'), []
+[1 23 45]'''.split('\n'), [], []
 
 def toy_maybe2list():
     '''Atom: [0-9]+ | Order   Order: [ Atom? Atom? ]
@@ -111,6 +111,7 @@ def toy_maybe2list():
     g.addRule("Order", [T('['), N("Atom", m="optional"), N("Atom",m="optional"), T("]")])
 
     return g, ['1', '123', '[]', '[1]', '[1 123]', '[[] 123]', '[[]]', '[[[]]]', '[[123] [[1] 123]]'], \
-              ['', '123 1', '[] []', '[1 1 1]', '[[] [] []]']
+              ['', '123 1', '[] []', '[1 1 1]', '[[] [] []]'], \
+              []
 
 

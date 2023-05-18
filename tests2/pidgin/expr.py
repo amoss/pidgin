@@ -52,7 +52,6 @@ def pidgin_expr():
 '''[]
 {}
 {:}
-{true:false}
 'hello"
 X!Y
 X!'world"
@@ -91,8 +90,7 @@ X!'world"
 {3:2}
 {<<hello>>:'world", <<who>>:333}
 {{}:{}[2]:7}
-<<true>>+true
 <<,,,>>
 foo+blah
 22+43/66.+[]
-x+y@[2,2]+z@pos'''.split('\n'), []
+x+y@[2,2]+z@pos'''.split('\n'), [], ['{true:false}', '<<true>>+true']

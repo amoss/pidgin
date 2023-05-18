@@ -9,7 +9,8 @@ def regex_stringstar():
     g = Grammar('R')
     g.addRule('R', [T('prefix'), T('word','any'), T('suffix')])
     return g, ['prefixsuffix', 'prefixwordsuffix', 'prefixwordwordsuffix', 'prefixwordwordwordsuffix'], \
-           ['', 'suffix', 'prefix', 'prefixworsuffix', 'prefixworddsuffix']
+           ['', 'suffix', 'prefix', 'prefixworsuffix', 'prefixworddsuffix'], \
+           []
 
 def regex_optional():
     '''R: x y? z
@@ -18,7 +19,8 @@ def regex_optional():
     g = Grammar('R')
     g.addRule('R', [T('x'), T('y','optional'), T('z')])
     return g, ['xz', 'xyz'], \
-           ['','x','z', 'xyyz', 'y']
+           ['','x','z', 'xyyz', 'y'], \
+           []
 
 
 def regex_seq():
@@ -28,7 +30,8 @@ def regex_seq():
     g = Grammar('R')
     g.addRule('R', [T('x'), T('y'), T('z')])
     return g, ['xyz'], \
-           ['xxy','yyz','x','xy','yz']
+           ['xxy','yyz','x','xy','yz'], \
+           []
 
 
 def regex_seqstar():
@@ -39,7 +42,8 @@ def regex_seqstar():
     g.addRule('R', [T('x','any'), T('y','any'), T('z','any')])
     return g, ['', 'x', 'xx' ,'xxx', 'xxxx', 'y', 'yy', 'yyy', 'yyyy', 'z', 'zz', 'zzz', 'zzzz',
                'xy', 'xxy', 'xyy', 'xxyyz', 'xyz', 'xyzzz', 'yzz'], \
-           ['yx', 'zx', 'zy', 'xjz', 'zi']
+           ['yx', 'zx', 'zy', 'xjz', 'zi'], \
+           []
 
 
 def regex_starboundedleft():
@@ -49,7 +53,8 @@ def regex_starboundedleft():
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any')])
     return g, ['l', 'lx', 'lxx', 'lxxx', 'lxxxx'], \
-           ['', 'x', 'xx', 'll', 'rx', 'z', 'llxx']
+           ['', 'x', 'xx', 'll', 'rx', 'z', 'llxx'], \
+           []
 
 
 def regex_starboundedleft2():
@@ -59,7 +64,8 @@ def regex_starboundedleft2():
     g = Grammar('R')
     g.addRule('R', [T('x'), T('x','any')])
     return g, ['x', 'xx', 'xxx', 'xxxx'], \
-           ['', 'y', 'yxx', 'xxxy']
+           ['', 'y', 'yxx', 'xxxy'], \
+           []
 
 
 def regex_starboundedleft3():
@@ -71,7 +77,8 @@ def regex_starboundedleft3():
     g.addRule('R', [T('x'), N('W')])
     g.addRule('W', [T('x','any')])
     return g, ['x', 'xx', 'xxx', 'xxxx'], \
-           ['', 'y', 'yxx', 'xxxy']
+           ['', 'y', 'yxx', 'xxxy'], \
+           []
 
 
 def regex_starboundedright():
@@ -81,7 +88,8 @@ def regex_starboundedright():
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('r')])
     return g, ['r', 'xr', 'xxr', 'xxxr'], \
-           ['l','xl','lx','x','xx','rx','rxx']
+           ['l','xl','lx','x','xx','rx','rxx'], \
+           []
 
 
 def regex_starboundedright2():
@@ -91,7 +99,8 @@ def regex_starboundedright2():
     g = Grammar('R')
     g.addRule('R', [T('x','any'), T('x')])
     return g, ['x','xx','xxx','xxxx'], \
-           ['l','lx','','xr']
+           ['l','lx','','xr'], \
+           []
 
 
 def regex_starboundedboth():
@@ -101,7 +110,8 @@ def regex_starboundedboth():
     g = Grammar('R')
     g.addRule('R', [T('l'), T('x','any'), T('r')])
     return g, ['lr', 'lxr', 'lxxr', 'lxxxr'], \
-           ['', 'x', 'xx', 'lx', 'lxx', 'xr', 'xxr']
+           ['', 'x', 'xx', 'lx', 'lxx', 'xr', 'xxr'], \
+           []
 
 
 def regex_starboundedboth2():
@@ -110,7 +120,7 @@ def regex_starboundedboth2():
        Test repetition of a terminal with an overlapping boundary on both sides.'''
     g = Grammar('R')
     g.addRule('R', [T('x'), T('x','any'), T('x')])
-    return g, ['xx', 'xxx', 'xxxx'], ['','x','l','lxx','xxr']
+    return g, ['xx', 'xxx', 'xxxx'], ['','x','l','lxx','xxr'], []
 
 
 def regex_choice():
@@ -123,21 +133,24 @@ def regex_choice():
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
     return g, ['xyz','xyk','xzz','xzk','yyz','yyk','yzz','yzk'], \
-           ['xy','yk','xxx','']
+           ['xy','yk','xxx',''], \
+           []
 
 
 def regex_choicestar():
     '''R: (x|y)* (y|z)* (z|k)*
 
-       Test sequence of repeated choices with overlapping cases.'''
+       Test sequence of repeated choices with overlapping cases. Results are ambiguous when
+       symbols that can in appear in multiple parentheses are used.'''
     g = Grammar('R')
     g.addRule('R', [N('Ca','any','greedy'), N('Cb','any','greedy'), N('Cc','any','greedy')])
     g.addRule('Ca', [T('x')], [T('y')])
     g.addRule('Cb', [T('y')], [T('z')])
     g.addRule('Cc', [T('z')], [T('k')])
-    return g, ['', 'x', 'xx', 'xxx', 'y', 'yy', 'yyy', 'k', 'kk', 'kkk', 'zy', 'zyy', 'zyyy',
-               'k', 'kz', 'kzz', 'kzzz', 'xyyk', 'xyyyzk'], \
-           ['l', 'ky', 'kyy', 'kyyy', 'zx', 'zxx', 'zxxx', 'xzx', 'xkx']
+    return g, ['', 'x', 'xx', 'xxx', 'k', 'kk', 'kkk', 'zy', 'zyy', 'zyyy',
+               'k', 'kz', 'kzz', 'kzzz'], \
+           ['l', 'ky', 'kyy', 'kyyy', 'zx', 'zxx', 'zxxx', 'xzx', 'xkx'], \
+           ['y', 'yy', 'yyy','xyyk', 'xyyyzk']
 
 
 def regex_selfalignunbounded():
@@ -148,7 +161,8 @@ def regex_selfalignunbounded():
     g.addRule('R', [N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['', 'xy', 'xyxy', 'xyxyxy'], \
-           ['xx','yy','xyx','xyyx']
+           ['xx','yy','xyx','xyyx'], \
+           []
 
 
 def regex_selfalignboundedleft():
@@ -159,7 +173,8 @@ def regex_selfalignboundedleft():
     g.addRule('R', [T('l'), N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['l', 'lxy', 'lxyxy', 'lxyxyxy'], \
-           ['','xx','yy','xyx','xyyx', 'xy', 'xyxy', 'rxyxy', 'xyxyl']
+           ['','xx','yy','xyx','xyyx', 'xy', 'xyxy', 'rxyxy', 'xyxyl'], \
+           []
 
 
 def regex_selfalignboundedleft2():
@@ -170,7 +185,8 @@ def regex_selfalignboundedleft2():
     g.addRule('R', [T('x'), N('S','any','greedy')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['x', 'xxy', 'xxyxy', 'xxyxyxy'], \
-           ['', 'xx', 'xxyy', 'xxyx', 'lx', 'xxyr']
+           ['', 'xx', 'xxyy', 'xxyx', 'lx', 'xxyr'], \
+           []
 
 
 def regex_selfalignboundedright():
@@ -181,7 +197,8 @@ def regex_selfalignboundedright():
     g.addRule('R', [N('S','any','greedy'), T('r')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['r', 'xyr', 'xyxyr', 'xyxyxyr'], \
-          ['', 'xr', 'xxr', 'xy', 'xyxy', 'xyxr', 'xyyr', 'xxyyr']
+          ['', 'xr', 'xxr', 'xy', 'xyxy', 'xyxr', 'xyyr', 'xxyyr'], \
+          []
 
 
 def regex_selfalignboundedright2():
@@ -192,7 +209,8 @@ def regex_selfalignboundedright2():
     g.addRule('R', [N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['x', 'xyx', 'xyxyx', 'xyxyxyx'], \
-           ['', 'xy', 'xyxy', 'xyr', 'lxyx', 'xx', 'xyxx']
+           ['', 'xy', 'xyxy', 'xyr', 'lxyx', 'xx', 'xyxx'], \
+           []
 
 
 def regex_selfalignboundedboth():
@@ -203,7 +221,8 @@ def regex_selfalignboundedboth():
     g.addRule('R', [T('l'), N('S','any','greedy'), T('r')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['lr', 'lxyr', 'lxyxyr', 'lxyxyxyr'], \
-           ['l', 'r', 'lxy', 'xyr', 'lxr', 'lyr', 'lxyxr', 'lxxyyr']
+           ['l', 'r', 'lxy', 'xyr', 'lxr', 'lyr', 'lxyxr', 'lxxyyr'], \
+           []
 
 
 def regex_selfalignboundedboth2():
@@ -214,7 +233,8 @@ def regex_selfalignboundedboth2():
     g.addRule('R', [T('x'), N('S','any','greedy'), T('x')])
     g.addRule('S', [T('x'), T('y')])
     return g, ['xx', 'xxyx', 'xxyxyx', 'xxyxyxyx'], \
-           ['', 'x', 'xxx', 'xxy', 'xyx', 'lxx', 'xxr', 'lxxyx', 'xxyxx', 'xyx']
+           ['', 'x', 'xxx', 'xxy', 'xyx', 'lxx', 'xxr', 'lxxyx', 'xxyxx', 'xyx'], \
+           []
 
 def regex_glue():
     '''R: [a-z] Glue [a-z0-9]* Remover
@@ -223,7 +243,7 @@ def regex_glue():
     g = Grammar('R')
     g.setDiscard(S(' \t\r\n',m='some'))
     g.addRule('R', [S(string.ascii_letters), Glue(), S(string.ascii_letters+string.digits,m='any'), Remove()])
-    return g, ['x', 'y', 'x123', 'xyyy'], ['', '1x', 'x y']
+    return g, ['x', 'y', 'x123', 'xyyy'], ['', '1x', 'x y'], []
 
 def regex_glue2():
     '''R: [a-z] Glue [a-z0-9]* Remover
@@ -233,4 +253,6 @@ def regex_glue2():
     g.setDiscard(S(' \t\r\n',m='some'))
     g.addRule('R', [N('I',m='some')])
     g.addRule('I', [S(string.ascii_letters), Glue(), S(string.ascii_letters+string.digits,m='any'), Remove()])
-    return g, ['x', 'y', 'x123', 'xyyy', 'x y z', 'xy yz zu', 'hello world','zippy    do   da'], ['', '1x', 'x 1y']
+    return g, ['x', 'y', 'x123', 'xyyy', 'x y z', 'xy yz zu', 'hello world','zippy    do   da'],\
+              ['', '1x', 'x 1y'], \
+              []

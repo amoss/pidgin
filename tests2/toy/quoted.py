@@ -11,7 +11,8 @@ def quoted_str():
     g = Grammar('Q')
     g.addRule('Q', [T("'"), S(['"'],True,m='any'), T('"')], [T('u('), S([')'],True,m='any'), T(')')])
     return g, ['\'"', 'u()', '\'x"', 'u(x)', '\'xx"', 'u(xx)', '\'xxx"', 'u(xxx)', '\'lol longer string"', 'u(lol longer string)'], \
-           ['\'', 'u(', '"', ')', '\')', 'u("', '\'""', 'u())']
+           ['\'', 'u(', '"', ')', '\')', 'u("', '\'""', 'u())'], \
+           []
 
 def quoted_str2():
     '''Q: ' [^"]* " | << ([^>] | > [^>])* >>
@@ -57,7 +58,8 @@ def quoted_str2():
                '<<"',
                '>><<',
                'x\'y"',
-               'x<<y>>']
+               'x<<y>>'], \
+               []
 
 def quoted_str3():
     '''Q: " ([^\"] | \\ [^] )* "
@@ -77,7 +79,8 @@ def quoted_str3():
                '"\\"'
                '"\\\\\\"',
                '"x"y',
-               'x"y"']
+               'x"y"'], \
+               []
 
 def quoted_str4():
     '''L: I  | I ! L | Q    Q: ' [^"]* " | u( [^)]* \)    I: [a-z] Glue [a-z0-9]* Remover
@@ -90,7 +93,8 @@ def quoted_str4():
     g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
     return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
                'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z', 'T!\'longer string"'], \
-              ['', '2x', '\'"!\'"', 'T!""', 'T!\'\'']
+              ['', '2x', '\'"!\'"', 'T!""', 'T!\'\''], \
+              []
 
 def quoted_str5():
     '''Binop: I ! Binop | Atom   Atom: I | Q    Q: ' [^"]* " | u( [^)]* \)    I: [a-z] Glue [a-z0-9]* Remover
@@ -106,4 +110,5 @@ def quoted_str5():
     g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
     return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
                'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'T!\'longer string"'], \
-              ['', '2x', '\'"!\'"', 'T!""', 'T!\'\'']
+              ['', '2x', '\'"!\'"', 'T!""', 'T!\'\''], \
+              []

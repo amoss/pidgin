@@ -100,6 +100,27 @@ for d in subDirs:
                 largePositives[unitName] = []
             largePositives[unitName].append(os.path.join(u,e.name))
 
+
+def testPositive(parser, input, dir, name, caseName, snippet):
+    global passed, failed
+    results = [r for r in parser.execute(input, True)]
+    parser.trace.output( open(os.path.join(dir,f'{caseName}.dot'),'wt') )
+    if len(results)==0:
+        print(f'{RED}Failed on {name} {caseName} {snippet}{END}')
+        failed += 1
+    else:
+        passed += 1
+        if args.verbose: print(f'{GREEN}Passed on {name} {caseName} {snippet}{END}')
+        if args.showtrees:
+            for j,r in enumerate(results):
+                print(f'Result {j}')
+                r.dump()
+    redundant = parser.trace.measure()
+    if redundant>0.5:
+        print(f'{RED}High redundancy {redundant} on {name} {caseName} {snippet}{END}')
+    if len(results)>1:
+        print(f'{YELLOW}Ambiguous solutions on {name} {caseName} {snippet}{END}')
+
 index = open( os.path.join(target,"index.md"), "wt")
 for (u,addToDoc) in units:
     description   = u.__doc__
@@ -116,7 +137,7 @@ for (u,addToDoc) in units:
 
     if args.filter is not None and re.fullmatch(args.filter,name) is None: continue
     try:
-        grammar, positive, negative = u()
+        grammar, positive, negative, ambiguous = u()
         #grammar.dump()
         dir = os.path.join(target,name)
         os.makedirs(dir, exist_ok=True)
@@ -128,42 +149,14 @@ for (u,addToDoc) in units:
             if args.negative!=-1: continue
             if args.positive!=-1 and i!=args.positive: continue
             if args.verbose: print(f'{GRAY}Executing p{i} on {name}: {p}{END}')
-            results = [r for r in parser.execute(p, True)]
-            parser.trace.output( open(os.path.join(dir,f'p{i}.dot'),'wt') )
-            if len(results)==0:
-                print(f'{RED}Failed on {name} positive {i} {p}{END}')
-                failed += 1
-            else:
-                passed += 1
-                if args.verbose: print(f'{GREEN}Passed on {name} positive {i} {p}{END}')
-                if args.showtrees:
-                    for j,r in enumerate(results):
-                        print(f'Result {j}')
-                        r.dump()
-            redundant = parser.trace.measure()
-            if redundant>0.5:
-                print(f'{RED}High redundancy {redundant} on {name} positive {i} {p}{END}')
-            if len(results)>1:
-                print(f'{YELLOW}Ambiguous solutions on {name} positive {i} {p}{END}')
+            testPositive(parser, p, dir, name, f'p{i}', p)
 
         if name in largePositives:
             for case in largePositives[name]:
                 basename = os.path.basename(case)
                 body = open(case,'rt').read()
-                if args.verbose: print(f'{GRAY}Executing {basename} on {name}: {len(body)}{END}')
-                results = [r for r in parser.execute(body, True)]
-                parser.trace.output( open(os.path.join(dir,f'{basename}.dot'),'wt') )
-                if len(results)==0:
-                    print(f'{RED}Failed on {name} positive {case}{END}')
-                    failed += 1
-                else:
-                    passed += 1
-                    if args.verbose: print(f'{GREEN}Passed on {name} positive {case}{END}')
-                redundant = parser.trace.measure()
-                if redundant>0.5:
-                    print(f'{RED}High redundancy {redundant} on {name} positive {case}{END}')
-                if len(results)>1:
-                    print(f'{YELLOW}Ambiguous solutions on {name} positive {case}{END}')
+                if args.verbose: print(f'{GRAY}Executing {basename} on {name}: {len(body)} cps{END}')
+                testPositive(parser, body, dir, name, basename, f'{len(body)} cps')
 
         for i,n in enumerate(negative):
             if args.positive!=-1: continue
@@ -174,9 +167,31 @@ for (u,addToDoc) in units:
             if len(results)>0:
                 print(f'{RED}Failed on {name} negative {i} {n}{END}')
                 failed += 1
+                if args.showtrees:
+                    for j,r in enumerate(results):
+                        print(f'Result {j}')
+                        r.dump()
             else:
                 if args.verbose: print(f'{GREEN}Passed on {name} negative {i} {n}{END}')
                 passed += 1
+
+        for i,a in enumerate(ambiguous):
+            if args.negative!=-1: continue
+            if args.positive!=-1: continue
+            if args.verbose: print(f'{GRAY}Executing a{i} on {name}: {a}')
+            results = [r for r in parser.execute(a, True)]
+            parser.trace.output( open(os.path.join(dir,f'a{i}.dot'),'wt') )
+            if len(results)<2:
+                print(f'{RED}Failed on {name} ambiguous {i} {a}{END}')
+                failed += 1
+            else:
+                if args.verbose: print(f'{GREEN}Passed on {name} ambiguous {i} {a}{END}')
+                passed += 1
+                if args.showtrees:
+                    for j,r in enumerate(results):
+                        print(f'Result {j}')
+                        r.dump()
+
     except:
         print(f"{RED}Failed to build case {u.__qualname__}{GRAY}")
         traceback.print_exc()

@@ -64,7 +64,8 @@ X!<<world>>
 {'a":[X!'a"],,'b":[X!'b"],'c":[]}
 {'a":[X!'a"] 'b":[X!'b"] 'c":[],}
 {'a":}
-'''.split('\n')
+'''.split('\n'),\
+[]
 
 def pidgin_term2():
     '''Test subset of pidgin for literal declarations.'''
@@ -90,14 +91,5 @@ def pidgin_term2():
     g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
 
     return g, \
-'''{'str_lit": { [T!u('), G!'", TAN!{u(")}, T!u(")] [T!'u(", G!'", TAN!{')"},  T!')"] }}'''.split('\n'), []
+'''{'str_lit": { [T!u('), G!'", TAN!{u(")}, T!u(")] [T!'u(", G!'", TAN!{')"},  T!')"] }}'''.split('\n'), [], []
 
-
-working='''
-Execute s0 { s2 expr s23 : s67 { s2 [ s3 expr s40 ( s4 ' s61 ) s61 , s61   s61 G s61 ! s61 ' s61 " s235 at 27
-Handle match on old s0 { s2 expr s23 : s67 { s2 [ s3 expr s40 ( s4 ' s61 ) s61 , s61   s61 G s61 ! s61 ' s61 " s235
-                 => s0 { s2 expr s23 : s67 { s2 [ s3 expr s40 ( s4 str_lit
-Execute s0 { s2 expr s23 : s67 { s2 [ s3 order_pair s47 ident s8 ! s63 ' s61 at 26
-Execute s0 { s2 expr s23 : s67 { s2 [ s3 expr s40 ( s4 str_lit s13 at 27
-Handle match on old s0 { s2 expr s23 : s67 { s2 [ s3 expr s40 ( s4 str_lit s13
-'''
