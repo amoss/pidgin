@@ -16,3 +16,15 @@ def toy_ambiguous1():
               ['xxx', 'xxxx', 'xxxxx']
 
 
+def toy_ambiguous2():
+    '''L: x | L + L
+
+    Test ambiguity with an operator that has neither precedence nor associativity.
+    '''
+    g = Grammar("L")
+    g.addRule('L', [T("x")], [N("L"), T("+"), N("L")])
+
+    return g, ['x', 'x+x'], \
+              ['x+','+x','x++x','x+xx+x','x++x+x'], \
+              ['x+x+x', 'x+x+x+x', 'x+x+x+x+x']
+
