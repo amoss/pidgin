@@ -166,6 +166,7 @@ class AST:
 
     class Order:
         def __init__(self, children):
+            print(f'order({children})')
             self.seq = children
         def __str__(self):
             return "[" + ", ".join([str(c) for c in self.seq]) + "]"
@@ -226,8 +227,8 @@ ntTransformer = {
 }
 
 tTransformer = {
-    'ident':        (lambda node: AST.Ident(node.chars)),
-    'num':          (lambda node: AST.NumberLit(node.chars)),
+    'ident':        (lambda node: AST.Ident(node.span)),
+    'num':          (lambda node: AST.NumberLit(node.span)),
 }
 
 def buildCommon():
@@ -246,7 +247,6 @@ def buildPidginParser(trace=None, start='expr'):
     stage1g, stage1m, parser = buildCommon()
     rs = [r for r in parser.execute(grammar,False)]
     #parser.trace.output(open('stage2trace.dot','wt'))
-    print(rs[0])
     stage2g = stage2(rs[0])
     stage2g.start = start
     stage2g.discard = stage1g.discard

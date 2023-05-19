@@ -66,19 +66,25 @@
     'str_lit": { [T!<<'>>, G!'", TAN!{<<">>}, T!<<">>]
                  [T!'u(", G!'", TAN!{')"},  T!')"]
                }
-    'set":   { [T!'{",  NO!'elem_lst",  T!'}"] }
-    'map":   { [T!'{",  NS!'elem_kv",   T!'}"]
-               [T!'{",  T!':",          T!'}"] }
-    'order": { [T!'[",  NO!'elem_lst",  T!']"] }
-    'record": { [T!'[",  NS!'elem_iv",   T!']"]
-                [T!'[",  NS!'elem_anonv", T!']"]}
-
-    'elem_kv":  { [N!'expr",  T!':",  N!'expr",  TO!',"] }
-    'elem_iv":  { [N!'ident",  T!':",  N!'expr",  TO!',"] }
-    'elem_anonv":  { [T!':",  N!'expr",  TO!',"] }
-    'elem_lst": {[NA!'repeat_elem", N!'final_elem"]}
-    'repeat_elem": {[N!'expr", G!'", T!{' " '	" '" ',"}]}
-    'final_elem": {[N!'expr", G!'", TO!{' "  '	" '" ',"}]}
-
+    'comma_pair": {[N!'expr"   T!',"]}
+    'set":   { [T!'{",  T!'}"]
+               [T!'{",  NA!'comma_pair",  N!'expr",  TO!',",  T!'}"]
+               [T!'{",  N!'expr",   NS!'expr",   T!'}"]
+             }
+    'order": { [T!'[",  T!']"]
+               [T!'[",  NA!'comma_pair",  N!'expr",  TO!',",  T!']"]
+               [T!'[",  N!'expr",   NS!'expr",   T!']"]
+             }
+    'map":   { [T!'{",  T!':",  T!'}"]
+               [T!'{",  NA!'kv_comma",  N!'expr",  T!':",  N!'expr",  TO!',",  T!'}"]
+               [T!'{",  N!'kv_pair",  NS!'kv_pair",  T!'}"]
+             }
+    'record": { [T!'[",  T!':",  T!']"]
+                [T!'[",  NA!'iv_comma",  N!'ident",  T!':",  N!'expr",  TO!',",  T!']"]
+                [T!'[",  N!'iv_pair",  NS!'iv_pair",  T!']"]
+              }
+    'kv_pair":  {[N!'expr"   T!':"   N!'expr"]}
+    'kv_comma": {[N!'expr"   T!':"   N!'expr"   T!',"]}
+    'iv_pair":  {[N!'ident"   T!':"   N!'expr"]}
+    'iv_comma": {[N!'ident"   T!':"   N!'expr"   T!',"]}
 }
-

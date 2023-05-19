@@ -9,6 +9,7 @@ if rootDir not in sys.path:
 import argparse
 
 from bootstrap.interpreter import buildPidginParser, Box
+from bootstrap.util import dump
 
 argParser = argparse.ArgumentParser()
 argParser.add_argument("-i", "--input")
@@ -24,7 +25,7 @@ parser = buildPidginParser(start=args.start)
 
 if args.input is not None:
     trees = list(parser.execute(args.input, True))
-    parser.trace.output(open('trace.dot','wt'))
+    parser.trace.output(open('inttrace.dot','wt'))
 if args.file is not None:
     trees = list(parser.parse(open(args.file).read(), trace=open('trace.dot','wt')))
 
@@ -32,7 +33,9 @@ if len(trees)==0:
     print("Parse error")
     sys.exit(-1)
 if len(trees)>1:
-    print(f"Warning: input is ambiguous, had {len(tree)} distinct parses")
+    print(f"Warning: input is ambiguous, had {len(trees)} distinct parses")
+    for t in trees:
+        dump(t)
 
 result = Box.fromConstantExpression(trees[0])
 pyResult = result.unbox()
