@@ -105,6 +105,8 @@ def stage2(tree):
                }
     functors2 = { 'T':      (lambda a: result.TermSet(a['chars'],tag=a['tag']) if isinstance(a['chars'],set) \
                                                                                else result.TermString(a['chars'])),
+                  'TA':     (lambda a: result.TermSet(a['chars'],"any", tag=a['tag']) if isinstance(a['chars'],set) \
+                                                                                       else result.TermString(a['chars'],"any")),
                   'TS':     (lambda a: result.TermSet(a['chars'],"some", tag=a['tag']) if isinstance(a['chars'],set) \
                                                                                        else result.TermString(a['chars'],"some")),
                 }
@@ -166,7 +168,6 @@ class AST:
 
     class Order:
         def __init__(self, children):
-            print(f'order({children})')
             self.seq = children
         def __str__(self):
             return "[" + ", ".join([str(c) for c in self.seq]) + "]"

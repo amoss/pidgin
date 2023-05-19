@@ -115,11 +115,11 @@ class Box:
 
     @staticmethod
     def evaluateSet(tree):
-        if len(tree.children)==0: return Box(Type('{}',param1='empty'),frozenset())
-        element = Box.fromConstantExpression(tree.children[0])
+        if len(tree.elements)==0: return Box(Type('{}',param1='empty'),frozenset())
+        element = Box.fromConstantExpression(tree.elements[0])
         elementType = element.type
         result = set([element])
-        for subtree in tree.children[1:]:
+        for subtree in tree.elements[1:]:
             element = Box.fromConstantExpression(subtree)
             assert elementType.eqOrCoerce(element.type), f"Can't store element {element.type} inside \{{elementType}}!"
             result.add(element)
