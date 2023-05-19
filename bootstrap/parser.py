@@ -190,14 +190,17 @@ class Token:
 
     def __str__(self):
         if self.symbol is not None and self.symbol.isTerminal:
-            return f'T({self.symbol},{self.span})'
+            return f'T({self.span})'
         return f'N({self.symbol.name})'
 
 
     def dump(self, depth=0):
         print(f"{'  '*depth}{self}")
         for c in self.children:
-            c.dump(depth+1)
+            if isinstance(c, Token):
+                c.dump(depth+1)
+            else:
+                print(f"{'  '*(depth+1)}{c}")
 
 
 class Parser:
@@ -264,6 +267,7 @@ class Parser:
             pstates = next
 
     def prune(self, node):
+        if not isinstance(node,Token):      return node
         if node.symbol.isNonterminal:
             if len(node.children)==1:
                 pruned = self.prune(node.children[0])
@@ -273,11 +277,12 @@ class Parser:
                 pruned = node
         else:
             pruned = node
-
-        if pruned.symbol.isNonterminal and pruned.tag in self.ntTransformer:
-            return self.ntTransformer[pruned.tag](pruned)
+        if not isinstance(pruned,Token):    return pruned
+        if pruned.symbol.isNonterminal and pruned.symbol.name in self.ntTransformer:
+            return self.ntTransformer[pruned.symbol.name](pruned)
         if pruned.symbol.isTerminal and pruned.tag in self.tTransformer:
             return self.tTransformer[pruned.tag](pruned)
+
         return pruned
 
 
@@ -381,150 +386,3 @@ class Trace:
             for s,_ in self.backwards.map[True]:
                 yield s
 
-
-### The fold
-
-#class Parser:
-#    def __init__(self, grammar, discard=None, trace=None, ntTransformer={}, tTransformer={}):
-#        self.grammar       = grammar
-#        self.discard       = discard
-#        self.tTransformer  = tTransformer
-#        self.ntTransformer = ntTransformer
-#        entry = Clause(None, [Grammar.Nonterminal(grammar.start)], terminating=True)
-#        initial = AState(grammar, [entry.get(0)])
-#        self.start = initial
-#        worklist = OrdSet([initial])
-#
-#        for state in worklist:
-#            nextSymbols = set( config.next() for config in state.configurations)
-#            reducing = None in nextSymbols
-#            nextSymbols.discard(None)
-#            for symbol in nextSymbols:
-#                possibleConfigs = [ c.succ() for c in state.configurations if c.next()==symbol ]
-#                if symbol.modifier=="any":
-#                    assert set(possibleConfigs) <= set(state.configurations), possibleConfigs  # By epsilon closure
-#                    state.connect(symbol, state)    # No repeat on any as self-loop
-#                elif symbol.modifier=="some":
-#                    for p in possibleConfigs:
-#                        next = AState(grammar, [c for c in state.configurations if c.next()==symbol], latch=p)
-#                        next = worklist.add(next)
-#                        state.connect(symbol, next)
-#                else:
-#                    next = AState(grammar, possibleConfigs)
-#                    next = worklist.add(next)
-#                    state.connect(symbol, next)
-#            if reducing:
-#                reducingConfigs = [ c for c in state.configurations if c.next() is None ]
-#                for r in reducingConfigs:
-#                    state.addReducer(r.clause)
-#
-#        self.states = worklist.set
-#        assert isinstance(self.states, dict)
-#
-#    def dotAutomaton(self, output):
-#        print("digraph {", file=output)
-#        for s in self.states:
-#            label = "\\n".join([str(c).replace('"','\\"') for c in s.configurations])
-#            color = "color=grey" if s.latch is None else "color=black"
-#            if len(s.byClause)>0:
-#                print(f's{id(s)} [label="{label}",shape=rect,{color}];', file=output)
-#            else:
-#                print(f's{id(s)} [label="{label}",{color}];', file=output)
-#            for t,next in s.byTerminal.items():
-#                label = str(t).replace('"','\\"')
-#                print(f's{id(s)} -> s{id(next)} [label="{label}"];', file=output)
-#                if s.repeats[t]:
-#                    print(f's{id(s)} -> s{id(s)} [label="{label}"];', file=output)
-#            for name,next in s.byNonterminal.items():
-#                print(f's{id(s)} -> s{id(next)} [label="NT({name})"];', file=output)
-#                if s.repeats[name]:
-#                    print(f's{id(s)} -> s{id(s)} [label="NT({name})"];', file=output)
-#            for next in s.byGlue.values():
-#                print(f's{id(s)} -> s{id(next)} [label="Glue"];', file=output)
-#            for next in s.byRemover.values():
-#                print(f's{id(s)} -> s{id(next)} [label="Remover"];', file=output)
-#        print("}", file=output)
-#
-#    def parse(self, input, trace=None):
-#        barriers = set()
-#        Barrier.counter = 1
-#        if trace is not None:                    print("digraph {\nrankdir=LR;", file=trace)
-#        pstates = [PState([self.start], 0, discard=self.discard)]
-#        while len(pstates)>0:
-#            next = []
-#            for p in pstates:
-#                if trace is not None:
-#                    print(f"s{p.id} [shape=none,label={p.dotLabel(input)}];", file=trace)
-#                    if p.barrier is not None:
-#                        if p.barrier.id not in barriers:
-#                            print(f'b{p.barrier.id} [fontcolor="blue",color="blue",label="Barrier {p.barrier.id}"];', file=trace)
-#                            barriers.add(p.barrier.id)
-#                        print(f's{p.id} -> b{p.barrier.id} [color="blue"];', file=trace)
-#                if not isinstance(p.stack[-1],AState):
-#                    remaining = p.position
-#                    if not p.keep and self.discard is not None:
-#                        drop = self.discard.match(input[p.position:])
-#                        if drop is not None and len(drop)>0:
-#                            remaining += len(drop)
-#                    if remaining==len(input) and len(p.stack)==2:
-#                        yield self.prune(p.stack[1])
-#                        if trace is not None:    print(f"s{p.id} [shape=rect,label={p.dotLabel(input)}];", file=trace)
-#                else:
-#                    # Need to convert to single call otherwise we can't share barriers
-#                    reduces = p.reductions()
-#                    shifts  = p.shifts(input)
-#                    next.extend(reduces)
-#                    next.extend(shifts)
-#                    if trace is not None:
-#                        for r in reduces:
-#                            print(f's{p.id} -> s{r.id} [label="reduce"];', file=trace)
-#                        for s in shifts:
-#                            print(f's{p.id} -> s{s.id} [label="shift"];', file=trace)
-#                if p.barrier is not None:
-#                    latch = p.barrier.cancel(p)
-#                    if latch is not None:
-#                        afterLatch = latch.liftAsLatch(input)
-#                        if afterLatch is not None:
-#                            next.append(afterLatch)
-#                            if trace is not None: print(f'b{p.barrier.id} -> s{afterLatch.id} [color="blue"];', file=trace)
-#            pstates = next
-#        if trace is not None: print("}", file=trace)
-#
-#    class Terminal:
-#        def __init__(self, chars, original):
-#            self.chars    = chars
-#            self.original = original
-#            self.tag = original.tag
-#
-#        def __str__(self):
-#            return self.chars
-#
-#        def matches(self, other):
-#            return id(other)==id(self.original)
-#
-#        def dump(self, depth=0):
-#            print(f"{'  '*depth}{self.chars}")
-#
-#    class Nonterminal:
-#        def __init__(self, tag, children ):
-#            self.tag      = tag
-#            self.children = tuple(children)
-#            for c in self.children:
-#                assert isinstance(c,Parser.Terminal) or isinstance(c,Parser.Nonterminal), repr(c)
-#
-#        def __str__(self):
-#            return str(self.tag)
-#
-#        def __eq__(self, other):
-#            return isinstance(other,Parser.Nonterminal) and self.tag==other.tag and self.children==other.children
-#
-#        def __hash__(self):
-#            return hash((self.tag,self.children))
-#
-#        def matches(self, other):
-#            return isinstance(other,Grammar.Nonterminal) and self.tag == other.name
-#
-#        def dump(self, depth=0):
-#            print(f"{'  '*depth}{self.tag}")
-#            for c in self.children:
-#                c.dump(depth+1)

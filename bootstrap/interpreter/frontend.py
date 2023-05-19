@@ -122,8 +122,8 @@ def stage2(tree):
         assert False, call.arg
     for kv in tree.children:
         try:
-            rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.children[0].seq])
-            for clause in kv.value.children[1:]:
+            rule = result.addRule(kv.key.content, [symbol(s) for s in kv.value.elements[0].seq])
+            for clause in kv.value.elements[1:]:
                 rule.add([symbol(s) for s in clause.seq])
         except Exception as e:
             print(f"Stage2 failed to build in {kv.key} / {kv.value}")
@@ -154,10 +154,10 @@ class AST:
 
     class Call:
         def __init__(self, function, arg):
-            if isinstance(function, Parser.Terminal):
-                self.function = Ident(function.chars)
-            else:
+            if isinstance(function, AST.Ident):
                 self.function = function
+            else:
+                self.function = AST.Ident(function.span)
             self.arg = arg
         def __str__(self):
             return f"{self.function}!{self.arg}"
@@ -179,7 +179,7 @@ class AST:
 
     class Set:
         def __init__(self, children):
-            self.children = children
+            self.elements = children
         def __str__(self):
             return "{" + ", ".join([str(c) for c in self.elements]) + "}"
 
@@ -209,19 +209,18 @@ def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
 
 ntTransformer = {
-    'str_lit' :     (lambda node: AST.StringLit(node.children[1].chars)),
-    'ident':        (lambda node: AST.Ident(node.children[0].content+"".join([c.chars for c in node.children[1:]]))),
+    'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1]))),
+    'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
-    'final_elem':   (lambda node: node.children[0]),
-    'repeat_elem':  (lambda node: node.children[0]),
-    'order':        (lambda node: AST.Order(node.children[1].children) if onlyElemList(node)
-                             else AST.Order(node.children[1:-1])),
-    'set':          (lambda node: AST.Set(node.children[1].children) if onlyElemList(node)
-                             else AST.Set(node.children[1:-1])),
+#    'final_elem':   (lambda node: node.children[0]),
+#    'repeat_elem':  (lambda node: node.children[0]),
+    'order':        (lambda node: AST.Order(node.children[1:-1])),
+    'set':          (lambda node: AST.Set(node.children[1:-1])),
     'map':          (lambda node: AST.Map(node.children[1:-1])),
-    'record':       (lambda node: AST.Record(node.children[1:-1])),
-    'elem_kv':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
-    'elem_iv':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
+#    'record':       (lambda node: AST.Record(node.children[1:-1])),
+    'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
+    'order_pair':   (lambda node: node.children[0]),
+#    'elem_iv':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
 }
 
 tTransformer = {
@@ -245,7 +244,7 @@ def buildPidginParser(trace=None, start='expr'):
     stage1g, stage1m, parser = buildCommon()
     rs = [r for r in parser.execute(grammar,False)]
     #parser.trace.output(open('stage2trace.dot','wt'))
-    rs[0].dump()
+    print(rs[0])
     stage2g = stage2(rs[0])
     stage2g.start = start
     stage2g.discard = stage1g.discard
