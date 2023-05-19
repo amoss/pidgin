@@ -176,6 +176,10 @@ class PState:
 class Token:
     def __init__(self, symbol, children, span):
         self.symbol   = symbol
+        if hasattr(symbol,'tag'):
+            self.tag = symbol.tag
+        else:
+            self.tag = None
         assert type(symbol) in (SymbolTable.TermSetEQ, SymbolTable.TermStringEQ, SymbolTable.NonterminalEQ),\
                f'{symbol} is {repr(symbol)}'
         self.children = children
@@ -197,9 +201,10 @@ class Token:
 
 
 class Parser:
-    def __init__(self, machine):
+    def __init__(self, machine, ntTransformer={}, tTransformer={}):
         self.machine = machine
-
+        self.tTransformer  = tTransformer
+        self.ntTransformer  = ntTransformer
 
     def execute(self, input, tracing=False):
         self.trace = Trace(input, tracing)
@@ -212,7 +217,7 @@ class Parser:
                 if not isinstance(p.stack[-1],AState):
                     remaining = p.position + self.machine.processDiscard(input[p.position:])
                     if remaining==len(input) and len(p.stack)==2:
-                        yield p.stack[1]
+                        yield self.prune(p.stack[1])
                         p.cancel()
                         self.trace.result(p)
                         continue
@@ -257,6 +262,23 @@ class Parser:
 
             #print(f'next {[st.id for st in next]}')
             pstates = next
+
+    def prune(self, node):
+        if node.symbol.isNonterminal:
+            if len(node.children)==1:
+                pruned = self.prune(node.children[0])
+            else:
+                result = [ self.prune(c) for c in node.children]
+                node.children = tuple(result)
+                pruned = node
+        else:
+            pruned = node
+
+        if pruned.symbol.isNonterminal and pruned.tag in self.ntTransformer:
+            return self.ntTransformer[pruned.tag](pruned)
+        if pruned.symbol.isTerminal and pruned.tag in self.tTransformer:
+            return self.tTransformer[pruned.tag](pruned)
+        return pruned
 
 
 
@@ -358,6 +380,8 @@ class Trace:
         if True in self.backwards.map:
             for s,_ in self.backwards.map[True]:
                 yield s
+
+
 ### The fold
 
 #class Parser:
@@ -420,23 +444,6 @@ class Trace:
 #            for next in s.byRemover.values():
 #                print(f's{id(s)} -> s{id(next)} [label="Remover"];', file=output)
 #        print("}", file=output)
-#
-#    def prune(self, node):
-#        if isinstance(node, Parser.Nonterminal):
-#            if len(node.children)==1:
-#                pruned = self.prune(node.children[0])
-#            else:
-#                result = [ self.prune(c) for c in node.children]
-#                node.children = tuple(result)
-#                pruned = node
-#        else:
-#            pruned = node
-#
-#        if isinstance(pruned, Parser.Nonterminal) and pruned.tag in self.ntTransformer:
-#            return self.ntTransformer[pruned.tag](pruned)
-#        if isinstance(pruned, Parser.Terminal) and pruned.tag in self.tTransformer:
-#            return self.tTransformer[pruned.tag](pruned)
-#        return pruned
 #
 #    def parse(self, input, trace=None):
 #        barriers = set()

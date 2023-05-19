@@ -6,74 +6,86 @@ import string
 
 from ..grammar import Grammar
 from ..parser import Parser
+from ..machine import Automaton
 
 def stage1():
-    '''
-    The subset of the pidgin expression grammar that handles expressions with mostly normal and sane bracketing.
-    '''
-    g = Grammar("expr")
-    g.setDiscard(g.TermSet(set(" \t\r\n"), modifier="some"))
+    def T(val, m=None, s=None):
+        if m is None:
+            if isinstance(val,str):
+                return Grammar.TermString(val)
+            return Grammar.TermSet(val)
+        if isinstance(val,str):
+            return Grammar.TermString(val, modifier=m)
+        return Grammar.TermSet(val, modifier=m, strength=s)
 
-    expr = g.addRule("expr", [g.Nonterminal("binop1")])
+    def S(val, invert=False, m=None, s=None):
+        if m is None:
+            return Grammar.TermSet(val,inverse=invert)
+        if s is None:
+            return Grammar.TermSet(val,inverse=invert,modifier=m)
+        return Grammar.TermSet(val,inverse=invert,modifier=m,strength=s)
 
-    binop1 = g.addRule("binop1", [g.Nonterminal("binop2"), g.Nonterminal("binop1_lst",modifier="any")])
-    binop1_lst = g.addRule("binop1_lst", [g.TermString(".+"), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.TermString("+."), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.TermString(".-"), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.TermString("-."), g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.TermString("+"),  g.Nonterminal("binop2")])
-    binop1_lst.add(                      [g.TermString("-"),  g.Nonterminal("binop2")])
 
-    binop2 = g.addRule("binop2", [g.Nonterminal("binop3"), g.Nonterminal("binop2_lst",modifier="any")])
-    binop2_lst = g.addRule("binop2_lst", [g.TermString("*"), g.Nonterminal("binop3")])
-    binop2_lst.add(                      [g.TermString("/"), g.Nonterminal("binop3")])
+    def N(name, m='just', s='greedy'):
+        return Grammar.Nonterminal(name, modifier=m, strength=s)
 
-    binop3 = g.addRule("binop3", [g.Nonterminal("binop4"), g.Nonterminal("binop3_lst",modifier="any")])
-    binop3_lst = g.addRule("binop3_lst", [g.TermString("@"), g.Nonterminal("binop4")])
+    def Glue():
+        return Grammar.Glue()
 
-    binop4 = g.addRule("binop4", [g.Nonterminal("ident"), g.TermString("!"), g.Nonterminal("atom")])
-    binop4.add(                  [g.Nonterminal("atom")])
+    def Remove():
+        return Grammar.Remover()
 
-    atom = g.addRule("atom", [g.TermSet(set("0123456789"),modifier="some",tag="num")])
-    atom.add(                [g.TermString("true", tag="bool")])
-    atom.add(                [g.TermString("false", tag="bool")])
-    atom.add(                [g.Nonterminal("ident")])
-    atom.add(                [g.Nonterminal("str_lit")])
-    atom.add(                [g.Nonterminal("set")])
-    atom.add(                [g.Nonterminal("map")])
-    atom.add(                [g.Nonterminal("order")])
-    atom.add(                [g.Nonterminal("record")])
-    atom.add(                [g.TermString("("), g.Nonterminal("expr"), g.TermString(")")])
-
-    aset = g.addRule("set",    [g.TermString('{'), g.Nonterminal("elem_lst", modifier="optional"), g.TermString('}')])
-    aord = g.addRule("order",  [g.TermString('['), g.Nonterminal("elem_lst", modifier="optional"), g.TermString(']')])
-    amap = g.addRule("map",    [g.TermString('{'), g.Nonterminal("elem_kv",  modifier="some"),  g.TermString('}')])
-    amap.add(                  [g.TermString('{'), g.TermString(':'), g.TermString('}')])
-    arec = g.addRule("record", [g.TermString('['), g.Nonterminal("elem_iv", modifier="some"), g.TermString(']')])
-
-    g.addRule("elem_kv",  [g.Nonterminal("expr"),
-                           g.TermString(":"),
-                           g.Nonterminal("expr"),
-                           g.TermString(",", modifier="optional")])
-    g.addRule("elem_iv",  [g.Nonterminal("ident"),
-                           g.TermString(":"),
-                           g.Nonterminal("expr"),
-                           g.TermString(",", modifier="optional")])
-    g.addRule("elem_lst", [g.Nonterminal("repeat_elem", modifier="any"), g.Nonterminal("final_elem")])
-    g.addRule("repeat_elem", [g.Nonterminal("expr"), g.Glue(), g.TermSet(set(", \r\t\n"))] )
-    g.addRule("final_elem", [g.Nonterminal("expr"), g.Glue(), g.TermSet(set(", \r\t\n"), modifier="optional")] )
-
-    str_lit = g.addRule("str_lit", [g.TermString("'"), g.Glue(),
-                                    g.TermSet(set('"'), modifier="any", inverse=True), g.Glue(),
-                                    g.TermString('"')])
-    str_lit.add(                   [g.TermString("u("), g.Glue(),
-                                    g.TermSet(set(')'), modifier="any", inverse=True), g.Glue(),
-                                    g.TermString(')')])
-
+    '''The largest subset of pidgin so far (currently exprs + records).'''
     letters = string.ascii_lowercase + string.ascii_uppercase
-    ident = g.addRule("ident", [g.TermSet(set("_"+letters),tag="ident"), g.Glue(),
-                                g.TermSet(set("_"+letters+string.digits), modifier="any"),
-                                g.Remover()])
+    g = Grammar('binop1')
+    g.setDiscard(S(' \t\r\n',m='some'))
+    g.addRule('binop1', [N('binop2'), N('binop1_lst',m='any')])
+    g.addRule('binop1_lst', [T('.+'), N('binop2')],
+                            [T('+.'), N('binop2')],
+                            [T('.-'), N('binop2')],
+                            [T('-.'), N('binop2')],
+                            [T('+'),  N('binop2')],
+                            [T('-'),  N('binop2')])
+    g.addRule('binop2', [N('binop3'), N('binop2_lst',m='any')])
+    g.addRule('binop2_lst', [T('*'), N('binop3')],
+                            [T('/'), N('binop3')])
+    g.addRule('binop3', [N('binop4'), N('binop3_lst',m='any')])
+    g.addRule('binop3_lst', [T('@'), N('binop4')])
+    g.addRule('binop4', [N('atom')],
+                        [N('ident'), T('!'), N('atom')])
+
+    g.addRule('atom', [T('true')],
+                      [T('false')],
+                      [S(string.digits), Glue(), S(string.digits,m='any'), Remove()],
+                      [N('ident')],
+                      [N('str_lit')],
+                      [N('set')],
+                      [N('map')],
+                      [N('record')],
+                      [N('order')],
+                      [T('('),N('binop1'),T(')')])
+
+    g.addRule('set', [T('{'), T('}')],
+                     [T('{'), N('order_pair', m='any'), N('binop1'), T(',',m='optional'), T('}')],
+                     [T('{'), N('binop1'), N('binop1', m='some'), T('}')])
+    g.addRule('order', [T('['), T(']')],
+                       [T('['), N('order_pair', m='any'), N('binop1'), T(',',m='optional'), T(']')],
+                       [T('['), N('binop1'), N('binop1', m='some'), T(']')])
+    g.addRule('order_pair', [N('binop1'), T(',')])
+    g.addRule('record',   [T('['), T(':'), T(']')],
+                          [T('['), N('iv_comma',m='any'), N('ident'), T(':'), N('binop1'), T(',',m='optional'), T(']')],
+                          [T('['), N('iv_pair'), N('iv_pair',m='some'), T(']')])
+    g.addRule('map',   [T('{'), T(':'), T('}')],
+                       [T('{'), N('kv_comma',m='any'), N('binop1'), T(':'), N('binop1'), T(',',m='optional'), T('}')],
+                       [T('{'), N('kv_pair'), N('kv_pair',m='some'), T('}')])
+    g.addRule('iv_pair',  [N('ident'), T(':'), N('binop1')])
+    g.addRule('iv_comma',  [N('ident'), T(':'), N('binop1'), T(',')])
+    g.addRule('kv_pair',  [N('binop1'), T(':'), N('binop1')])
+    g.addRule('kv_comma', [N('binop1'), T(':'), N('binop1'), T(',')])
+    g.addRule('str_lit', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
+                         [T('<<'), Glue(), N('str_lit2',m='any'), T('>>'), Remove()])
+    g.addRule('str_lit2', [S([">"],True)], [T('>'), S([">"],True)])
+    g.addRule('ident', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
     return g
 
 
@@ -195,6 +207,7 @@ class AST:
 
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
+
 ntTransformer = {
     'str_lit' :     (lambda node: AST.StringLit(node.children[1].chars)),
     'ident':        (lambda node: AST.Ident(node.children[0].content+"".join([c.chars for c in node.children[1:]]))),
@@ -210,6 +223,7 @@ ntTransformer = {
     'elem_kv':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
     'elem_iv':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
 }
+
 tTransformer = {
     'ident':        (lambda node: AST.Ident(node.chars)),
     'num':          (lambda node: AST.NumberLit(node.chars)),
@@ -217,21 +231,26 @@ tTransformer = {
 
 def buildCommon():
     stage1g = stage1()
-    parser = Parser(stage1g, stage1g.discard, ntTransformer=ntTransformer, tTransformer=tTransformer)
-    return stage1g, parser
+    machine = Automaton(stage1g)
+    parser = Parser(machine, ntTransformer=ntTransformer, tTransformer=tTransformer)
+    return stage1g, machine, parser
 
 def buildGrammar():
     _, parser = buildCommon()
-    return stage2(next(parser.parse(grammar)))
+    return stage2(next(parser.execute(grammar)))
 
 def buildPidginParser(trace=None, start='expr'):
-    dir= os.path.dirname(__file__)
-    grammar = open(os.path.join(dir, "grammar.g")).read()
-    stage1g, parser = buildCommon()
-    stage2g = stage2(next(parser.parse(grammar, trace=trace)))
+    thisDir= os.path.dirname(__file__)
+    grammar = open(os.path.join(thisDir, "grammar.g")).read()
+    stage1g, stage1m, parser = buildCommon()
+    rs = [r for r in parser.execute(grammar,False)]
+    #parser.trace.output(open('stage2trace.dot','wt'))
+    rs[0].dump()
+    stage2g = stage2(rs[0])
     stage2g.start = start
-    return Parser(stage2g, stage1g.discard, ntTransformer=ntTransformer, tTransformer=tTransformer)
+    stage2g.discard = stage1g.discard
+    return Parser(stage2g, ntTransformer=ntTransformer, tTransformer=tTransformer)
 
-def buildParser(grammar, discard=None):
-    return Parser(grammar, discard, ntTransformer=ntTransformer, tTransformer=tTransformer)
+def buildParser(grammar):
+    return Parser(grammar, ntTransformer=ntTransformer, tTransformer=tTransformer)
 

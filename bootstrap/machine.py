@@ -316,10 +316,10 @@ class SymbolTable:
                 key = ('remover',)
             if isinstance(s,Grammar.TermSet):
                 key = (clause,i)
-                cons = lambda: SymbolTable.TermSetEQ(s.chars,inverse=s.inverse)
+                cons = lambda: SymbolTable.TermSetEQ(s.chars,inverse=s.inverse,tag=s.tag)
             if isinstance(s,Grammar.TermString):
                 key = ('t', s.string)
-                cons = lambda: SymbolTable.TermStringEQ(s.string)
+                cons = lambda: SymbolTable.TermStringEQ(s.string,tag=s.tag)
             if isinstance(s,Grammar.Nonterminal):
                 key = ('nt', s.name)
                 cons = lambda: SymbolTable.NonterminalEQ(s.name)
@@ -329,9 +329,10 @@ class SymbolTable:
 
 
     class TermSetEQ:
-        def __init__(self, chars, inverse=False):
+        def __init__(self, chars, inverse=False, tag=''):
             self.chars   = chars
             self.inverse = inverse
+            self.tag     = tag
             self.isTerminal    = True
             self.isNonterminal = False
         def __str__(self):
@@ -349,10 +350,11 @@ class SymbolTable:
 
 
     class TermStringEQ:
-        def __init__(self, literal):
+        def __init__(self, literal, tag=''):
             self.literal = literal
             self.isTerminal    = True
             self.isNonterminal = False
+            self.tag = tag
         def __str__(self):
             return self.literal
         def html(self, modifier=''):
