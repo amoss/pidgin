@@ -5,7 +5,7 @@ import os
 import string
 
 from ..grammar import Grammar
-from ..parser import Parser
+from ..parser import Parser, Token
 from ..machine import Automaton
 
 def stage1():
@@ -93,7 +93,7 @@ def stage2(tree):
     result = Grammar(tree.children[0].key.content)
     functors = { 'T':      (lambda a: result.TermSet(a) if isinstance(a,set) else result.TermString(a)),
                  'TA':     (lambda a: result.TermSet(a,"any") if isinstance(a,set) else result.TermString(a,"any")),
-                 'TAN':    (lambda a: result.TermSet(a,"some",modifier="any",inverse=True)),
+                 'TAN':    (lambda a: result.TermSet(a,modifier="any",inverse=True)),
                  'TS':     (lambda a: result.TermSet(a,"some") if isinstance(a,set) else result.TermString(a,"some")),
                  'TO':     (lambda a: result.TermSet(a,"optional") if isinstance(a,set) else result.TermString(a,"optional")),
                  'N':      (lambda a: result.Nonterminal(a)),
@@ -103,14 +103,16 @@ def stage2(tree):
                  'G':      (lambda a: result.Glue()),
                  'R':      (lambda a: result.Remover())
                }
-    functors2 = { 'T':      (lambda a: result.Terminal(a['chars'],tag=a['tag'])),
-                  'TS':     (lambda a: result.Terminal(a['chars'],"some", tag=a['tag'])),
+    functors2 = { 'T':      (lambda a: result.TermSet(a['chars'],tag=a['tag']) if isinstance(a['chars'],set) \
+                                                                               else result.TermString(a['chars'])),
+                  'TS':     (lambda a: result.TermSet(a['chars'],"some", tag=a['tag']) if isinstance(a['chars'],set) \
+                                                                                       else result.TermString(a['chars'],"some")),
                 }
     def unbox(v):
         if isinstance(v,AST.StringLit):
             return v.content
         if isinstance(v,AST.Set):
-            return set(unbox(c) for c in v.children)
+            return set(unbox(c) for c in v.elements)
         if isinstance(v,AST.Record):
             return {k:unbox(v) for k,v in v.record.items()}
         assert False, v
@@ -214,13 +216,13 @@ ntTransformer = {
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
 #    'final_elem':   (lambda node: node.children[0]),
 #    'repeat_elem':  (lambda node: node.children[0]),
-    'order':        (lambda node: AST.Order(node.children[1:-1])),
-    'set':          (lambda node: AST.Set(node.children[1:-1])),
+    'order':        (lambda node: AST.Order([c for c in node.children if not isinstance(c,Token)])),
+    'set':          (lambda node: AST.Set([c for c in node.children if not isinstance(c,Token)])),
     'map':          (lambda node: AST.Map(node.children[1:-1])),
-#    'record':       (lambda node: AST.Record(node.children[1:-1])),
+    'record':       (lambda node: AST.Record(node.children[1:-1])),
     'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
     'order_pair':   (lambda node: node.children[0]),
-#    'elem_iv':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
+    'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
 }
 
 tTransformer = {
@@ -248,7 +250,8 @@ def buildPidginParser(trace=None, start='expr'):
     stage2g = stage2(rs[0])
     stage2g.start = start
     stage2g.discard = stage1g.discard
-    return Parser(stage2g, ntTransformer=ntTransformer, tTransformer=tTransformer)
+    stage2m = Automaton(stage2g)
+    return Parser(stage2m, ntTransformer=ntTransformer, tTransformer=tTransformer)
 
 def buildParser(grammar):
     return Parser(grammar, ntTransformer=ntTransformer, tTransformer=tTransformer)

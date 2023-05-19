@@ -23,7 +23,8 @@ if args.input is None and args.file is None:
 parser = buildPidginParser(start=args.start)
 
 if args.input is not None:
-    trees = list(parser.parse(args.input, trace=open('trace.dot','wt')))
+    trees = list(parser.execute(args.input, True))
+    parser.trace.output(open('trace.dot','wt'))
 if args.file is not None:
     trees = list(parser.parse(open(args.file).read(), trace=open('trace.dot','wt')))
 
