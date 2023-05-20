@@ -178,6 +178,8 @@ class Token:
         self.symbol   = symbol
         if hasattr(symbol,'tag'):
             self.tag = symbol.tag
+        elif hasattr(symbol,'name'):
+            self.tag = symbol.name
         else:
             self.tag = None
         assert type(symbol) in (SymbolTable.TermSetEQ, SymbolTable.TermStringEQ, SymbolTable.NonterminalEQ),\

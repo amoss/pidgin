@@ -3,7 +3,8 @@
 
 from .frontend import AST
 from .types import Type
-from ..parser import Parser
+from ..parser import Parser, Token
+from ..util import dump
 
 class Box:
     def __init__(self, type, raw):
@@ -86,10 +87,10 @@ class Box:
     def evaluateBinop(tree, listTag):
         accumulator = Box.fromConstantExpression(tree.children[0])
         for c in tree.children[1:]:
-            assert isinstance(c, Parser.Nonterminal) and c.tag==listTag and len(c.children)==2, c
-            assert isinstance(c.children[0], Parser.Terminal), c.children[0]
+            assert isinstance(c, Token) and c.symbol.isNonterminal and c.tag==listTag and len(c.children)==2, c
+            assert isinstance(c.children[0], Token) and c.children[0].symbol.isTerminal, c.children[0]
             value = Box.fromConstantExpression(c.children[1])
-            op = c.children[0].chars
+            op = c.children[0].span
             eval = Box.opTypeCheck[op](accumulator.type, value.type)
             assert eval is not None, f"Invalid types for operation: {accumulator.type} {op} {value.type}"
             accumulator = eval(accumulator, value)
@@ -141,7 +142,7 @@ class Box:
             'binop1': Box.evaluateBinop1,
             'binop2': Box.evaluateBinop2
         }
-        assert isinstance(node, Parser.Nonterminal), node
+        assert isinstance(node, Token) and node.symbol.isNonterminal, node
         assert node.tag in despatch, node.tag
         return despatch[node.tag](node)
 

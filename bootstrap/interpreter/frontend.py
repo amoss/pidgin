@@ -7,6 +7,7 @@ import string
 from ..grammar import Grammar
 from ..parser import Parser, Token
 from ..machine import Automaton
+from ..util import dump
 
 def stage1():
     def T(val, m=None, s=None):
@@ -212,18 +213,28 @@ class AST:
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
 
+
+def removeFinalComma(seq):
+    if len(seq)==0:   return seq
+    final = seq[-1]
+    if isinstance(final,Token) and final.span==',':
+        return seq[:-1]
+    return seq
+
+
 ntTransformer = {
     'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1]))),
     'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
 #    'final_elem':   (lambda node: node.children[0]),
 #    'repeat_elem':  (lambda node: node.children[0]),
-    'order':        (lambda node: AST.Order([c for c in node.children if not isinstance(c,Token)])),
-    'set':          (lambda node: AST.Set([c for c in node.children if not isinstance(c,Token)])),
+    'order':        (lambda node: AST.Order(removeFinalComma(node.children[1:-1]))),
+    'set':          (lambda node: AST.Set(removeFinalComma(node.children[1:-1]))),
     'map':          (lambda node: AST.Map(node.children[1:-1])),
     'record':       (lambda node: AST.Record(node.children[1:-1])),
     'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
     'order_pair':   (lambda node: node.children[0]),
+    'comma_pair':   (lambda node: node.children[0]),
     'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
 }
 
