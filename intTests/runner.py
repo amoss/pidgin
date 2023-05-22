@@ -46,13 +46,18 @@ parser = buildPidginParser(start=args.start)
 for filename in collect(thisDir):
     if args.filter is not None and re.fullmatch(args.filter,filename) is None:  continue
     cases = open(filename).read().split('\n')
-    for case in cases:
+    for i,case in enumerate(cases):
         if len(case)==0:  continue
         input, output = case.split(' | ')
-        if args.verbose: print(f'{GRAY}Testing {filename}: {input}{END}')
-        trees = [r for r in parser.execute(input, args.parsetraces)]
+        if args.verbose: print(f'{GRAY}Testing {filename} {i}: {input}{END}')
+        try:
+            trees = [r for r in parser.execute(input, args.parsetraces)]
+        except:
+            trees = []
+        if args.parsetraces:
+            parser.trace.output( open(os.path.join(rootDir,'results',f'{filename}{i}.dot'),'wt') )
         if len(trees)!=1:
-            print(f'{RED}Failed to parse: {input}{END}')
+            print(f'{RED}Failed to parse {i}: {input}{END}')
         else:
             if args.parsetrees:
                 dump(trees[0])
@@ -63,7 +68,7 @@ for filename in collect(thisDir):
             else:
                 strResult = str(pyResult)
             if strResult!=output:
-                print(f'{RED}Output is wrong, expected: {pyResult}')
+                print(f'{RED}{filename} {i}, output is wrong, expected: {pyResult}')
                 print(f'  actual: {strResult}{END}')
             elif args.verbose:
-                print(f'{GREEN}Passed on {filename}: {input}{END}')
+                print(f'{GREEN}Passed on {filename} {i}: {input}{END}')

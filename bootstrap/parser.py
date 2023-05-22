@@ -344,7 +344,7 @@ class Trace:
         for n in nodes:
             if isinstance(n, PState):
                 print(f'p{n.id} [shape=none, ' +
-                      f'label={n.dotLabel(self.input,self.redundant[n])}];', file=target)
+                      f'label={n.dotLabel(self.input,self.redundant.get(n,True))}];', file=target)
             elif isinstance(n, Barrier):
                 print(f'b{n.id} [shape=none, fontcolor=orange, label="Barrier {n.id}"];', file=target)
                 if n.parent is not None:
