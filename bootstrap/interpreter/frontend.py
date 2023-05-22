@@ -221,9 +221,18 @@ def removeFinalComma(seq):
         return seq[:-1]
     return seq
 
+class SynToken:
+    def __init__(self, span):
+        self.span = span
+
+def collectSpans(node):
+    dump(node)
+    return SynToken("".join(n.span for n in node.children))
+
 
 ntTransformer = {
-    'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1]))),
+    'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1] if n is not None))),
+#    'str_lit2':     (lambda node: collectSpans(node)),
     'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
 #    'final_elem':   (lambda node: node.children[0]),

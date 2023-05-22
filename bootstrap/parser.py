@@ -3,7 +3,7 @@
 
 import html
 from .machine import SymbolTable, Automaton, Handle, AState, Symbol
-from .util import MultiDict, OrdSet, strs
+from .util import MultiDict, OrdSet, strs, dump
 
 class Barrier:
     counter = 1
@@ -280,10 +280,15 @@ class Parser:
         else:
             pruned = node
         if not isinstance(pruned,Token):    return pruned
-        if pruned.symbol.isNonterminal and pruned.symbol.name in self.ntTransformer:
-            return self.ntTransformer[pruned.symbol.name](pruned)
-        if pruned.symbol.isTerminal and pruned.tag in self.tTransformer:
-            return self.tTransformer[pruned.tag](pruned)
+        try:
+            if pruned.symbol.isNonterminal and pruned.symbol.name in self.ntTransformer:
+                return self.ntTransformer[pruned.symbol.name](pruned)
+            if pruned.symbol.isTerminal and pruned.tag in self.tTransformer:
+                return self.tTransformer[pruned.tag](pruned)
+        except:
+            print(f'Failed to apply transformer to:')
+            dump(pruned)
+            raise
 
         return pruned
 

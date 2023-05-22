@@ -15,6 +15,7 @@ argParser = argparse.ArgumentParser()
 argParser.add_argument("-i", "--input")
 argParser.add_argument("-f", "--file")
 argParser.add_argument("-s", "--start", default="expr")
+argParser.add_argument("-d", "--dumpast", action="store_true")
 args = argParser.parse_args()
 
 if args.input is None and args.file is None:
@@ -36,6 +37,9 @@ if len(trees)>1:
     print(f"Warning: input is ambiguous, had {len(trees)} distinct parses")
     for t in trees:
         dump(t)
+
+if args.dumpast:
+    dump(trees[0])
 
 result = Box.fromConstantExpression(trees[0])
 pyResult = result.unbox()
