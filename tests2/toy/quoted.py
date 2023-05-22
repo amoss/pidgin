@@ -112,3 +112,21 @@ def quoted_str5():
                'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'T!\'longer string"'], \
               ['', '2x', '\'"!\'"', 'T!""', 'T!\'\''], \
               []
+
+def quoted_str6():
+    '''L: A ! L | A    Q: ' [^"]* " | << ([^>] | > [^>])* >>    A: I | Q   I: [a-z] Glue [a-z0-9]* Remover
+
+       Test pidgin-style strings (new version of alternative) in a language with a single binary operator.'''
+    letters = string.ascii_lowercase + string.ascii_uppercase
+    g = Grammar('L')
+    g.addRule('L', [N("A")], [N("A"), T("!"), N("L")])
+    g.addRule('A', [N("Q")], [N("I")])
+    g.addRule('Q', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
+                   [T('<<'), Glue(), N('Qi',m='any'), T('>>'), Remove()])
+    g.addRule('Qi', [S([">"],True)], [T('>'), S([">"],True)])
+    g.addRule('I', [S(list(letters)+['_']), Glue(), S(list(letters+string.digits)+['_'], m='any'), Remove()])
+    return g, ['x', 'x2', 'T', '\'"', '\'xy"', '\'x y z"',
+               'x!y', 'x!y2', 'x!\'"', 'x!\'y"', 'x!y!z', 'T!\'longer string"',
+               'x!<<y>>', 'x!<<yy>>', 'x!<<yyy>>', 'x!<<y<y>>', '<<hello>>!<<world>>'], \
+              ['', '2x', 'T!""', 'T!\'\''], \
+              []
