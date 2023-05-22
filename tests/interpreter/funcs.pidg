@@ -8,12 +8,12 @@ func blah [left:set<int> right:set<int>] {
     return x + foo!y
 }
 
-func TA  [s:set]    { return [:Terminal    :'" :s  :Any      :false] }
-func TS  [s:set]    { return [:Terminal    :'" :s  :Some     :false] }
-func TAN [s:set]    { return [:Terminal    :'" :s  :Any      :true ] }
+func TA  [s:set<string>]    { return [:Terminal    :'" :s  :Any      :false] }
+func TS  [s:set<string>]    { return [:Terminal    :'" :s  :Some     :false] }
+func TAN [s:set<string>]    { return [:Terminal    :'" :s  :Any      :true ] }
 func TO  [s:string] { return [:Terminal    :s  :{} :Optional :false] }
-func N   [n:name]   { return [:Nonterminal :n  :{} :Just     :false] }
-func NA  [n:name]   { return [:Nonterminal :n  :{} :Any      :false] }
-func NO  [n:name]   { return [:Nonterminal :n  :{} :Optional :false] }
-func NS  [n:name]   { return [:Nonterminal :n  :{} :Some     :false] }
+func N   [n:string]   { return [:Nonterminal :n  :{} :Just     :false] }
+func NA  [n:string]   { return [:Nonterminal :n  :{} :Any      :false] }
+func NO  [n:string]   { return [:Nonterminal :n  :{} :Optional :false] }
+func NS  [n:string]   { return [:Nonterminal :n  :{} :Some     :false] }
 

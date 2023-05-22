@@ -90,6 +90,6 @@
               }
     'kv_pair":  {[N!'expr"   T!':"   N!'expr"]}
     'kv_comma": {[N!'expr"   T!':"   N!'expr"   T!',"]}
-    'iv_pair":  {[N!'ident"   T!':"   N!'expr"]}
+    'iv_pair":  {[NO!'ident"   T!':"   N!'expr"]}
     'iv_comma": {[N!'ident"   T!':"   N!'expr"   T!',"]}
 }

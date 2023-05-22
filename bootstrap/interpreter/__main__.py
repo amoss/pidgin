@@ -28,7 +28,8 @@ if args.input is not None:
     trees = list(parser.execute(args.input, True))
     parser.trace.output(open('inttrace.dot','wt'))
 if args.file is not None:
-    trees = list(parser.parse(open(args.file).read(), trace=open('trace.dot','wt')))
+    trees = list(parser.execute(open(args.file).read(), True))
+    parser.trace.output(open('inttrace.dot','wt'))
 
 if len(trees)==0:
     print("Parse error")
