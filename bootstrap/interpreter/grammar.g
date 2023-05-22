@@ -70,7 +70,7 @@
     'str_lit": { [T!<<'>>, G!'", TAN!{<<">>}, T!<<">>, R!'"]
                  [T!'<<", G!'", NA!'str_lit2",  T!'>>",  R!'"]
                }
-    'str_lit2": { [TAN!'>"] [T!'>" TAN!'>"] }
+    'str_lit2": { [TAN!'>"] [T!'>" TN!'>"] }
     'comma_pair": {[N!'expr"   T!',"]}
     'set":   { [T!'{",  T!'}"]
                [T!'{",  NA!'comma_pair",  N!'expr",  TO!',",  T!'}"]

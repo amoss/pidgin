@@ -56,9 +56,11 @@ for filename in collect(thisDir):
             trees = []
         if args.parsetraces:
             parser.trace.output( open(os.path.join(rootDir,'results',f'{filename}{i}.dot'),'wt') )
-        if len(trees)!=1:
-            print(f'{RED}Failed to parse {i}: {input}{END}')
+        if len(trees)==0:
+            print(f'{RED}Failed to parse {filename} {i}: {input}{END}')
         else:
+            if len(trees)>1:
+                print(f'{YELLOW}Ambiguous parse for {filename} {i}')
             if args.parsetrees:
                 dump(trees[0])
             result = Box.fromConstantExpression(trees[0])

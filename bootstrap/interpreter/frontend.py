@@ -95,6 +95,7 @@ def stage2(tree):
     functors = { 'T':      (lambda a: result.TermSet(a) if isinstance(a,set) else result.TermString(a)),
                  'TA':     (lambda a: result.TermSet(a,"any") if isinstance(a,set) else result.TermString(a,"any")),
                  'TAN':    (lambda a: result.TermSet(a,modifier="any",inverse=True)),
+                 'TN':     (lambda a: result.TermSet(a,inverse=True)),
                  'TS':     (lambda a: result.TermSet(a,"some") if isinstance(a,set) else result.TermString(a,"some")),
                  'TO':     (lambda a: result.TermSet(a,"optional") if isinstance(a,set) else result.TermString(a,"optional")),
                  'N':      (lambda a: result.Nonterminal(a)),
@@ -226,13 +227,12 @@ class SynToken:
         self.span = span
 
 def collectSpans(node):
-    dump(node)
     return SynToken("".join(n.span for n in node.children))
 
 
 ntTransformer = {
     'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1] if n is not None))),
-#    'str_lit2':     (lambda node: collectSpans(node)),
+    'str_lit2':     (lambda node: collectSpans(node)),
     'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
 #    'final_elem':   (lambda node: node.children[0]),

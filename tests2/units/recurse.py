@@ -42,14 +42,12 @@ def recurse_degenseq3():
 def recurse_degenseq4():
     '''R: (x R)*
 
-       Test degenerate form of terminal repetition, same language as x* but combinatorially ambiguous without
-       greediness. Right-recursive form.'''
+       Test degenerate form of terminal repetition, cannot match as requires an R to be synthesized from an
+       empty match.'''
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('x'), N('R')])
-    return g, ['', 'x', 'xx', 'xxx', 'xxxx'], \
-           ['lx', 'xr'], \
-           []
+    return g, [''], ['x', 'xx', 'xxx', 'xxxx', 'lx', 'xr'], []
 
 
 def recurse_nests():
@@ -66,12 +64,12 @@ def recurse_nests():
 def recurse_nests2():
     '''R: (l R r)*
 
-       Test bracket nesting. Not degenerate as sub-sequences cannot overlap?'''
+       Test bracket nesting. Cannot match as requires synthesis of R from empty match.'''
     g = Grammar('R')
     g.addRule('R',  [N('Ri','any','greedy')])
     g.addRule('Ri', [T('l'), N('R'), T('r')])
-    return g, ['','lr','llrr','llrlrr','lllrrlrlrr', 'llrllrrlrr', 'llrllrlrrlrr'], \
-           ['l', 'r', 'll', 'rr', 'llr', 'lrr', 'rl', 'lllrr', 'llrlr', 'llrrr', 'lllrlrrrr'], \
+    return g, [''], ['lr','llrr','llrlrr','lllrrlrlrr', 'llrllrrlrr', 'llrllrlrrlrr',
+           'l', 'r', 'll', 'rr', 'llr', 'lrr', 'rl', 'lllrr', 'llrlr', 'llrrr', 'lllrlrrrr'], \
            []
 
 

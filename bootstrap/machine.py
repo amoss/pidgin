@@ -233,7 +233,8 @@ class Handle:
             if next is None:
                 if self.exit in dfaState:
                     onlySymbols = tuple( s for s in stack[pos+2:] if not isinstance(s,AState) )
-                    return stack[:pos+2], onlySymbols
+                    if len(onlySymbols)>0:
+                        return stack[:pos+2], onlySymbols
                 return None, None
             dfaState = next
         if self.exit in dfaState:

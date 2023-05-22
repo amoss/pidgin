@@ -114,12 +114,13 @@ def quoted_str5():
               []
 
 def quoted_str6():
-    '''L: A ! L | A    Q: ' [^"]* " | << ([^>] | > [^>])* >>    A: I | Q   I: [a-z] Glue [a-z0-9]* Remover
+    '''L: A ( ! A )*    Q: ' [^"]* " | << ([^>] | > [^>])* >>    A: I | Q   I: [a-z] Glue [a-z0-9]* Remover
 
        Test pidgin-style strings (new version of alternative) in a language with a single binary operator.'''
     letters = string.ascii_lowercase + string.ascii_uppercase
     g = Grammar('L')
-    g.addRule('L', [N("A")], [N("A"), T("!"), N("L")])
+    g.addRule('L', [N("A"), N("L2",m='any')])
+    g.addRule('L2', [T("!"), N("A")])
     g.addRule('A', [N("Q")], [N("I")])
     g.addRule('Q', [T("'"), Glue(), S(['"'],True,m='any'), T('"'), Remove()],
                    [T('<<'), Glue(), N('Qi',m='any'), T('>>'), Remove()])
