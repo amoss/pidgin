@@ -42,8 +42,9 @@ def collect(dir):
     return results
 
 parser = buildPidginParser(start=args.start)
+target = os.path.join(rootDir, "results", "interpreter")
 
-for filename in collect(thisDir):
+for filename in collect(os.path.join(rootDir,"tests","interpreter")):
     if args.filter is not None and re.fullmatch(args.filter,filename) is None:  continue
     cases = open(filename).read().split('\n')
     for i,case in enumerate(cases):
@@ -55,7 +56,8 @@ for filename in collect(thisDir):
         except:
             trees = []
         if args.parsetraces:
-            parser.trace.output( open(os.path.join(rootDir,'results',f'{filename}{i}.dot'),'wt') )
+            traceFn = os.path.join(target,f'{os.path.basename(filename)}{i}.dot')
+            parser.trace.output( open(traceFn,'wt') )
         if len(trees)==0:
             print(f'{RED}Failed to parse {filename} {i}: {input}{END}')
         else:

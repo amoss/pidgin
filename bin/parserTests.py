@@ -61,7 +61,8 @@ passed, failed = 0, 0
 sys.setrecursionlimit(5000)
 
 # Clean old results
-target = os.path.join(rootDir,"unitResults")
+target = os.path.join(rootDir, "results", "parser")
+testBase = os.path.join(rootDir, "tests", "parser")
 for name in os.listdir(target):
     if name==".keep" or name=="index.md" or name=='.DS_Store':  continue
     d = os.path.join(target,name)
@@ -72,9 +73,9 @@ for name in os.listdir(target):
 units = []
 largePositives = {}
 injections = dict( (i.__qualname__,i) for i in (T,S,N,Glue,Remove,Grammar))
-subDirs = [ os.path.join(thisDir,e.name) for e in os.scandir(thisDir) if e.is_dir() ]
+subDirs = [ os.path.join(testBase,e.name) for e in os.scandir(testBase) if e.is_dir() ]
 for d in subDirs:
-    files = [ e.name for e in os.scandir(d) if e.name[-3:]=='.py' ]
+    files = [ e.name for e in os.scandir(os.path.join(testBase,d)) if e.name[-3:]=='.py' ]
     for f in files:
         spec = importlib.util.spec_from_file_location(f, os.path.join(d,f))
         module = importlib.util.module_from_spec(spec)

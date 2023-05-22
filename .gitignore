@@ -3,5 +3,4 @@
 **/.*.sw[op]
 **/__pycache__
 results/**
-unitResults/**
 **/.DS_Store
