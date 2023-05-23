@@ -155,6 +155,7 @@ class AST:
         def __init__(self, content):
             assert isinstance(content,str), content
             self.content = content
+            self.span = content
         def __str__(self):
             return "id("+self.content+')'
 
@@ -204,9 +205,13 @@ class AST:
 
     class IdentVal:
         def __init__(self, key, value):
-            assert isinstance(key,AST.Ident), key
-            self.key = key.content
-            self.value = value
+            if key is None:
+                self.key = None
+                self.value = value
+            else:
+                assert isinstance(key,AST.Ident), key
+                self.key = key.content
+                self.value = value
         def __str__(self):
             return f"{self.key}:{self.value}"
 
@@ -244,7 +249,8 @@ ntTransformer = {
     'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
     'order_pair':   (lambda node: node.children[0]),
     'comma_pair':   (lambda node: node.children[0]),
-    'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]))
+    'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]) if len(node.children)==3\
+                                  else AST.IdentVal(None,node.children[1]))
 }
 
 tTransformer = {

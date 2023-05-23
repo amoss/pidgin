@@ -22,6 +22,7 @@ if args.input is None and args.file is None:
     print("Must supply input or file")
     sys.exit(-1)
 
+sys.setrecursionlimit(5000)
 parser = buildPidginParser(start=args.start)
 
 if args.input is not None:
