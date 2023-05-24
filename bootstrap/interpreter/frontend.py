@@ -215,6 +215,28 @@ class AST:
         def __str__(self):
             return f"{self.key}:{self.value}"
 
+    class FunctionDecl:
+        def __init__(self, name, args, body):
+            self.name      = name
+            self.arguments = args
+            self.body      = body
+
+    class EnumDecl:
+        def __init__(self, node):
+            pass
+        def __str__(self):
+            return f'Decl({self.name})'
+
+def makeDeclaration(node):
+    assert isinstance(node, Token)  and  len(node.children)>=2  and  isinstance(node.children[1], AST.Ident),\
+           f'Invalid declaration for {node}'
+    if node.children[0].span == "func":
+        assert isinstance(node.children[2], Token)  and  isinstance(node.children[-1], Token)
+        return AST.FunctionDecl(node.children[1].span, node.children[2], node.children[3:-1])
+    elif node.children[0].span == "enum":
+        pass
+    else:
+        assert False, f'Unknown declaration type {node.children[0].span}'
 
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
@@ -240,8 +262,6 @@ ntTransformer = {
     'str_lit2':     (lambda node: collectSpans(node)),
     'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
-#    'final_elem':   (lambda node: node.children[0]),
-#    'repeat_elem':  (lambda node: node.children[0]),
     'order':        (lambda node: AST.Order(removeFinalComma(node.children[1:-1]))),
     'set':          (lambda node: AST.Set(removeFinalComma(node.children[1:-1]))),
     'map':          (lambda node: AST.Map(node.children[1:-1])),
@@ -250,7 +270,8 @@ ntTransformer = {
     'order_pair':   (lambda node: node.children[0]),
     'comma_pair':   (lambda node: node.children[0]),
     'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]) if len(node.children)==3\
-                                  else AST.IdentVal(None,node.children[1]))
+                                  else AST.IdentVal(None,node.children[1])),
+    'decl':         (lambda node: makeDeclaration(node))
 }
 
 tTransformer = {

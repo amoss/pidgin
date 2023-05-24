@@ -2,12 +2,30 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from ..util import dump
+from .frontend import AST
+from ..parser import Token
 
 class Environment:
-    pass
+    def __init__(self):
+        self.values = {}
+        self.types = {}
+
+    def contains(self, name):
+        return name in self.values
+
+    def insert(self, name, valueType, value):
+        self.values[name] = value
+        self.types[name] = valueType
+
+    def dump(self):
+        for name in self.values.keys():
+            print(f'{name} {self.types[name]} : {self.values[name]}')
+
 
 def processDeclaration(node, env):
     print(f'exec decl {node}')
+    assert not env.contains(node.name), node.name
+    env.insert(node.name, "func", node)
 
 def executeAssignment(node, env):
     print(f'execute = {node}')
@@ -25,9 +43,9 @@ def execute(node, env):
     assert node.symbol.isNonterminal, node
     if node.symbol.name == 'program':
         for child in node.children:
-            if child.symbol.name=='decl':
+            if isinstance(child, AST.FunctionDecl):
                 processDeclaration(child,env)
         for child in node.children:
-            if child.symbol.name == 'statement':
+            if isinstance(child, Token)  and  child.symbol.name == 'statement':
                 executeStatement(child, env)
 

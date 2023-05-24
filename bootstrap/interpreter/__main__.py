@@ -55,5 +55,6 @@ if args.start=='expr':
 elif args.start=='program':
     env = Environment()
     execute(trees[0], env)
+    env.dump()
 else:
     assert False, "Unexpected entry point {args.start}"
