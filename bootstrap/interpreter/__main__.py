@@ -37,15 +37,21 @@ if len(trees)==0:
     sys.exit(-1)
 if len(trees)>1:
     print(f"Warning: input is ambiguous, had {len(trees)} distinct parses")
-    for t in trees:
+    for i,t in enumerate(trees):
+        print(f'Parse tree {i}')
         dump(t)
 
 if args.dumpast:
     dump(trees[0])
 
-result = Box.fromConstantExpression(trees[0])
-pyResult = result.unbox()
-if isinstance(pyResult,str):
-    print(repr(pyResult))
+if args.start=='expr':
+    result = Box.fromConstantExpression(trees[0])
+    pyResult = result.unbox()
+    if isinstance(pyResult,str):
+        print(repr(pyResult))
+    else:
+        print(pyResult)
+elif args.start=='program':
+    print("Your execution here, only 59.95")
 else:
-    print(pyResult)
+    assert False, "Unexpected entry point {args.start}"

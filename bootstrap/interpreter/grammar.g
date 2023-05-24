@@ -34,9 +34,7 @@
     'binop4":     { [N!'ident",    T!'!",   N!'atom"]
                     [N!'atom"]
                   }
-    'atom": { [T![chars:'true" tag:'bool"]]
-              [T![chars:'false" tag:'bool"]]
-              [N!'ident"]
+    'atom": { [N!'ident"]
               [N!'number"]
               [N!'str_lit"]
               [N!'set"]
