@@ -17,3 +17,4 @@ func NA  [n:string]   { return [:Nonterminal :n  :{} :Any      :false] }
 func NO  [n:string]   { return [:Nonterminal :n  :{} :Optional :false] }
 func NS  [n:string]   { return [:Nonterminal :n  :{} :Some     :false] }
 
+name = foo![x:3 y:{}]

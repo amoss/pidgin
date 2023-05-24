@@ -8,8 +8,9 @@ if rootDir not in sys.path:
 
 import argparse
 
-from bootstrap.interpreter import buildPidginParser, Box
+from bootstrap.interpreter import buildPidginParser, Box, execute, Environment
 from bootstrap.util import dump
+
 
 argParser = argparse.ArgumentParser()
 argParser.add_argument("-i", "--input")
@@ -52,6 +53,7 @@ if args.start=='expr':
     else:
         print(pyResult)
 elif args.start=='program':
-    print("Your execution here, only 59.95")
+    env = Environment()
+    execute(trees[0], env)
 else:
     assert False, "Unexpected entry point {args.start}"

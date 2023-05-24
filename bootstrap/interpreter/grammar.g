@@ -2,6 +2,7 @@
     'program": { [NS!'decl"] }
     'decl": { [T!'func" N!'ident" N!'record_decl" T!'{" NS!'statement" T!'}"]
               [N!'enum_decl"]
+              [N!'statement"]
             }
     'record_decl": { [T!'[" NS!'nametype" T!']" ] }
     'enum_decl": { [T!'enum" N!'ident" T!'[" NS!'ident" T!']"] }
