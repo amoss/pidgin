@@ -84,12 +84,12 @@ class Box:
     }
 
     @staticmethod
-    def evaluateBinop(tree, listTag):
-        accumulator = Box.fromConstantExpression(tree.children[0])
+    def evaluateBinop(tree, listTag, env):
+        accumulator = evaluate(tree.children[0], env)
         for c in tree.children[1:]:
             assert isinstance(c, Token) and c.symbol.isNonterminal and c.tag==listTag and len(c.children)==2, c
             assert isinstance(c.children[0], Token) and c.children[0].symbol.isTerminal, c.children[0]
-            value = Box.fromConstantExpression(c.children[1])
+            value = evaluate(c.children[1])
             op = c.children[0].span
             eval = Box.opTypeCheck[op](accumulator.type, value.type)
             assert eval is not None, f"Invalid types for operation: {accumulator.type} {op} {value.type}"
@@ -97,25 +97,25 @@ class Box:
         return accumulator
 
     @staticmethod
-    def evaluateBinop1(tree):
-        return Box.evaluateBinop(tree, "binop1_lst")
+    def evaluateBinop1(tree, env):
+        return Box.evaluateBinop(tree, "binop1_lst", env)
 
     @staticmethod
-    def evaluateBinop2(tree):
-        return Box.evaluateBinop(tree, "binop2_lst")
+    def evaluateBinop2(tree, env):
+        return Box.evaluateBinop(tree, "binop2_lst", env)
 
     @staticmethod
-    def evaluateOrder(tree):
+    def evaluateOrder(tree, env):
         if len(tree.seq)==0:  return Box(Type('[]',param1='empty'),[])
         result = [ Box.fromConstantExpression(tree.seq[0]) ]
         for subtree in tree.seq[1:]:
-            element = Box.fromConstantExpression(subtree)
+            element = evaluate(subtree,env)
             assert result[0].type.eqOrCoerce(element.type), f"Can't store element {element.type} inside [{result[0].type}]!"
             result.append(element)
         return Box(Type('[]', param1=result[0].type), result)
 
     @staticmethod
-    def evaluateSet(tree):
+    def evaluateSet(tree, env):
         if len(tree.elements)==0: return Box(Type('{}',param1='empty'),frozenset())
         element = Box.fromConstantExpression(tree.elements[0])
         elementType = element.type
@@ -127,25 +127,6 @@ class Box:
         return Box(Type('{}', param1=elementType), frozenset(result))
 
 
-    @staticmethod
-    def fromConstantExpression(node):
-        if isinstance(node, AST.NumberLit):
-            return Box(Type('N'), node.content)
-        if isinstance(node, AST.StringLit):
-            return Box(Type('S'), node.content)
-        if isinstance(node, AST.Order):
-            return Box.evaluateOrder(node)
-        if isinstance(node, AST.Set):
-            return Box.evaluateSet(node)
-        assert not isinstance(node, AST.Ident), f"{node} can't be in constant expression"
-        despatch = {
-            'binop1': Box.evaluateBinop1,
-            'binop2': Box.evaluateBinop2
-        }
-        assert isinstance(node, Token) and node.symbol.isNonterminal, node
-        assert node.tag in despatch, node.tag
-        return despatch[node.tag](node)
-
     def unbox(self):
         if self.type.label=='{}':
             raw = frozenset(box.unbox() for box in self.raw)
@@ -154,3 +135,5 @@ class Box:
         else:
             raw = self.raw
         return raw
+
+from .execution import evaluate

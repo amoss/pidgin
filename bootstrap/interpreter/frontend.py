@@ -122,9 +122,9 @@ def stage2(tree):
         assert False, v
     def symbol(call):
         if isinstance(call.arg,AST.StringLit) or isinstance(call.arg,AST.Set):
-            return functors[call.function.content](unbox(call.arg))
+            return functors[call.function](unbox(call.arg))
         if isinstance(call.arg,AST.Record):
-            return functors2[call.function.content](unbox(call.arg))
+            return functors2[call.function](unbox(call.arg))
         assert False, call.arg
     for kv in tree.children:
         try:
@@ -161,10 +161,7 @@ class AST:
 
     class Call:
         def __init__(self, function, arg):
-            if isinstance(function, AST.Ident):
-                self.function = function
-            else:
-                self.function = AST.Ident(function.span)
+            self.function = function.span
             self.arg = arg
         def __str__(self):
             return f"{self.function}!{self.arg}"
@@ -232,7 +229,7 @@ def makeDeclaration(node):
            f'Invalid declaration for {node}'
     if node.children[0].span == "func":
         assert isinstance(node.children[2], Token)  and  isinstance(node.children[-1], Token)
-        return AST.FunctionDecl(node.children[1].span, node.children[2], node.children[3:-1])
+        return AST.FunctionDecl(node.children[1].span, node.children[2], node.children[4:-1])
     elif node.children[0].span == "enum":
         pass
     else:
