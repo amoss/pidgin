@@ -111,7 +111,7 @@ class Box:
     @staticmethod
     def evaluateOrder(tree, env):
         if len(tree.seq)==0:  return Box(Type('[]',param1='empty'),[])
-        result = [ Box.fromConstantExpression(tree.seq[0]) ]
+        result = [ evaluate(tree.seq[0], env) ]
         for subtree in tree.seq[1:]:
             element = evaluate(subtree,env)
             assert result[0].type.eqOrCoerce(element.type), f"Can't store element {element.type} inside [{result[0].type}]!"
@@ -121,14 +121,26 @@ class Box:
     @staticmethod
     def evaluateSet(tree, env):
         if len(tree.elements)==0: return Box(Type('{}',param1='empty'),frozenset())
-        element = Box.fromConstantExpression(tree.elements[0])
+        element = evaluate(tree.elements[0], env)
         elementType = element.type
         result = set([element])
         for subtree in tree.elements[1:]:
-            element = Box.fromConstantExpression(subtree)
+            element = evaluate(subtree, env)
             assert elementType.eqOrCoerce(element.type), f"Can't store element {element.type} inside \{{elementType}}!"
             result.add(element)
         return Box(Type('{}', param1=elementType), frozenset(result))
+
+
+    @staticmethod
+    def evaluateRecord(tree, env):
+        result = Box(Type('[:]'), Environment())
+        dump(tree)
+        for child in tree.children:
+            assert isinstance(child, AST.IdentVal), child
+            assert not result.raw.contains(child.key), child.key
+            value = evaluate(child.value, env)
+            result.raw.insert(child.key, value.type, value)
+        return result
 
 
     def unbox(self):
@@ -140,4 +152,4 @@ class Box:
             raw = self.raw
         return raw
 
-from .execution import evaluate
+from .execution import evaluate, Environment

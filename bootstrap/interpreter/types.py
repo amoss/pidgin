@@ -28,6 +28,18 @@ class Type:
     def __hash__(self):
         return hash((self.label, self.param1, self.param2))
 
+    def isFunction(self):
+        return self.label=="func"
+
+    def isBuiltin(self):
+        return self.label=="builtin"
+
+    def isRecord(self):
+        return self.label=='[:]'
+
+    def isSet(self):
+        return self.label=='{}'
+
     def eqOrCoerce(self, other):
         if self==other:                                            return True
         if self.label!=other.label:                                return False

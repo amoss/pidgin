@@ -12,13 +12,13 @@ class Environment:
     def __init__(self):
         self.values = {}
         self.types = {}
-        self.insert('len', 'builtin', self.builtin_len)
 
     def contains(self, name):
         return name in self.values
 
     def insert(self, name, valueType, value):
         self.values[name] = value
+        assert isinstance(valueType, Type), valueType
         self.types[name] = valueType
 
     def lookup(self, name):
@@ -28,21 +28,28 @@ class Environment:
         for name in self.values.keys():
             print(f'{name} {self.types[name]} : {self.values[name]}')
 
-    def builtin_len(self, arg):
-        print(f'Builtin len: {arg}')
-        assert self.contains(arg.span), arg
-        argType = self.types[arg.span]
-        if isinstance(argType, Type)  and  argType.label=='{}':
-            return Box(Type('box num'), len(self.values[arg.span].raw))
-        assert False, f'Unimplemented builtin_len on {argType}'
+    def update(self, other):
+        for name in other.values.keys():
+            assert not name in self.values.keys(), name
+            self.insert(name, other.types[name], other.values[name])
+
+
+    def makeChild(self):
+        '''A child environment contains references to all functions declared in this environment, but not any
+           references to data values.'''
+        result = Environment()
+        for name,kind in self.types.items():
+            if kind.isFunction()  or  kind.isBuiltin():
+                result.insert(name, kind, self.values[name])
+        return result
 
 def processDeclaration(node, env):
     print(f'exec decl {node}')
     assert not env.contains(node.name), node.name
-    env.insert(node.name, "func", node)
+    env.insert(node.name, Type("func"), node)
 
 def executeAssignment(node, env):
-    print(f'execute = {node}')
+    print(f'execute {node.children[0]} = {node.children[2]} env: {",".join(env.values.keys())}')
     try:
         box = evaluate(node.children[2], env)
         env.insert(node.children[0].span, box.type, box)
@@ -58,12 +65,12 @@ def executeReturn(node, env):
     dump(node)
 
 def executeStatement(node, env):
-    print(f'exec stmt {node}')
     if len(node.children)==3  and  node.terminalAt(1,'='):
         executeAssignment(node, env)
-    if len(node.children)>=2  and  node.terminalAt(0,'return'):
+    elif len(node.children)>=2  and  node.terminalAt(0,'return'):
         executeReturn(node, env)
     else:
+        print('Unknown statement:')
         dump(node)
 
 # Temporary structure to bootstrap development. Later we will convert the AST for statements to a graph
@@ -100,26 +107,34 @@ def evaluate(node, env=None):
         return Box.evaluateSet(node, env)
     if isinstance(node, AST.Ident):
         assert env is not None, f"{node} can't be in constant expression"
-        assert env.contains(node.span)
+        assert env.contains(node.span), node.span
         return env.lookup(node.span)[0]
+    if isinstance(node, AST.Record):
+        return Box.evaluateRecord(node, env)
     if isinstance(node, AST.Call):
         assert env.contains(node.function), node.function
         function, fType = env.lookup(node.function)
-        if fType=='builtin':
-            result = function(node.arg)
+        if fType.isBuiltin():
+            print(f'calling {node.function} env: {",".join(env.values.keys())}')
+            result = function(evaluate(node.arg,env))
             return result
-        elif fType=='func':
+        elif fType.isFunction():
             print(f'call arg={node.arg} func={function}')
-            callEnv = Environment()
-            assert isinstance(node.arg, AST.Record), node.arg
-            for name,valueAST in node.arg.record.items():
-                value = evaluate(valueAST,env)
-                print(f'value type={value.type} raw={value.raw}')
-                callEnv.insert(name, value.type, value)
-            dump(function)
-            execute(function, callEnv)
-            assert callEnv.contains('%return%')
-            return callEnv.lookup('%return%')[0]
+            callEnv = env.makeChild()
+            callArgs = evaluate(node.arg, env)
+            assert callArgs.type.isRecord(), callArgs
+            print(f'call env: {",".join(callArgs.raw.values.keys())}')
+            callArgs.raw.update(callEnv)
+
+            #assert isinstance(node.arg, AST.Record), node.arg
+            #for name,valueAST in node.arg.record.items():
+            #    value = evaluate(valueAST,env)
+            #    print(f'value type={value.type} raw={value.raw}')
+            #    callEnv.insert(name, value.type, value)
+            #dump(function)
+            execute(function, callArgs.raw)
+            assert callArgs.raw.contains('%return%')
+            return callArgs.raw.lookup('%return%')[0]
         else:
             assert False, fType
     despatch = {
