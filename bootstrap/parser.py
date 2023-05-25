@@ -204,6 +204,12 @@ class Token:
             else:
                 print(f"{'  '*(depth+1)}{c}")
 
+    def terminalAt(self, idx, span):
+        if len(self.children)<=idx:                     return False
+        if not isinstance(self.children[idx], Token):   return False
+        if not self.children[idx].symbol.isTerminal:    return False
+        return self.children[idx].span==span
+
 
 class Parser:
     def __init__(self, machine, ntTransformer={}, tTransformer={}):

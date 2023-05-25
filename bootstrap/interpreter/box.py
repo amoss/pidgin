@@ -17,6 +17,9 @@ class Box:
     def __hash__(self):
         return hash((self.type,self.raw))
 
+    def __str__(self):
+        return f'box({self.type},{self.raw})'
+
     def plusTypeCheck(left, right):
         if not left.eqOrCoerce(right): return None
         if left.label=='{}':
@@ -89,8 +92,9 @@ class Box:
         for c in tree.children[1:]:
             assert isinstance(c, Token) and c.symbol.isNonterminal and c.tag==listTag and len(c.children)==2, c
             assert isinstance(c.children[0], Token) and c.children[0].symbol.isTerminal, c.children[0]
-            value = evaluate(c.children[1])
+            value = evaluate(c.children[1], env)
             op = c.children[0].span
+            print(f'evalBinop lhs={accumulator} op={op} rhs={value}')
             eval = Box.opTypeCheck[op](accumulator.type, value.type)
             assert eval is not None, f"Invalid types for operation: {accumulator.type} {op} {value.type}"
             accumulator = eval(accumulator, value)
