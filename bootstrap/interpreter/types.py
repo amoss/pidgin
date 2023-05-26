@@ -1,7 +1,19 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+class TypesCannotJoin(Exception):
+    pass
+
 class Type:
+    ANON_RECORD = 1
+    BUILTIN = 2
+    FUNCTION = 3
+    MAP = 4
+    NUMBER = 5
+    ORDER = 6
+    RECORD = 7
+    SET = 8
+    STRING = 9
     def __init__(self, label, param1=None, param2=None):
         self.label  = label
         if label=='{}': assert param1 is not None
@@ -70,3 +82,72 @@ class Type:
         elif self.param2 is not None and other.param2 == "empty":
             param2 = self.param2
         return Type(self.label, param1, param2)
+
+
+    def join(self, other):
+        if self.kind!=other.kind:
+            raise TypesCannotJoin(f'{self.kind} and {other.kind} cannot join')
+
+        if self.param1 is not None:
+            param1 = self.param1.join(other.param1)
+        else:
+            param1 = other.param1
+
+        if self.param2 is not None:
+            param2 = self.param2.join(other.param2)
+        else:
+            param2 = other.param2
+
+        if self.label=="record":
+            # params?
+        elif self.label=="tuple":
+            # params?
+        else:
+            params = None
+
+        return Type(self.label, param1=param1, param2=param2, params=params)
+
+
+    @staticmethod
+    def CALL(argType, retType):
+        assert isinstance(argType, Type), argType
+        assert isinstance(retType, Type), argType
+        return Type("call", param1=argType, param2=retType)
+
+    @staticmethod
+    def MAP(keyType, valType):
+        assert isinstance(keyType, Type), argType
+        assert isinstance(valType, Type), argType
+        return Type("map", param1=keyType, param2=valType)
+
+    @staticmethod
+    def NUMBER():
+        return Type("number")
+
+    @staticmethod
+    def ORDER(elType):
+        assert elType is None  or  isinstance(elType, Type), argType
+        return Type("order", param1=elType)
+
+    @staticmethod
+    def RECORD(pairs):
+        names = set(p[0] for p in pairs)
+        assert len(pairs)==len(names), f'Names must be unique within a record'
+        for p in pairs:
+            assert isinstance(p[1],Type), f'{p[0]} given invalid type: {p[1]}'
+        return Type("record", params=sorted(pairs))
+
+    @staticmethod
+    def TUPLE(types):
+        for t in types:
+            assert isinstance(t,Type), f'{t} is not a valid type in record'
+        return Type("tuple", params=types)
+
+    @staticmethod
+    def SET(self, elType):
+        assert elType is None  or  isinstance(elType, Type), argType
+        return Type("set", param1=elType)
+
+    @staticmethod
+    def STRING():
+        return Type("string")

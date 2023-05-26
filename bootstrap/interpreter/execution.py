@@ -112,7 +112,7 @@ def evaluate(node, env=None):
     if isinstance(node, AST.Record):
         return Box.evaluateRecord(node, env)
     if isinstance(node, AST.Call):
-        assert env.contains(node.function), node.function
+        assert env.contains(node.function), f'{node.function} is not a function in the current env'
         function, fType = env.lookup(node.function)
         if fType.isBuiltin():
             print(f'calling {node.function} env: {",".join(env.values.keys())}')

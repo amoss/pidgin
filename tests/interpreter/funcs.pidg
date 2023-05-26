@@ -18,3 +18,4 @@ func NO  [n:string]   { return [:Nonterminal :n  :{} :Optional :false] }
 func NS  [n:string]   { return [:Nonterminal :n  :{} :Some     :false] }
 
 name = blah![left:{1,2} right:{1,2,3}]
+clause = TA![s:{'x" 'y"}]

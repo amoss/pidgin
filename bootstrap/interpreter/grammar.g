@@ -84,11 +84,11 @@
                [T!'{",  N!'kv_pair",  NS!'kv_pair",  T!'}"]
              }
     'record": { [T!'[",  T!':",  T!']"]
-                [T!'[",  NA!'iv_comma",  N!'ident",  T!':",  N!'expr",  TO!',",  T!']"]
+                [T!'[",  NA!'iv_comma",  N!'iv_pair",  TO!',",  T!']"]
                 [T!'[",  N!'iv_pair",  NS!'iv_pair",  T!']"]
               }
     'kv_pair":  {[N!'expr"   T!':"   N!'expr"]}
     'kv_comma": {[N!'expr"   T!':"   N!'expr"   T!',"]}
     'iv_pair":  {[NO!'ident"   T!':"   N!'expr"]}
-    'iv_comma": {[N!'ident"   T!':"   N!'expr"   T!',"]}
+    'iv_comma": {[NO!'ident"   T!':"   N!'expr"   T!',"]}
 }
