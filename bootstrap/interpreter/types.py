@@ -5,22 +5,11 @@ class TypesCannotJoin(Exception):
     pass
 
 class Type:
-    ANON_RECORD = 1
-    BUILTIN = 2
-    FUNCTION = 3
-    MAP = 4
-    NUMBER = 5
-    ORDER = 6
-    RECORD = 7
-    SET = 8
-    STRING = 9
-    def __init__(self, label, param1=None, param2=None):
-        self.label  = label
-        if label=='{}': assert param1 is not None
-        if label=='[]': assert param1 is not None
-        assert param1 is None or isinstance(param1,Type) or param1=="empty", param1
+    def __init__(self, kind, param1=None, param2=None, params=None):
+        self.kind  = kind
         self.param1 = param1
         self.param2 = param2
+        self.params = params
 
     def __str__(self):
         if self.label=='[]':
@@ -33,38 +22,40 @@ class Type:
             return "record"
         return self.label
 
+    def sig(self):
+        return (self.kind, self.param1, self.param2, self.params)
+
     def __eq__(self, other):
-        if not isinstance(other,Type):  return False
-        return self.label==other.label and self.param1==other.param1 and self.param2==other.param2
+        return isinstance(other,Type) and self.sig()==other.sig()
 
     def __hash__(self):
-        return hash((self.label, self.param1, self.param2))
+        return hash(self.sig())
 
     def isFunction(self):
-        return self.label=="func"
+        return self.kind=="func"
 
     def isBuiltin(self):
-        return self.label=="builtin"
+        return self.kind=="builtin"
 
     def isRecord(self):
-        return self.label=='[:]'
+        return self.kind=='[:]'
 
     def isSet(self):
-        return self.label=='{}'
+        return self.kind=='{}'
 
-    def eqOrCoerce(self, other):
-        if self==other:                                            return True
-        if self.label!=other.label:                                return False
-        if self.param2 is None:
-            assert other.param2 is None,                           f"{self} ? {other}"
-            if self.param1=="empty" or other.param1=="empty":      return True
-            return self.param1 is not None and self.param1.eqOrCoerce(other.param1)
-        else:
-            assert other.param2 is not None,                       f"{self} ? {other}"
-            if (self.param1=="empty" or other.param1=="empty") and \
-               (self.param2=="empty" or other.param2=="empty"):    return True
-            return self.param1 is not None and self.param1.eqOrCoerce(other.param1) and \
-                   self.param2 is not None and self.param2.eqOrCoerce(other.param2)
+#    def eqOrCoerce(self, other):
+#        if self==other:                                            return True
+#        if self.label!=other.label:                                return False
+#        if self.param2 is None:
+#            assert other.param2 is None,                           f"{self} ? {other}"
+#            if self.param1=="empty" or other.param1=="empty":      return True
+#            return self.param1 is not None and self.param1.eqOrCoerce(other.param1)
+#        else:
+#            assert other.param2 is not None,                       f"{self} ? {other}"
+#            if (self.param1=="empty" or other.param1=="empty") and \
+#               (self.param2=="empty" or other.param2=="empty"):    return True
+#            return self.param1 is not None and self.param1.eqOrCoerce(other.param1) and \
+#                   self.param2 is not None and self.param2.eqOrCoerce(other.param2)
 
     def join(self, other):
         if self==other: return self
@@ -99,9 +90,16 @@ class Type:
             param2 = other.param2
 
         if self.label=="record":
-            # params?
+            selfNames, selfTypes  = list(zip(*self.params))
+            otherNames, otherTypes = list(zip(*other.params))
+            if selfNames!=otherNames:
+                raise TypesCannotJoin(f'Records have different labellings: {",".join(selfNames)} and {",".join(otherNames)}')
+            joinTypes = (s.join(o) for s,o in zip(selfType,otherTypes))
+            params = zip(selfNames, joinTypes)
         elif self.label=="tuple":
-            # params?
+            if len(self.params)!=len(other.params):
+                raise TypesCannotJoin('Anonymous records of different lengths {len(self.params)}, {len(other.params)}')
+            params = ( s.join(o) for s,o in zip(self.params, other.params) )
         else:
             params = None
 

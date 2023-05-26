@@ -8,7 +8,7 @@ if rootDir not in sys.path:
 
 import argparse
 
-from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type
+from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment
 import bootstrap.interpreter.builtins as builtins
 from bootstrap.util import dump
 
@@ -47,6 +47,8 @@ if args.dumpast:
     dump(trees[0])
 
 if args.start=='expr':
+    typeEnv = TypeEnvironment()
+    typeEnv.fromExpression(trees[0])
     result = Box.fromConstantExpression(trees[0])
     pyResult = result.unbox()
     if isinstance(pyResult,str):
@@ -54,6 +56,8 @@ if args.start=='expr':
     else:
         print(pyResult)
 elif args.start=='program':
+    typeEnv = TypeEnvironment()
+    typeEnv.fromScope(trees[0])
     env = Environment()
     env.insert('len', Type('builtin'), builtins.builtin_len)
     execute(trees[0], env)

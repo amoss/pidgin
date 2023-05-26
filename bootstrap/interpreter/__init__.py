@@ -6,5 +6,6 @@ import sys
 
 from .frontend import buildParser, buildPidginParser, buildGrammar, buildCommon, stage2, AST
 from .types import Type
+from .typecheck import TypeEnvironment
 from .box import Box
 from .execution import Environment, execute
