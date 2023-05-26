@@ -4,12 +4,12 @@
               [N!'enum_decl"]
               [N!'statement"]
             }
-    'record_decl": { [T!'[" NS!'nametype" T!']" ] }
+    'record_decl": { [T!'[" NS!'name_type" T!']" ] }
     'enum_decl": { [T!'enum" N!'ident" T!'[" NS!'ident" T!']"] }
     'statement": { [T!'return" N!'expr" ]
                    [N!'ident"  T!'=" N!'expr"]
                  }
-    'nametype":  { [N!'ident" T!':" N!'type_decl"] }
+    'name_type": { [N!'ident" T!':" N!'type_decl"] }
     'type_decl": { [T!'int"]
                    [T!'string"]
                    [T!'set<"   N!'type_decl" T!'>"]

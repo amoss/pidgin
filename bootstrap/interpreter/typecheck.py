@@ -1,9 +1,10 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from .frontend import AST
 from .types import Type
 from ..parser import Token
-from .frontend import AST
+from ..util import dump
 
 class TypingFailed(Exception):
     pass
@@ -50,7 +51,9 @@ class TypeEnvironment:
     def fromScope(self, tree):
         for c in tree.children:
             if isinstance(c, AST.FunctionDecl):
-                pass
+                print(f'Typecheck function {c.name} {c.arguments} {c.body}')
+                dump(c.arguments)
+                argType = self.makeRecordDecl(c.arguments)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
             else:
@@ -58,6 +61,7 @@ class TypeEnvironment:
 
 
     def makeCall(self, tree):
+        dump(tree)
         raise TypingFailed("Not implemented yet")
 
 
@@ -83,11 +87,15 @@ class TypeEnvironment:
             raise TypingFailed('Type mismatch in set elements') from e
 
 
-    def makeRecord(tree):
+    def makeRecord(self, tree):
         raise TypingFailed("Not implemented yet")
 
 
-    def makeSet(tree):
+    def makeRecordDecl(self, tree):
+        return Type.RECORD(tuple( (c.name, self.makeTypeDecl(c.nameType)) for c in tree.children ))
+
+
+    def makeSet(self, tree):
         if len(tree.elements)==0:    return Type.SET(None)
         try:
             return Type.SET(functool.reduce(Types.join, tree.elements))
@@ -95,11 +103,26 @@ class TypeEnvironment:
             raise TypingFailed('Type mismatch in set elements') from e
 
 
-    def makeString(tree):
+    def makeString(self, tree):
         return Type.STRING()
 
 
-    def makeFromTree(tree):
+    def makeTypeDecl(self, tree):
+        if tree.symbol.isTerminal:
+            if tree.span=='int':
+                return Type.NUMBER()
+            if tree.span=='string':
+                return Type.STRING()
+            raise TypingFailed(f'Unexpected type_decl {tree}')
+        if tree.terminalAt(0,'set<'):
+            return Type.SET(self.makeTypeDecl(tree.children[1]))
+        if tree.terminalAt(0,'map<'):
+            return Type.MAP(self.makeTypeDecl(tree.children[1]))
+        if tree.terminalAt(0,'order<'):
+            return Type.ORDER(self.makeTypeDecl(tree.children[1]))
+        raise TypingFailed(f'Unexpected type_decl {tree}')
+
+    def makeFromTree(self, tree):
         despatch = {
             '+':  plusTypeCheck,
             '.+': postfixTypeCheck,

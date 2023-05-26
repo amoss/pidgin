@@ -144,6 +144,13 @@ class AST:
         def __str__(self):
             return "'"+self.content+'"'
 
+    class NameType:
+        def __init__(self, name, nameType):
+            self.name = name
+            self.nameType = nameType
+        def __str__(self):
+            return f'{self.name}:{self.nameType}'
+
     class NumberLit:
         def __init__(self, content):
             assert isinstance(content,str), content
@@ -180,6 +187,13 @@ class AST:
                 self.record[c.key] = c.value
         def __str__(self):
             return "[" + ", ".join([str(c) for c in self.children]) + "]"
+
+    class RecordDecl:
+        def __init__(self, children):
+            self.children = children
+            self.record = {}
+            for c in children:
+                self.record[c.name] = c.nameType
 
     class Set:
         def __init__(self, children):
@@ -228,7 +242,7 @@ def makeDeclaration(node):
     assert isinstance(node, Token)  and  len(node.children)>=2  and  isinstance(node.children[1], AST.Ident),\
            f'Invalid declaration for {node}'
     if node.children[0].span == "func":
-        assert isinstance(node.children[2], Token)  and  isinstance(node.children[-1], Token)
+        assert isinstance(node.children[2], AST.RecordDecl), node.children[2]
         return AST.FunctionDecl(node.children[1].span, node.children[2], node.children[4:-1])
     elif node.children[0].span == "enum":
         pass
@@ -263,6 +277,8 @@ ntTransformer = {
     'set':          (lambda node: AST.Set(removeFinalComma(node.children[1:-1]))),
     'map':          (lambda node: AST.Map(node.children[1:-1])),
     'record':       (lambda node: AST.Record(node.children[1:-1])),
+    'record_decl':  (lambda node: AST.RecordDecl(node.children[1:-1])),
+    'name_type':    (lambda node: AST.NameType(node.children[0].span, node.children[2])),
     'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
     'order_pair':   (lambda node: node.children[0]),
     'comma_pair':   (lambda node: node.children[0]),

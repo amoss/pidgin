@@ -142,7 +142,7 @@ class Type:
         return Type("tuple", params=types)
 
     @staticmethod
-    def SET(self, elType):
+    def SET(elType):
         assert elType is None  or  isinstance(elType, Type), argType
         return Type("set", param1=elType)
 
