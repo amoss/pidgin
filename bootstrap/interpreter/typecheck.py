@@ -76,10 +76,11 @@ class TypeEnvironment:
             tree = tree.children
         for c in tree:
             if isinstance(c, AST.FunctionDecl):
-                print(f'Typecheck function {c.name} {c.arguments} {c.body}')
+                print(f'Typecheck function {c.name} {c.retType} {c.arguments} {c.body}')
                 dump(c.arguments)
                 argType = self.makeRecordDecl(c.arguments)
                 self.set(c.name, Type.FUNCTION(argType, self.makeTypeDecl(c.retType)))
+                self.dump()
                 inside = self.makeChild()
                 for argName, argType in argType.params:
                     inside.set(argName, argType)
@@ -88,7 +89,10 @@ class TypeEnvironment:
                     raise TypingFailed(c, f'Function did not return a value')
                 combined = self.makeTypeDecl(c.retType).join(inside.lookup['%return%'])
             elif isinstance(c, AST.TypeSynonym):
-                self.set('type '+c.name, self.makeTypeDecl(c.namedType))
+                theType = self.makeTypeDecl(c.namedType)
+                print(f'Typecheck type synonym {c.name} :: {theType}')
+                dump(c.namedType)
+                self.set('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='enum_decl':
@@ -182,7 +186,7 @@ class TypeEnvironment:
         if tree.terminalAt(0,'order<'):
             return Type.ORDER(self.makeTypeDecl(tree.children[1]))
         if tree.terminalAt(0,'['):
-            return Type.TUPLE(self.makeTypeDecl(t) for t in tree.children[1:-1])
+            return Type.TUPLE(tuple(self.makeTypeDecl(t) for t in tree.children[1:-1]))
         if tree.terminalAt(0,'enum'):
             typeName = f'enum {tree.children[1].span}'
             if not typeName in self.lookup:

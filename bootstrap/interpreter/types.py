@@ -24,6 +24,8 @@ class Type:
             return '{' + f'{self.param1}:{self.param2}' + '}'
         if self.kind=="enum":
             return f'enum [{",".join(self.params)}]'
+        if self.kind=="func":
+            return f'func {self.param1} -> {self.param2}'
         return self.kind
 
 
