@@ -12,15 +12,18 @@ class Type:
         self.params = params
 
     def __str__(self):
-        if self.label=='[]':
-            return f"[{self.param1}]"
-        if self.label=='{}':
-            return "{" + str(self.param1) + "}"
-        if self.label=='{:}':
-            return "{" + f"{self.param1}:{self.param2}" + "}"
-        if self.label=='[:]':
-            return "record"
-        return self.label
+        if self.kind=="tuple":
+            return "[" + " ".join( (":"+str(p) for p in self.params)) + "]"
+        if self.kind=="record":
+            return "[" + " ".join( (f"{p[0]}:{p[1]}" for p in self.params)) + "]"
+        if self.kind=="set":
+            return '{' + str(self.param1) + '}'
+        if self.kind=="order":
+            return '[' + str(self.param1) + ']'
+        if self.kind=="map":
+            return '{' + f'{self.param1}:{self.param2}' + '}'
+        return self.kind
+
 
     def sig(self):
         return (self.kind, self.param1, self.param2, self.params)
@@ -40,39 +43,9 @@ class Type:
     def isRecord(self):
         return self.kind=='[:]'
 
+
     def isSet(self):
         return self.kind=='{}'
-
-#    def eqOrCoerce(self, other):
-#        if self==other:                                            return True
-#        if self.label!=other.label:                                return False
-#        if self.param2 is None:
-#            assert other.param2 is None,                           f"{self} ? {other}"
-#            if self.param1=="empty" or other.param1=="empty":      return True
-#            return self.param1 is not None and self.param1.eqOrCoerce(other.param1)
-#        else:
-#            assert other.param2 is not None,                       f"{self} ? {other}"
-#            if (self.param1=="empty" or other.param1=="empty") and \
-#               (self.param2=="empty" or other.param2=="empty"):    return True
-#            return self.param1 is not None and self.param1.eqOrCoerce(other.param1) and \
-#                   self.param2 is not None and self.param2.eqOrCoerce(other.param2)
-
-    def join(self, other):
-        if self==other: return self
-        param1, param2 = None, None
-        if isinstance(self.param1,Type) and isinstance(other.param1,Type):
-            param1 = self.param1.join(other.param1)
-        elif self.param1 == "empty" and other.param1 is not None:
-            param1 = other.param1
-        elif self.param1 is not None and other.param1 == "empty":
-            param1 = self.param1
-        if isinstance(self.param2,Type) and isinstance(other.param2,Type):
-            param1 = self.param1.join(other.param1)
-        elif self.param2 == "empty" and other.param2 is not None:
-            param2 = other.param2
-        elif self.param2 is not None and other.param2 == "empty":
-            param2 = self.param2
-        return Type(self.label, param1, param2)
 
 
     def join(self, other):
@@ -89,21 +62,29 @@ class Type:
         else:
             param2 = other.param2
 
-        if self.label=="record":
+        if self.kind=="record":
             selfNames, selfTypes  = list(zip(*self.params))
             otherNames, otherTypes = list(zip(*other.params))
             if selfNames!=otherNames:
                 raise TypesCannotJoin(f'Records have different labellings: {",".join(selfNames)} and {",".join(otherNames)}')
-            joinTypes = (s.join(o) for s,o in zip(selfType,otherTypes))
+            joinTypes = (s.join(o) for s,o in zip(selfTypes,otherTypes))
             params = zip(selfNames, joinTypes)
-        elif self.label=="tuple":
+        elif self.kind=="tuple":
             if len(self.params)!=len(other.params):
                 raise TypesCannotJoin('Anonymous records of different lengths {len(self.params)}, {len(other.params)}')
             params = ( s.join(o) for s,o in zip(self.params, other.params) )
         else:
             params = None
 
-        return Type(self.label, param1=param1, param2=param2, params=params)
+        return Type(self.kind, param1=param1, param2=param2, params=params)
+
+    def eqOrCoerce(self, other):
+        try:
+            combined = self.join(other)
+            return True
+        except TypesCannotJoin:
+            return False
+        assert False
 
 
     @staticmethod
@@ -111,6 +92,12 @@ class Type:
         assert isinstance(argType, Type), argType
         assert isinstance(retType, Type), argType
         return Type("call", param1=argType, param2=retType)
+
+    @staticmethod
+    def FUNCTION(argType, retType):
+        assert isinstance(argType, Type), argType
+        assert isinstance(retType, Type), argType
+        return Type("func", param1=argType, param2=retType)
 
     @staticmethod
     def MAP(keyType, valType):

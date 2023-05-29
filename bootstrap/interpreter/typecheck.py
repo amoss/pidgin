@@ -1,6 +1,8 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import functools
+
 from .frontend import AST
 from .types import Type
 from ..parser import Token
@@ -54,6 +56,7 @@ class TypeEnvironment:
                 print(f'Typecheck function {c.name} {c.arguments} {c.body}')
                 dump(c.arguments)
                 argType = self.makeRecordDecl(c.arguments)
+                self.set(c.name, Type.FUNCTION(argType,Type.NUMBER()))          # TODO: return types
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
             else:
@@ -62,7 +65,14 @@ class TypeEnvironment:
 
     def makeCall(self, tree):
         dump(tree)
-        raise TypingFailed("Not implemented yet")
+        argType = self.fromExpression(tree.arg)
+        print(f"Args are {argType}")
+        if not tree.function in self.lookup:
+            raise TypingFailed(f"Call to unknown function {tree.function}")
+        fType = self.lookup[tree.function]
+        checkArg = fType.param1.join(argType)
+        checkRet = Type.NUMBER()                        # TODO: return types
+        return Type.CALL(checkArg, checkRet)
 
 
     def makeFromIdent(self, tree):
@@ -88,7 +98,12 @@ class TypeEnvironment:
 
 
     def makeRecord(self, tree):
-        raise TypingFailed("Not implemented yet")
+        keys = set(iv.key for iv in tree.children)
+        if len(keys)==1 and None in keys:
+            return Type.TUPLE(tuple(self.fromExpression(iv.value) for iv in tree.children))
+        if None not in keys:
+            return Type.RECORD(tuple((iv.key,self.fromExpression(iv.value)) for iv in tree.children))
+        raise TypingFailed("Cannot mix anonymous- and named-elements in record")
 
 
     def makeRecordDecl(self, tree):
@@ -98,7 +113,7 @@ class TypeEnvironment:
     def makeSet(self, tree):
         if len(tree.elements)==0:    return Type.SET(None)
         try:
-            return Type.SET(functool.reduce(Types.join, tree.elements))
+            return Type.SET(functools.reduce(Type.join, tuple(self.fromExpression(e) for e in tree.elements)))
         except TypingFailed as e:
             raise TypingFailed('Type mismatch in set elements') from e
 

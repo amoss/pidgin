@@ -170,6 +170,7 @@ class AST:
         def __init__(self, function, arg):
             self.function = function.span
             self.arg = arg
+            self.children = [arg]
         def __str__(self):
             return f"{self.function}!{self.arg}"
 
@@ -282,6 +283,7 @@ ntTransformer = {
     'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
     'order_pair':   (lambda node: node.children[0]),
     'comma_pair':   (lambda node: node.children[0]),
+    'iv_comma':     (lambda node: node.children[0]),
     'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]) if len(node.children)==3\
                                   else AST.IdentVal(None,node.children[1])),
     'decl':         (lambda node: makeDeclaration(node))
