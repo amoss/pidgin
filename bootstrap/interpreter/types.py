@@ -22,6 +22,8 @@ class Type:
             return '[' + str(self.param1) + ']'
         if self.kind=="map":
             return '{' + f'{self.param1}:{self.param2}' + '}'
+        if self.kind=="enum":
+            return f'enum [{",".join(self.params)}]'
         return self.kind
 
 
@@ -47,6 +49,8 @@ class Type:
     def isSet(self):
         return self.kind=='{}'
 
+    def isEnum(self):
+        return self.kind=='enum'
 
     def join(self, other):
         if self.kind=='sum'  and  other.kind=='sum':
@@ -83,7 +87,7 @@ class Type:
             params = zip(selfNames, joinTypes)
         elif self.kind=="tuple":
             if len(self.params)!=len(other.params):
-                raise TypesCannotJoin('Anonymous records of different lengths {len(self.params)}, {len(other.params)}')
+                raise TypesCannotJoin(f'Anonymous records of different lengths {self}, {other}')
             params = ( s.join(o) for s,o in zip(self.params, other.params) )
         else:
             params = None
@@ -100,10 +104,18 @@ class Type:
 
 
     @staticmethod
+    def BOOL():
+        return Type("bool")
+
+    @staticmethod
     def CALL(argType, retType):
         assert isinstance(argType, Type), argType
         assert isinstance(retType, Type), argType
         return Type("call", param1=argType, param2=retType)
+
+    @staticmethod
+    def ENUM(myName, names):
+        return Type("enum", param1=myName, params=names)
 
     @staticmethod
     def FUNCTION(argType, retType):
@@ -144,7 +156,7 @@ class Type:
     def TUPLE(types):
         for t in types:
             assert isinstance(t,Type), f'{t} is not a valid type in record'
-        return Type("tuple", params=types)
+        return Type("tuple", params=tuple(types))
 
     @staticmethod
     def SET(elType):

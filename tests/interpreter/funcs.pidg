@@ -1,21 +1,25 @@
-func foo [x:int y:set<string>] {
+func foo:int [x:int y:set<string>] {
     return x+len!y
 }
 
-func blah [left:set<int> right:set<int>] {
+func blah:int [left:set<int> right:set<int>] {
     x = foo![x:len!left y:right]
     y = [x:len!right y:left]
     return x + foo!y
 }
 
-func TA  [s:set<string>]    { return [:Terminal    :'" :s  :Any      :false] }
-func TS  [s:set<string>]    { return [:Terminal    :'" :s  :Some     :false] }
-func TAN [s:set<string>]    { return [:Terminal    :'" :s  :Any      :true ] }
-func TO  [s:string] { return [:Terminal    :s  :{} :Optional :false] }
-func N   [n:string]   { return [:Nonterminal :n  :{} :Just     :false] }
-func NA  [n:string]   { return [:Nonterminal :n  :{} :Any      :false] }
-func NO  [n:string]   { return [:Nonterminal :n  :{} :Optional :false] }
-func NS  [n:string]   { return [:Nonterminal :n  :{} :Some     :false] }
+enum SymbolClass [ Terminal Nonterminal ]
+enum Modifier    [ Just Any Some Optional ]
+
+type symbol:[enum SymbolClass, string, set<string>, enum Modifier, bool]
+func TA:type symbol  [s:set<string>]    { return [:Terminal    :'" :s  :Any      :false] }
+func TS:type symbol  [s:set<string>]    { return [:Terminal    :'" :s  :Some     :false] }
+func TAN:type symbol [s:set<string>]    { return [:Terminal    :'" :s  :Any      :true ] }
+func TO:type symbol  [s:string]         { return [:Terminal    :s  :{} :Optional :false] }
+func N:type symbol   [n:string]         { return [:Nonterminal :n  :{} :Just     :false] }
+func NA:type symbol  [n:string]         { return [:Nonterminal :n  :{} :Any      :false] }
+func NO:type symbol  [n:string]         { return [:Nonterminal :n  :{} :Optional :false] }
+func NS:type symbol  [n:string]         { return [:Nonterminal :n  :{} :Some     :false] }
 
 name = blah![left:{1,2} right:{1,2,3}]
 clause = TA![s:{'x" 'y"}]

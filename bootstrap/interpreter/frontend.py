@@ -229,11 +229,16 @@ class AST:
             return f"{self.key}:{self.value}"
 
     class FunctionDecl:
-        def __init__(self, name, args, body):
+        def __init__(self, name, retType, args, body):
             self.name      = name
             self.arguments = args
             self.body      = body
-            self.retType   = Type.NUMBER()          # TODO: return types
+            self.retType   = retType
+
+    class TypeSynonym:
+        def __init__(self, name, namedType):
+            self.name = name
+            self.namedType = namedType
 
     class EnumDecl:
         def __init__(self, node):
@@ -245,10 +250,12 @@ def makeDeclaration(node):
     assert isinstance(node, Token)  and  len(node.children)>=2  and  isinstance(node.children[1], AST.Ident),\
            f'Invalid declaration for {node}'
     if node.children[0].span == "func":
-        assert isinstance(node.children[2], AST.RecordDecl), node.children[2]
-        return AST.FunctionDecl(node.children[1].span, node.children[2], node.children[4:-1])
+        assert isinstance(node.children[4], AST.RecordDecl), node.children[4]
+        return AST.FunctionDecl(node.children[1].span, node.children[3], node.children[4], node.children[6:-1])
     elif node.children[0].span == "enum":
         pass
+    elif node.children[0].span == "type":
+        return AST.TypeSynonym(node.children[1].span, node.children[3])
     else:
         assert False, f'Unknown declaration type {node.children[0].span}'
 
@@ -288,6 +295,7 @@ ntTransformer = {
     'iv_comma':     (lambda node: node.children[0]),
     'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]) if len(node.children)==3\
                                   else AST.IdentVal(None,node.children[1])),
+    'typedecl_comma': (lambda node: node.children[0]),
     'decl':         (lambda node: makeDeclaration(node))
 }
 

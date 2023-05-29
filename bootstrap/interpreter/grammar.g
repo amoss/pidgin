@@ -1,8 +1,9 @@
 {
     'program": { [NS!'decl"] }
-    'decl": { [T!'func" N!'ident" N!'record_decl" T!'{" NS!'statement" T!'}"]
+    'decl": { [T!'func" N!'ident" T!':" N!'type_decl" N!'record_decl" T!'{" NS!'statement" T!'}"]
               [N!'enum_decl"]
               [N!'statement"]
+              [T!'type" N!'ident" T!':" N!'type_decl"]
             }
     'record_decl": { [T!'[" NS!'name_type" T!']" ] }
     'enum_decl": { [T!'enum" N!'ident" T!'[" NS!'ident" T!']"] }
@@ -10,12 +11,18 @@
                    [N!'ident"  T!'=" N!'expr"]
                  }
     'name_type": { [N!'ident" T!':" N!'type_decl"] }
-    'type_decl": { [T!'int"]
-                   [T!'string"]
+    'type_decl": { [T!'string"]
+                   [T!'int"]
+                   [T!'bool"]
+                   [T!'enum" N!'ident"]
+                   [T!'type" N!'ident"]
                    [T!'set<"   N!'type_decl" T!'>"]
                    [T!'map<"   N!'type_decl" N!'type_decl" T!'>"]
                    [T!'order<" N!'type_decl" T!'>"]
+                   [T!'[" NA!'typedecl_comma" N!'type_decl" TO!'," T!']"]
+                   [T!'[" N!'type_decl" NS!'type_decl" T!']"]
                  }
+    'typedecl_comma": {[ N!'type_decl" T!'," ]}
 
     'expr": { [N!'binop1"] }
     'binop1":     { [N!'binop2",  NA!'binop1_lst"] }
