@@ -7,8 +7,9 @@ if rootDir not in sys.path:
     sys.path.append(rootDir)
 
 import argparse
+import traceback
 
-from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment
+from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment, TypingFailed
 import bootstrap.interpreter.builtins as builtins
 from bootstrap.util import dump
 
@@ -56,8 +57,13 @@ if args.start=='expr':
     else:
         print(pyResult)
 elif args.start=='program':
-    typeEnv = TypeEnvironment()
-    typeEnv.fromScope(trees[0])
+    try:
+        typeEnv = TypeEnvironment()
+        typeEnv.fromScope(trees[0])
+    except TypingFailed as e:
+        traceback.print_exc()
+        dump(e.tree)
+        sys.exit(-1)
     env = Environment()
     env.insert('len', Type('builtin'), builtins.builtin_len)
     execute(trees[0], env)

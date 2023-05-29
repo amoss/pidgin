@@ -9,7 +9,9 @@ from ..parser import Token
 from ..util import dump
 
 class TypingFailed(Exception):
-    pass
+    def __init__(self, tree, msg):
+        self.tree = tree
+        super().__init__(msg)
 
 
 class TypeEnvironment:
@@ -24,6 +26,16 @@ class TypeEnvironment:
             self.lookup[name] = nameType
         else:
             self.lookup[name] = self.lookup[name].join(nameType)
+
+
+    def makeChild(self):
+        '''A child environment contains references to all functions declared in this environment, but not any
+           references to data values.'''
+        result = TypeEnvironment()
+        for name,nameType in self.lookup.items():
+            if nameType.isFunction()  or  nameType.isBuiltin():
+                result.set(name, nameType)
+        return result
 
 
     def fromExpression(self, tree):
@@ -47,20 +59,29 @@ class TypeEnvironment:
             newType = self.fromExpression(tree.children[2])
             self.set(tree.children[0].span, newType)
         else:
-            raise TypingFailed(f'Unexpected statement during type-check {tree}')
+            raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
 
     def fromScope(self, tree):
-        for c in tree.children:
+        print(f'fromScope {tree}')
+        dump(tree)
+        assert isinstance(tree,tuple)  or  isinstance(tree,Token)
+        if isinstance(tree,Token):
+            tree = tree.children
+        for c in tree:
             if isinstance(c, AST.FunctionDecl):
                 print(f'Typecheck function {c.name} {c.arguments} {c.body}')
                 dump(c.arguments)
                 argType = self.makeRecordDecl(c.arguments)
                 self.set(c.name, Type.FUNCTION(argType,Type.NUMBER()))          # TODO: return types
+                inside = self.makeChild()
+                for argName, argType in argType.params:
+                    inside.set(argName, argType)
+                inside.fromScope(c.body)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
             else:
-                raise TypingFailed(f'Unable to typecheck {c}')
+                raise TypingFailed(c, f'Unable to typecheck {c}')
 
 
     def makeCall(self, tree):
@@ -68,7 +89,7 @@ class TypeEnvironment:
         argType = self.fromExpression(tree.arg)
         print(f"Args are {argType}")
         if not tree.function in self.lookup:
-            raise TypingFailed(f"Call to unknown function {tree.function}")
+            raise TypingFailed(tree, f"Call to unknown function {tree.function}")
         fType = self.lookup[tree.function]
         checkArg = fType.param1.join(argType)
         checkRet = Type.NUMBER()                        # TODO: return types
@@ -77,12 +98,12 @@ class TypeEnvironment:
 
     def makeFromIdent(self, tree):
         if not tree.span in self.lookup:
-            raise TypingFailed("Cannot infer type of {tree.span}")
+            raise TypingFailed(tree, "Cannot infer type of {tree.span}")
         return self.lookup[tree.span]
 
 
     def makeMap(self, tree):
-        raise TypingFailed("Not implemented yet")
+        raise TypingFailed(tree, "Not implemented yet")
 
 
     def makeNumber(self, tree):
@@ -94,7 +115,7 @@ class TypeEnvironment:
         try:
             return Type.ORDER(functool.reduce(Types.join, tree.seq))
         except TypingFailed as e:
-            raise TypingFailed('Type mismatch in set elements') from e
+            raise TypingFailed(e.tree, 'Type mismatch in set elements') from e
 
 
     def makeRecord(self, tree):
@@ -103,7 +124,7 @@ class TypeEnvironment:
             return Type.TUPLE(tuple(self.fromExpression(iv.value) for iv in tree.children))
         if None not in keys:
             return Type.RECORD(tuple((iv.key,self.fromExpression(iv.value)) for iv in tree.children))
-        raise TypingFailed("Cannot mix anonymous- and named-elements in record")
+        raise TypingFailed(tree, "Cannot mix anonymous- and named-elements in record")
 
 
     def makeRecordDecl(self, tree):
@@ -115,7 +136,7 @@ class TypeEnvironment:
         try:
             return Type.SET(functools.reduce(Type.join, tuple(self.fromExpression(e) for e in tree.elements)))
         except TypingFailed as e:
-            raise TypingFailed('Type mismatch in set elements') from e
+            raise TypingFailed(e.tree, 'Type mismatch in set elements') from e
 
 
     def makeString(self, tree):
@@ -128,16 +149,18 @@ class TypeEnvironment:
                 return Type.NUMBER()
             if tree.span=='string':
                 return Type.STRING()
-            raise TypingFailed(f'Unexpected type_decl {tree}')
+            raise TypingFailed(tree, f'Unexpected type_decl {tree}')
         if tree.terminalAt(0,'set<'):
             return Type.SET(self.makeTypeDecl(tree.children[1]))
         if tree.terminalAt(0,'map<'):
             return Type.MAP(self.makeTypeDecl(tree.children[1]))
         if tree.terminalAt(0,'order<'):
             return Type.ORDER(self.makeTypeDecl(tree.children[1]))
-        raise TypingFailed(f'Unexpected type_decl {tree}')
+        raise TypingFailed(tree, f'Unexpected type_decl {tree}')
 
     def makeFromTree(self, tree):
+        print(f'Typecheck {tree}')
+        dump(tree)
         despatch = {
             '+':  plusTypeCheck,
             '.+': postfixTypeCheck,
@@ -149,14 +172,14 @@ class TypeEnvironment:
             '/':  slashTypeCheck
         }
         if not tree.symbol.isNonterminal:
-            raise TypingFailed(f'Cannot type tree rooted in {tree}')
+            raise TypingFailed(tree, f'Cannot type tree rooted in {tree}')
 
         if tree.tag=='binop1':
             listTag = 'binop1_lst'
         elif tree.tag=='binop2':
             listTag = 'binop2_lst'
         else:
-            raise TypingFailed(f'Cannot type tree rooted by {tree.tag}')
+            raise TypingFailed(tree, f'Cannot type tree rooted by {tree.tag}')
 
         curType = typeFromAST(tree.children[0])
         for c in tree.children[1:]:
