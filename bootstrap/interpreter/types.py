@@ -49,6 +49,18 @@ class Type:
 
 
     def join(self, other):
+        if self.kind=='sum'  and  other.kind=='sum':
+            raise TypesCannotJoin(None, f'sum-sum-joins nots implemented')
+        if self.kind=='sum'  or   other.kind=='sum':
+            if self.kind=='sum':
+                sumType, singleType = self, other
+            else:
+                sumType, singleType = other, self
+            for k in sumType.params:
+                if k.eqOrCoerce(singleType):
+                    return k
+            raise TypesCannotJoin(None, f'{singleType} not in {sumType}')
+
         if self.kind!=other.kind:
             raise TypesCannotJoin(f'{self.kind} and {other.kind} cannot join')
 
@@ -101,8 +113,8 @@ class Type:
 
     @staticmethod
     def MAP(keyType, valType):
-        assert isinstance(keyType, Type), argType
-        assert isinstance(valType, Type), argType
+        assert (keyType is None  and  valType is None)  or  \
+               (isinstance(keyType, Type)  and  isinstance(valType,Type)), f'{keyType}:{valType}'
         return Type("map", param1=keyType, param2=valType)
 
     @staticmethod
@@ -121,6 +133,12 @@ class Type:
         for p in pairs:
             assert isinstance(p[1],Type), f'{p[0]} given invalid type: {p[1]}'
         return Type("record", params=sorted(pairs))
+
+    @staticmethod
+    def SUM(*types):
+        for t in types:
+            assert isinstance(t,Type)
+        return Type("sum", params=tuple(types))
 
     @staticmethod
     def TUPLE(types):

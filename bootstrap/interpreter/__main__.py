@@ -59,6 +59,7 @@ if args.start=='expr':
 elif args.start=='program':
     try:
         typeEnv = TypeEnvironment()
+        typeEnv.set('len', Type.FUNCTION(Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None)), Type.NUMBER()))
         typeEnv.fromScope(trees[0])
     except TypingFailed as e:
         traceback.print_exc()

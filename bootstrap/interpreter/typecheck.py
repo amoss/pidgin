@@ -58,6 +58,8 @@ class TypeEnvironment:
         if len(tree.children)==3  and  tree.terminalAt(1,'='):
             newType = self.fromExpression(tree.children[2])
             self.set(tree.children[0].span, newType)
+        elif len(tree.children)>=2  and  tree.terminalAt(0,'return'):
+            self.set('%return%', self.fromExpression(tree.children[1]))
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
@@ -73,11 +75,14 @@ class TypeEnvironment:
                 print(f'Typecheck function {c.name} {c.arguments} {c.body}')
                 dump(c.arguments)
                 argType = self.makeRecordDecl(c.arguments)
-                self.set(c.name, Type.FUNCTION(argType,Type.NUMBER()))          # TODO: return types
+                self.set(c.name, Type.FUNCTION(argType,c.retType))
                 inside = self.makeChild()
                 for argName, argType in argType.params:
                     inside.set(argName, argType)
                 inside.fromScope(c.body)
+                if not '%return%' in inside.lookup:
+                    raise TypingFailed(c, f'Function did not return a value')
+                combined = c.retType.join(inside.lookup['%return%'])
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
             else:
@@ -93,7 +98,7 @@ class TypeEnvironment:
         fType = self.lookup[tree.function]
         checkArg = fType.param1.join(argType)
         checkRet = Type.NUMBER()                        # TODO: return types
-        return Type.CALL(checkArg, checkRet)
+        return checkRet
 
 
     def makeFromIdent(self, tree):
@@ -162,14 +167,14 @@ class TypeEnvironment:
         print(f'Typecheck {tree}')
         dump(tree)
         despatch = {
-            '+':  plusTypeCheck,
-            '.+': postfixTypeCheck,
-            '+.': prefixTypeCheck,
-            '-':  subTypeCheck,
-            '.-': postdropTypeCheck,
-            '-.': predropTypeCheck,
-            '*':  starTypeCheck,
-            '/':  slashTypeCheck
+            '+':  self.checkPlus,
+            #'.+': postfixTypeCheck,
+            #'+.': prefixTypeCheck,
+            #'-':  subTypeCheck,
+            #'.-': postdropTypeCheck,
+            #'-.': predropTypeCheck,
+            #'*':  starTypeCheck,
+            #'/':  slashTypeCheck
         }
         if not tree.symbol.isNonterminal:
             raise TypingFailed(tree, f'Cannot type tree rooted in {tree}')
@@ -181,16 +186,21 @@ class TypeEnvironment:
         else:
             raise TypingFailed(tree, f'Cannot type tree rooted by {tree.tag}')
 
-        curType = typeFromAST(tree.children[0])
+        curType = self.fromExpression(tree.children[0])
         for c in tree.children[1:]:
             assert isinstance(c,Token)  and  c.symbol.isNonterminal  and  c.tag==listTag,\
                    f'Illegal operation {c} under {tree.tag}'
-            assert isinstance(c.children[0], Token)  and  c.children[0].isTerminal,\
+            assert isinstance(c.children[0], Token)  and  c.children[0].symbol.isTerminal,\
                    f'Illegal operator {c.children[0]} under {tree.tag}'
             op = c.children[0].span
             assert op in despatch, f'Cannot typecheck unknown operator {op}'
-            curType = despatch[op](curType, typeFromAST(c.children[1]))
+            curType = despatch[op](c, curType, self.fromExpression(c.children[1]))
         return curType
 
+    def checkPlus(self, tree, leftType, rightType):
+        if leftType.kind in ('map', 'record'):
+            raise TypingFailed(tree ,f'Plus is not defined on {leftType}')
+        combined = leftType.join(rightType)
+        return combined
 
 

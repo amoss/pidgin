@@ -4,6 +4,7 @@
 import os
 import string
 
+from .types import Type
 from ..grammar import Grammar
 from ..parser import Parser, Token
 from ..machine import Automaton
@@ -232,6 +233,7 @@ class AST:
             self.name      = name
             self.arguments = args
             self.body      = body
+            self.retType   = Type.NUMBER()          # TODO: return types
 
     class EnumDecl:
         def __init__(self, node):
