@@ -4,8 +4,9 @@
 import argparse
 import sys
 
-from .frontend import buildParser, buildPidginParser, buildGrammar, buildCommon, stage2, AST
-from .types import Type
-from .typecheck import TypeEnvironment, TypingFailed
 from .box import Box
 from .execution import Environment, execute
+from .frontend import buildParser, buildPidginParser, buildGrammar, buildCommon, stage2, AST
+from .translation import BlockBuilder
+from .types import Type
+from .typecheck import TypeEnvironment, TypingFailed

@@ -16,27 +16,28 @@ class TypingFailed(Exception):
 
 class TypeEnvironment:
     def __init__(self):
-        self.lookup = {}
+        self.names       = {}
+        self.expressions = {}
 
 
     def dump(self):
-        for name,namedType in self.lookup.items():
+        for name,namedType in self.names.items():
             print(f'{name} :: {namedType}')
 
     def set(self, name, nameType):
         assert isinstance(name,str), name
         assert isinstance(nameType,Type), nameType
-        if not name in self.lookup:
-            self.lookup[name] = nameType
+        if not name in self.names:
+            self.names[name] = nameType
         else:
-            self.lookup[name] = self.lookup[name].join(nameType)
+            self.names[name] = self.names[name].join(nameType)
 
 
     def makeChild(self):
         '''A child environment contains references to all functions declared in this environment, but not any
            references to data values.'''
         result = TypeEnvironment()
-        for name,nameType in self.lookup.items():
+        for name,nameType in self.names.items():
             if name[:5]=='type '  or  nameType.isFunction()  or  nameType.isBuiltin()  or  nameType.isEnum():
                 result.set(name, nameType)
         return result
@@ -55,13 +56,15 @@ class TypeEnvironment:
             Token:         self.makeFromTree
         }
         assert type(tree) in despatch, f'Unknown node-type in AST {type(tree)} during type-check'
-        return despatch[type(tree)](tree)
+        exprType = despatch[type(tree)](tree)
+        self.expressions[tree] = exprType
+        return exprType
 
 
     def fromStatement(self, tree):
-        if len(tree.children)==3  and  tree.terminalAt(1,'='):
-            newType = self.fromExpression(tree.children[2])
-            self.set(tree.children[0].span, newType)
+        if isinstance(tree, AST.Assignment):
+            newType = self.fromExpression(tree.expr)
+            self.set(tree.target, newType)
         elif len(tree.children)>=2  and  tree.terminalAt(0,'return'):
             self.set('%return%', self.fromExpression(tree.children[1]))
         else:
@@ -69,52 +72,43 @@ class TypeEnvironment:
 
 
     def fromScope(self, tree):
-        print(f'fromScope {tree}')
-        dump(tree)
         assert isinstance(tree,tuple)  or  isinstance(tree,Token)
         if isinstance(tree,Token):
             tree = tree.children
         for c in tree:
             if isinstance(c, AST.FunctionDecl):
-                print(f'Typecheck function {c.name} {c.retType} {c.arguments} {c.body}')
-                dump(c.arguments)
                 argType = self.makeRecordDecl(c.arguments)
                 self.set(c.name, Type.FUNCTION(argType, self.makeTypeDecl(c.retType)))
-                self.dump()
                 inside = self.makeChild()
                 for argName, argType in argType.params:
                     inside.set(argName, argType)
                 inside.fromScope(c.body)
-                if not '%return%' in inside.lookup:
+                if not '%return%' in inside.names:
                     raise TypingFailed(c, f'Function did not return a value')
-                combined = self.makeTypeDecl(c.retType).join(inside.lookup['%return%'])
+                combined = self.makeTypeDecl(c.retType).join(inside.names['%return%'])
             elif isinstance(c, AST.TypeSynonym):
                 theType = self.makeTypeDecl(c.namedType)
-                print(f'Typecheck type synonym {c.name} :: {theType}')
-                dump(c.namedType)
                 self.set('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
+                self.fromStatement(c)
+            elif type(c) in (AST.Assignment,):
                 self.fromStatement(c)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='enum_decl':
                 names = list(cc.span for cc in c.children[3:-1])
                 enumName = c.children[1].span
                 enumType = Type.ENUM(enumName, names)
-                print(f'Typecheck enum {enumName} {enumType}')
                 self.set('enum '+enumName, enumType)
                 for n in names:
                     self.set(n, enumType)
-                self.dump()
             else:
                 raise TypingFailed(c, f'Unable to typecheck {c}')
 
 
     def makeCall(self, tree):
-        dump(tree)
         argType = self.fromExpression(tree.arg)
-        print(f"Args are {argType}")
-        if not tree.function in self.lookup:
+        if not tree.function in self.names:
             raise TypingFailed(tree, f"Call to unknown function {tree.function}")
-        fType = self.lookup[tree.function]
+        fType = self.names[tree.function]
         checkArg = fType.param1.join(argType)
         checkRet = Type.NUMBER()                        # TODO: return types
         return checkRet
@@ -123,10 +117,10 @@ class TypeEnvironment:
     def makeFromIdent(self, tree):
         if tree.span in ('true','false'):
             return Type.BOOL()
-        if not tree.span in self.lookup:
+        if not tree.span in self.names:
             self.dump()
             raise TypingFailed(tree, f"Cannot infer type of {tree.span}")
-        return self.lookup[tree.span]
+        return self.names[tree.span]
 
 
     def makeMap(self, tree):
@@ -189,18 +183,17 @@ class TypeEnvironment:
             return Type.TUPLE(tuple(self.makeTypeDecl(t) for t in tree.children[1:-1]))
         if tree.terminalAt(0,'enum'):
             typeName = f'enum {tree.children[1].span}'
-            if not typeName in self.lookup:
+            if not typeName in self.names:
                 raise TypingFailed(tree, f'Unknown {typeName}')
-            return self.lookup[typeName]
+            return self.names[typeName]
         if tree.terminalAt(0,'type'):
             typeName = f'type {tree.children[1].span}'
-            if not typeName in self.lookup:
+            if not typeName in self.names:
                 raise TypingFailed(tree, f'Unknown {typeName}')
-            return self.lookup[typeName]
+            return self.names[typeName]
         raise TypingFailed(tree, f'Unexpected type_decl {tree}')
 
     def makeFromTree(self, tree):
-        print(f'Typecheck {tree}')
         dump(tree)
         despatch = {
             '+':  self.checkPlus,

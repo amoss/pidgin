@@ -138,12 +138,66 @@ def stage2(tree):
     return result
 
 class AST:
-    class StringLit:
+    class Assignment:
+        def __init__(self, target, expr):
+            self.target = target
+            self.expr   = expr
+        def __str__(self):
+            return f"{self.target} = {self.expr}"
+
+    class Call:
+        def __init__(self, function, arg):
+            self.function = function.span
+            self.arg = arg
+            self.children = [arg]
+        def __str__(self):
+            return f"{self.function}!{self.arg}"
+
+    class EnumDecl:
+        def __init__(self, node):
+            pass
+        def __str__(self):
+            return f'Decl({self.name})'
+
+    class FunctionDecl:
+        def __init__(self, name, retType, args, body):
+            self.name      = name
+            self.arguments = args
+            self.body      = body
+            self.retType   = retType
+    class Ident:
         def __init__(self, content):
             assert isinstance(content,str), content
             self.content = content
+            self.span = content
         def __str__(self):
-            return "'"+self.content+'"'
+            return "id("+self.content+')'
+
+
+    class IdentVal:
+        def __init__(self, key, value):
+            if key is None:
+                self.key = None
+                self.value = value
+            else:
+                assert isinstance(key,AST.Ident), key
+                self.key = key.content
+                self.value = value
+        def __str__(self):
+            return f"{self.key}:{self.value}"
+
+    class KeyVal:
+        def __init__(self, key, value):
+            self.key = key
+            self.value = value
+        def __str__(self):
+            return f"{self.key}:{self.value}"
+
+    class Map:
+        def __init__(self, children):
+            self.children = children
+        def __str__(self):
+            return "{" + ", ".join([str(c) for c in self.children]) + "}"
 
     class NameType:
         def __init__(self, name, nameType):
@@ -158,22 +212,6 @@ class AST:
             self.content = int(content)
         def __str__(self):
             return str(self.content)
-
-    class Ident:
-        def __init__(self, content):
-            assert isinstance(content,str), content
-            self.content = content
-            self.span = content
-        def __str__(self):
-            return "id("+self.content+')'
-
-    class Call:
-        def __init__(self, function, arg):
-            self.function = function.span
-            self.arg = arg
-            self.children = [arg]
-        def __str__(self):
-            return f"{self.function}!{self.arg}"
 
     class Order:
         def __init__(self, children):
@@ -203,50 +241,19 @@ class AST:
         def __str__(self):
             return "{" + ", ".join([str(c) for c in self.elements]) + "}"
 
-    class Map:
-        def __init__(self, children):
-            self.children = children
+    class StringLit:
+        def __init__(self, content):
+            assert isinstance(content,str), content
+            self.content = content
         def __str__(self):
-            return "{" + ", ".join([str(c) for c in self.children]) + "}"
-
-    class KeyVal:
-        def __init__(self, key, value):
-            self.key = key
-            self.value = value
-        def __str__(self):
-            return f"{self.key}:{self.value}"
-
-    class IdentVal:
-        def __init__(self, key, value):
-            if key is None:
-                self.key = None
-                self.value = value
-            else:
-                assert isinstance(key,AST.Ident), key
-                self.key = key.content
-                self.value = value
-        def __str__(self):
-            return f"{self.key}:{self.value}"
-
-    class FunctionDecl:
-        def __init__(self, name, retType, args, body):
-            self.name      = name
-            self.arguments = args
-            self.body      = body
-            self.retType   = retType
+            return "'"+self.content+'"'
 
     class TypeSynonym:
         def __init__(self, name, namedType):
             self.name = name
             self.namedType = namedType
 
-    class EnumDecl:
-        def __init__(self, node):
-            pass
-        def __str__(self):
-            return f'Decl({self.name})'
-
-def makeDeclaration(node):
+def transformDeclaration(node):
     assert isinstance(node, Token)  and  len(node.children)>=2  and  isinstance(node.children[1], AST.Ident),\
            f'Invalid declaration for {node}'
     if node.children[0].span == "func":
@@ -258,6 +265,11 @@ def makeDeclaration(node):
         return AST.TypeSynonym(node.children[1].span, node.children[3])
     else:
         assert False, f'Unknown declaration type {node.children[0].span}'
+
+def transformStmt(node):
+    if len(node.children)==3  and  node.terminalAt(1,'='):
+        return AST.Assignment(node.children[0].span, node.children[2])
+    return node
 
 def onlyElemList(node):
     return isinstance(node.children[1],Parser.Nonterminal) and node.children[1].tag=='elem_lst'
@@ -279,24 +291,25 @@ def collectSpans(node):
 
 
 ntTransformer = {
-    'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1] if n is not None))),
-    'str_lit2':     (lambda node: collectSpans(node)),
-    'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
-    'order':        (lambda node: AST.Order(removeFinalComma(node.children[1:-1]))),
-    'set':          (lambda node: AST.Set(removeFinalComma(node.children[1:-1]))),
-    'map':          (lambda node: AST.Map(node.children[1:-1])),
-    'record':       (lambda node: AST.Record(node.children[1:-1])),
-    'record_decl':  (lambda node: AST.RecordDecl(node.children[1:-1])),
-    'name_type':    (lambda node: AST.NameType(node.children[0].span, node.children[2])),
-    'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
-    'order_pair':   (lambda node: node.children[0]),
     'comma_pair':   (lambda node: node.children[0]),
+    'decl':         (lambda node: transformDeclaration(node)),
+    'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'iv_comma':     (lambda node: node.children[0]),
     'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]) if len(node.children)==3\
                                   else AST.IdentVal(None,node.children[1])),
+    'kv_pair':      (lambda node: AST.KeyVal(node.children[0], node.children[2])),
+    'map':          (lambda node: AST.Map(node.children[1:-1])),
+    'name_type':    (lambda node: AST.NameType(node.children[0].span, node.children[2])),
+    'order':        (lambda node: AST.Order(removeFinalComma(node.children[1:-1]))),
+    'order_pair':   (lambda node: node.children[0]),
+    'record':       (lambda node: AST.Record(node.children[1:-1])),
+    'record_decl':  (lambda node: AST.RecordDecl(node.children[1:-1])),
+    'set':          (lambda node: AST.Set(removeFinalComma(node.children[1:-1]))),
+    'statement':    (lambda node: transformStmt(node)),
+    'str_lit' :     (lambda node: AST.StringLit("".join(n.span for n in node.children[1:-1] if n is not None))),
+    'str_lit2':     (lambda node: collectSpans(node)),
     'typedecl_comma': (lambda node: node.children[0]),
-    'decl':         (lambda node: makeDeclaration(node))
 }
 
 tTransformer = {

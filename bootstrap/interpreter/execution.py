@@ -75,7 +75,7 @@ def executeStatement(node, env):
 
 # Temporary structure to bootstrap development. Later we will convert the AST for statements to a graph
 # for the basic block and rework execution around that.
-def execute(node, env):
+def execute(node, typeEnv, env):
     if isinstance(node, AST.FunctionDecl):
         for stmt in node.body:
             if isinstance(stmt, AST.FunctionDecl):
@@ -94,13 +94,13 @@ def execute(node, env):
                 executeStatement(child, env)
 
 
-def evaluate(node, env=None):
+def evaluate(node, typeEnv, env=None):
     '''Evaluate the expression in the AST *node*, if the *env* is None then the expression must
        be constant and will throw if it depends on a non-constant value.'''
     if isinstance(node, AST.NumberLit):
-        return Box(Type('box num'), node.content)
+        return Box(Type.NUMBER(node.content))
     if isinstance(node, AST.StringLit):
-        return Box(Type('box str'), node.content)
+        return Box(Type.STRING(node.content))
     if isinstance(node, AST.Order):
         return Box.evaluateOrder(node, env)
     if isinstance(node, AST.Set):

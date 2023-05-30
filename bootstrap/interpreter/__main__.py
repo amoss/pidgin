@@ -9,7 +9,7 @@ if rootDir not in sys.path:
 import argparse
 import traceback
 
-from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment, TypingFailed
+from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment, TypingFailed, BlockBuilder
 import bootstrap.interpreter.builtins as builtins
 from bootstrap.util import dump
 
@@ -65,9 +65,16 @@ elif args.start=='program':
         traceback.print_exc()
         dump(e.tree)
         sys.exit(-1)
+    builder = BlockBuilder(typeEnv)
+    try:
+        builder.fromScope(trees[0])
+    except:
+        traceback.print_exc()
+    builder.current.dump()
     env = Environment()
     env.insert('len', Type('builtin'), builtins.builtin_len)
-    execute(trees[0], env)
+    
+    execute(trees[0], typeEnv, env)
     env.dump()
 else:
     assert False, "Unexpected entry point {args.start}"
