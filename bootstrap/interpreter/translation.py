@@ -82,7 +82,7 @@ class BlockBuilder:
         s = Instruction.NEW(self.types.expressions[theSet])
         self.current.instructions.append(s)
         for valueAST in theSet.elements:
-            s = Instruction.SET_ADD(s, self.expression(valueAST))
+            s = Instruction.SET_INSERT(s, self.expression(valueAST))
             self.current.instructions.append(s)
         return s
 

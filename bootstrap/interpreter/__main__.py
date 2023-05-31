@@ -9,7 +9,8 @@ if rootDir not in sys.path:
 import argparse
 import traceback
 
-from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment, TypingFailed, BlockBuilder
+from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment, TypingFailed, \
+                                  BlockBuilder, Execution
 import bootstrap.interpreter.builtins as builtins
 from bootstrap.util import dump
 
@@ -73,7 +74,10 @@ elif args.start=='program':
     builder.current.dump()
     env = Environment()
     env.insert('len', Type('builtin'), builtins.builtin_len)
-    
+
+    e = Execution(builder.entry, Environment())
+    while e.step():
+        pass
     execute(trees[0], typeEnv, env)
     env.dump()
 else:

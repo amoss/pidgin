@@ -5,7 +5,7 @@ import argparse
 import sys
 
 from .box import Box
-from .execution import Environment, execute
+from .execution import Environment, Execution, execute
 from .frontend import buildParser, buildPidginParser, buildGrammar, buildCommon, stage2, AST
 from .translation import BlockBuilder
 from .types import Type

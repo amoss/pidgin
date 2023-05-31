@@ -1,10 +1,13 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from ..util import dump
-from .frontend import AST
+from dataclasses import dataclass, field
+
+from .block import Block, Instruction
 from .box import Box, Type
+from .frontend import AST
 from ..parser import Token
+from ..util import dump
 
 
 class Environment:
@@ -73,9 +76,42 @@ def executeStatement(node, env):
         print('Unknown statement:')
         dump(node)
 
-# Temporary structure to bootstrap development. Later we will convert the AST for statements to a graph
-# for the basic block and rework execution around that.
+class Execution:
+    @dataclass
+    class Frame:
+        current: Block
+        position: int
+        env: Environment
+        values: dict[Instruction,Box] = field(default_factory=dict)
+
+    def __init__(self, start, initialEnv):
+        self.stack = [Execution.Frame(start, 0, initialEnv)]
+        start.makeLabels()
+
+    def step(self):
+        if len(self.stack)==0:
+            return False
+        frame = self.stack[-1]
+        if frame.position >= len(frame.current.instructions):
+            return False
+        inst = frame.current.instructions[frame.position]
+        if hasattr(inst, 'transfer')  and  getattr(inst, 'transfer') is not None:
+            inputs = []
+            for v in inst.values:
+                assert v in frame.values, f'Instruction {inst} requires unevaluated value {v}'
+                inputs.append(frame.values[v])
+            result = inst.transfer(tuple(inputs))
+            print(f'step {inst.label}: {inputs} -> {result}')
+            frame.values[inst] = result
+            frame.position += 1
+            return True
+        return False
+
 def execute(node, typeEnv, env):
+
+    e = Execution(Block(), env)
+
+
     if isinstance(node, AST.FunctionDecl):
         for stmt in node.body:
             if isinstance(stmt, AST.FunctionDecl):
@@ -92,6 +128,7 @@ def execute(node, typeEnv, env):
         for child in node.children:
             if isinstance(child, Token)  and  child.symbol.name == 'statement':
                 executeStatement(child, env)
+
 
 
 def evaluate(node, typeEnv, env=None):

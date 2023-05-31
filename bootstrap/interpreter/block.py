@@ -1,8 +1,10 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from .box import Box
+
 class Instruction:
-    def __init__(self, op, *values, function=None, name=None, theType=None, box=None):
+    def __init__(self, op, *values, function=None, name=None, theType=None, box=None, transfer=None):
         self.op = op
         self.values = values
         self.function = function
@@ -10,6 +12,7 @@ class Instruction:
         self.theType = theType
         self.box = box
         self.label = "unassigned"
+        self.transfer = transfer
 
     def __str__(self):
         fields = []
@@ -32,15 +35,15 @@ class Instruction:
 
     @staticmethod
     def NEW(valType):
-        return Instruction("new", theType=valType)
+        return Instruction("new", theType=valType, transfer=lambda _:Box(valType,None))
 
     @staticmethod
     def RECORD_SET(record, name, value):
         return Instruction("record_set", record, value, name=name)
 
     @staticmethod
-    def  SET_ADD(theSet, newElement):
-        return Instruction("set_add", theSet, newElement)
+    def  SET_INSERT(theSet, newElement):
+        return Instruction("set_insert", theSet, newElement)
 
 class Block:
     counter = 1
@@ -62,11 +65,14 @@ class Block:
         return f'bb({self.label},{len(self.instructions)})'
 
     def dump(self):
+        self.makeLabels()
         print(f'{self}:')
         for i, inst in enumerate(self.instructions):
-            inst.label = f'{self.label}_{i}'
-        for i, inst in enumerate(self.instructions):
             print(f'  {self.label}_{i}: {inst}')
+
+    def makeLabels(self):
+        for i, inst in enumerate(self.instructions):
+            inst.label = f'{self.label}_{i}'
 
     def addCondSucc(self, value, trueSucc, falseSucc):
         pass
