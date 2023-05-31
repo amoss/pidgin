@@ -5,11 +5,12 @@ class TypesCannotJoin(Exception):
     pass
 
 class Type:
-    def __init__(self, kind, param1=None, param2=None, params=None):
+    def __init__(self, kind, param1=None, param2=None, params=None, zero=None):
         self.kind  = kind
         self.param1 = param1
         self.param2 = param2
         self.params = params
+        self.zero = zero
 
     def __str__(self):
         if self.kind=="tuple":
@@ -107,7 +108,7 @@ class Type:
 
     @staticmethod
     def BOOL():
-        return Type("bool")
+        return Type("bool", zero=False)
 
     @staticmethod
     def CALL(argType, retType):
@@ -129,24 +130,26 @@ class Type:
     def MAP(keyType, valType):
         assert (keyType is None  and  valType is None)  or  \
                (isinstance(keyType, Type)  and  isinstance(valType,Type)), f'{keyType}:{valType}'
-        return Type("map", param1=keyType, param2=valType)
+        return Type("map", param1=keyType, param2=valType, zero={})
 
     @staticmethod
     def NUMBER():
-        return Type("number")
+        return Type("number",zero=0)
 
     @staticmethod
     def ORDER(elType):
         assert elType is None  or  isinstance(elType, Type), argType
-        return Type("order", param1=elType)
+        return Type("order", param1=elType, zero=[])
 
     @staticmethod
     def RECORD(pairs):
+        empty = {}
         names = set(p[0] for p in pairs)
         assert len(pairs)==len(names), f'Names must be unique within a record'
         for p in pairs:
             assert isinstance(p[1],Type), f'{p[0]} given invalid type: {p[1]}'
-        return Type("record", params=sorted(pairs))
+            empty[p[0]] = p[1].zero
+        return Type("record", params=sorted(pairs), zero=empty)
 
     @staticmethod
     def SUM(*types):
@@ -156,15 +159,17 @@ class Type:
 
     @staticmethod
     def TUPLE(types):
+        vals = []
         for t in types:
             assert isinstance(t,Type), f'{t} is not a valid type in record'
-        return Type("tuple", params=tuple(types))
+            vals.append(t.zero)
+        return Type("tuple", params=tuple(types), zero=tuple(vals))
 
     @staticmethod
     def SET(elType):
         assert elType is None  or  isinstance(elType, Type), argType
-        return Type("set", param1=elType)
+        return Type("set", param1=elType, zero=set())
 
     @staticmethod
     def STRING():
-        return Type("string")
+        return Type("string",zero="")

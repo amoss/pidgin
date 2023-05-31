@@ -7,9 +7,13 @@ from ..parser import Parser, Token
 from ..util import dump
 
 class Box:
-    def __init__(self, type, raw):
+    def __init__(self, type, raw=None):
         self.type = type
-        self.raw = raw
+        if raw is not None:
+            self.raw = raw
+        else:
+            self.raw = self.type.zero
+
 
     def __eq__(self, other):
         return isinstance(other,Box) and self.type==other.type and self.raw==other.raw

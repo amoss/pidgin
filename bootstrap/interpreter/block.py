@@ -35,7 +35,7 @@ class Instruction:
 
     @staticmethod
     def NEW(valType):
-        return Instruction("new", theType=valType, transfer=lambda _:Box(valType,None))
+        return Instruction("new", theType=valType, transfer=lambda _:Box(valType))
 
     @staticmethod
     def RECORD_SET(record, name, value):
