@@ -5,11 +5,12 @@ class TypesCannotJoin(Exception):
     pass
 
 class Type:
-    def __init__(self, kind, param1=None, param2=None, params=None, zero=None):
+    def __init__(self, kind, param1=None, param2=None, params=None, zero=None, innerEnv=None):
         self.kind  = kind
         self.param1 = param1
         self.param2 = param2
         self.params = params
+        self.innerEnv = innerEnv
         self.zero = zero
 
     def __str__(self):
@@ -121,10 +122,10 @@ class Type:
         return Type("enum", param1=myName, params=names)
 
     @staticmethod
-    def FUNCTION(argType, retType):
+    def FUNCTION(argType, retType, innerEnv):
         assert isinstance(argType, Type), argType
         assert isinstance(retType, Type), argType
-        return Type("func", param1=argType, param2=retType)
+        return Type("func", param1=argType, param2=retType, innerEnv=innerEnv)
 
     @staticmethod
     def MAP(keyType, valType):

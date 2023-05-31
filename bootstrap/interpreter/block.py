@@ -25,6 +25,9 @@ class Instruction:
             fieldStr = ''
         return f'{self.op}({",".join(v.label for v in self.values)}{fieldStr})'
 
+    def isCall(self):
+        return self.op=="call"
+
     @staticmethod
     def CALL(target, argument):
         return Instruction("call", argument, function=target)
@@ -32,6 +35,10 @@ class Instruction:
     @staticmethod
     def CONSTANT(box):
         return Instruction("constant", box=box, transfer=lambda _:box)
+
+    @staticmethod
+    def INPUT(name):
+        return Instruction("input", name=name)
 
     @staticmethod
     def NEW(valType):

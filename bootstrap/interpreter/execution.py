@@ -105,6 +105,8 @@ class Execution:
             frame.values[inst] = result
             frame.position += 1
             return True
+        if inst.isCall():
+            return False
         return False
 
 def execute(node, typeEnv, env):

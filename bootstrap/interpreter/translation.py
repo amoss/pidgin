@@ -15,7 +15,9 @@ class BlockBuilder:
 
 
     def fromScope(self, scope):
-        for stmt in scope.children:
+        if not isinstance(scope, tuple):
+            scope = scope.children
+        for stmt in scope:
             print(f'Building {stmt}')
             if isinstance(stmt, AST.Assignment):
                 self.assignment(stmt)
@@ -41,7 +43,7 @@ class BlockBuilder:
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
             if not expr.span in self.current.uses:
-                self.current.uses[expr.span] = InstUnresolved(expr.span)
+                self.current.uses[expr.span] = Instruction.INPUT(expr.span)
             return self.current.uses[expr.span]
 
 
@@ -85,4 +87,35 @@ class BlockBuilder:
             s = Instruction.SET_INSERT(s, self.expression(valueAST))
             self.current.instructions.append(s)
         return s
+
+
+
+class ProgramBuilder:
+    class Function:
+        def __init__(self, entry, typeEnv):
+            self.children = {}
+            self.typeEnv = typeEnv
+            self.entry = entry
+
+        def dump(self):
+            print(f'Function:')
+            self.entry.dump()
+            for c in self.children.values():
+                c.dump()
+
+    def __init__(self, toplevel, typeEnv):
+        self.typeEnv = typeEnv
+        self.outermost = self.doScope(toplevel, typeEnv)
+
+    def doScope(self, scope, scopeTypes):
+        builder = BlockBuilder(scopeTypes)
+        builder.fromScope(scope)
+        result = ProgramBuilder.Function(builder.entry, scopeTypes)
+        if not isinstance(scope, tuple):
+            scope = scope.children
+        for decl in scope:
+            if isinstance(decl, AST.FunctionDecl):
+                result.children[decl.name] = self.doScope(decl.body, scopeTypes.names[decl.name].innerEnv)
+        return result
+
 

@@ -77,15 +77,15 @@ class TypeEnvironment:
             tree = tree.children
         for c in tree:
             if isinstance(c, AST.FunctionDecl):
-                argType = self.makeRecordDecl(c.arguments)
-                self.set(c.name, Type.FUNCTION(argType, self.makeTypeDecl(c.retType)))
+                argsContainer = self.makeRecordDecl(c.arguments)
                 inside = self.makeChild()
-                for argName, argType in argType.params:
+                for argName, argType in argsContainer.params:
                     inside.set(argName, argType)
                 inside.fromScope(c.body)
                 if not '%return%' in inside.names:
                     raise TypingFailed(c, f'Function did not return a value')
                 combined = self.makeTypeDecl(c.retType).join(inside.names['%return%'])
+                self.set(c.name, Type.FUNCTION(argsContainer, self.makeTypeDecl(c.retType), inside))
             elif isinstance(c, AST.TypeSynonym):
                 theType = self.makeTypeDecl(c.namedType)
                 self.set('type '+c.name, theType)
@@ -109,6 +109,8 @@ class TypeEnvironment:
         if not tree.function in self.names:
             raise TypingFailed(tree, f"Call to unknown function {tree.function}")
         fType = self.names[tree.function]
+        print(f'Typecheck call p1={fType.param1} p2={fType.param2}')
+        dump(tree)
         checkArg = fType.param1.join(argType)
         checkRet = Type.NUMBER()                        # TODO: return types
         return checkRet
