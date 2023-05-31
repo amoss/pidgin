@@ -31,7 +31,7 @@ class Instruction:
 
     @staticmethod
     def CONSTANT(box):
-        return Instruction("constant", box=box)
+        return Instruction("constant", box=box, transfer=lambda _:box)
 
     @staticmethod
     def NEW(valType):
@@ -39,11 +39,12 @@ class Instruction:
 
     @staticmethod
     def RECORD_SET(record, name, value):
-        return Instruction("record_set", record, value, name=name)
+        return Instruction("record_set", record, value, name=name,
+                           transfer=lambda vs: Box(vs[0].type, dict([(k,v) for k,v in vs[0].raw.items() if k!=name] + [(name,vs[1])])))
 
     @staticmethod
     def  SET_INSERT(theSet, newElement):
-        return Instruction("set_insert", theSet, newElement)
+        return Instruction("set_insert", theSet, newElement, transfer=lambda vs: Box(vs[0].type,vs[0].raw.union(set([vs[1]]))))
 
 class Block:
     counter = 1
