@@ -92,14 +92,17 @@ class Execution:
         outermost.entry.makeLabels()
 
     def step(self):
-        print('step', len(self.stack), )
         if len(self.stack)==0:
             return False
         frame = self.stack[-1]
-        print('frame', len(frame.current.instructions), frame.position)
         if frame.position >= len(frame.current.instructions):
-            print(f'Need to return value and unwind stack')
-            return False
+            result = frame.values[ frame.current.defs['%return%'] ]
+            self.stack = self.stack[:-1]
+            frame = self.stack[-1]
+            inst = frame.current.instructions[frame.position]
+            frame.values[inst] = result
+            frame.position += 1
+            return True
         inst = frame.current.instructions[frame.position]
         print(f'step {frame.current.label}_{frame.position}: {inst}')
         if hasattr(inst, 'transfer')  and  getattr(inst, 'transfer') is not None:
@@ -127,13 +130,9 @@ class Execution:
             for k,v in args.raw.items():
                 childEnv.add(k,v.type)
                 childEnv.set(k,v)
-            print('Child env')
-            childEnv.dump()
             self.stack.append( Execution.Frame(function, function.entry, 0, childEnv) )
             return True
         if inst.isInput():
-            print(f'Executing input {inst}')
-            frame.env.dump()
             frame.values[inst] = frame.env.values[inst.name]
             frame.position += 1
             return True
