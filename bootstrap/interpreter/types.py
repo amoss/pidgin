@@ -5,12 +5,13 @@ class TypesCannotJoin(Exception):
     pass
 
 class Type:
-    def __init__(self, kind, param1=None, param2=None, params=None, zero=None, innerEnv=None):
+    def __init__(self, kind, param1=None, param2=None, params=None, zero=None, innerEnv=None, builtin=None):
         self.kind  = kind
         self.param1 = param1
         self.param2 = param2
         self.params = params
         self.innerEnv = innerEnv
+        self.builtin = builtin
         self.zero = zero
 
     def __str__(self):
@@ -34,17 +35,21 @@ class Type:
     def sig(self):
         return (self.kind, self.param1, self.param2, self.params)
 
+
     def __eq__(self, other):
         return isinstance(other,Type) and self.sig()==other.sig()
+
 
     def __hash__(self):
         return hash(self.sig())
 
+
     def isFunction(self):
-        return self.kind=="func"
+        return self.kind=="func"  and  self.builtin is None
+
 
     def isBuiltin(self):
-        return self.kind=="builtin"
+        return self.kind=="func"  and  self.builtin is not None
 
     def isRecord(self):
         return self.kind=='[:]'
@@ -122,10 +127,11 @@ class Type:
         return Type("enum", param1=myName, params=names)
 
     @staticmethod
-    def FUNCTION(argType, retType, innerEnv):
+    def FUNCTION(argType, retType, innerEnv, builtin=None):
         assert isinstance(argType, Type), argType
         assert isinstance(retType, Type), argType
-        return Type("func", param1=argType, param2=retType, innerEnv=innerEnv)
+        assert innerEnv is not None  or  builtin is not None
+        return Type("func", param1=argType, param2=retType, innerEnv=innerEnv, builtin=builtin)
 
     @staticmethod
     def MAP(keyType, valType):

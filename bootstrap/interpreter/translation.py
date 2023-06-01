@@ -1,10 +1,12 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .block import Block, Instruction
 from .box import Box
+from .builtins import builtin_len
 from .frontend import AST
+from .irep import Block, Instruction, Function
 from .types import Type
+from .typecheck import TypedEnvironment
 from ..parser import Token
 
 class BlockBuilder:
@@ -91,31 +93,23 @@ class BlockBuilder:
 
 
 class ProgramBuilder:
-    class Function:
-        def __init__(self, entry, typeEnv):
-            self.children = {}
-            self.typeEnv = typeEnv
-            self.entry = entry
 
-        def dump(self):
-            print(f'Function:')
-            self.entry.dump()
-            for c in self.children.values():
-                c.dump()
-
-    def __init__(self, toplevel, typeEnv):
-        self.typeEnv = typeEnv
-        self.outermost = self.doScope(toplevel, typeEnv)
+    def __init__(self, toplevel):
+        self.typeEnv = TypedEnvironment()
+        aggregates = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None))
+        self.typeEnv.add('len', Type.FUNCTION(aggregates, Type.NUMBER(), None, builtin=builtin_len))
+        self.typeEnv.fromScope(toplevel)
+        self.outermost = self.doScope(toplevel, self.typeEnv)
 
     def doScope(self, scope, scopeTypes):
         builder = BlockBuilder(scopeTypes)
         builder.fromScope(scope)
-        result = ProgramBuilder.Function(builder.entry, scopeTypes)
+        result = Function(builder.entry, scopeTypes)
         if not isinstance(scope, tuple):
             scope = scope.children
         for decl in scope:
             if isinstance(decl, AST.FunctionDecl):
-                result.children[decl.name] = self.doScope(decl.body, scopeTypes.names[decl.name].innerEnv)
+                result.children[decl.name] = self.doScope(decl.body, scopeTypes.types[decl.name].innerEnv)
         return result
 
 

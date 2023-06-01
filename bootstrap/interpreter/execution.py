@@ -3,48 +3,49 @@
 
 from dataclasses import dataclass, field
 
-from .block import Block, Instruction
+from .irep import Block, Instruction, Function
 from .box import Box, Type
 from .frontend import AST
+from .typecheck import TypedEnvironment
 from ..parser import Token
 from ..util import dump
 
 
-class Environment:
-
-    def __init__(self):
-        self.values = {}
-        self.types = {}
-
-    def contains(self, name):
-        return name in self.values
-
-    def insert(self, name, valueType, value):
-        self.values[name] = value
-        assert isinstance(valueType, Type), valueType
-        self.types[name] = valueType
-
-    def lookup(self, name):
-        return self.values[name], self.types[name]
-
-    def dump(self):
-        for name in self.values.keys():
-            print(f'{name} {self.types[name]} : {self.values[name]}')
-
-    def update(self, other):
-        for name in other.values.keys():
-            assert not name in self.values.keys(), name
-            self.insert(name, other.types[name], other.values[name])
-
-
-    def makeChild(self):
-        '''A child environment contains references to all functions declared in this environment, but not any
-           references to data values.'''
-        result = Environment()
-        for name,kind in self.types.items():
-            if kind.isFunction()  or  kind.isBuiltin():
-                result.insert(name, kind, self.values[name])
-        return result
+#class Environment:
+#
+#    def __init__(self):
+#        self.values = {}
+#        self.types = {}
+#
+#    def contains(self, name):
+#        return name in self.values
+#
+#    def insert(self, name, valueType, value):
+#        self.values[name] = value
+#        assert isinstance(valueType, Type), valueType
+#        self.types[name] = valueType
+#
+#    def lookup(self, name):
+#        return self.values[name], self.types[name]
+#
+#    def dump(self):
+#        for name in self.values.keys():
+#            print(f'{name} {self.types[name]} : {self.values[name]}')
+#
+#    def update(self, other):
+#        for name in other.values.keys():
+#            assert not name in self.values.keys(), name
+#            self.insert(name, other.types[name], other.values[name])
+#
+#
+#    def makeChild(self):
+#        '''A child environment contains references to all functions declared in this environment, but not any
+#           references to data values.'''
+#        result = Environment()
+#        for name,kind in self.types.items():
+#            if kind.isFunction()  or  kind.isBuiltin():
+#                result.insert(name, kind, self.values[name])
+#        return result
 
 def processDeclaration(node, env):
     print(f'exec decl {node}')
@@ -79,14 +80,16 @@ def executeStatement(node, env):
 class Execution:
     @dataclass
     class Frame:
+        function: Function
         current: Block
         position: int
-        env: Environment
+        env: TypedEnvironment
         values: dict[Instruction,Box] = field(default_factory=dict)
 
-    def __init__(self, start, initialEnv):
-        self.stack = [Execution.Frame(start, 0, initialEnv)]
-        start.makeLabels()
+    def __init__(self, outermost, initialEnv):
+        self.outermost = outermost
+        self.stack = [Execution.Frame(outermost, outermost.entry, 0, initialEnv)]
+        outermost.entry.makeLabels()
 
     def step(self):
         if len(self.stack)==0:
@@ -106,7 +109,21 @@ class Execution:
             frame.position += 1
             return True
         if inst.isCall():
-            return False
+            fType = frame.env.types[inst.function]
+            if fType.isBuiltin():
+                print(f'calling builtin {inst.function} env: {",".join(frame.env.values.keys())}')
+                arg = frame.values[inst.values[0]]
+                result = frame.env.values[inst.function](arg)
+                frame.values[inst] = result
+                frame.position += 1
+                return True
+            assert inst.function in frame.function.children, f'Unknown call target {inst.function}'
+            function = frame.function.children[inst.function]
+            childEnv = frame.env.makeChild()
+            print('Child env')
+            childEnv.dump()
+            self.stack.append( Execution.Frame(function, function.entry, 0, childEnv) )
+            return True
         return False
 
 def execute(node, typeEnv, env):

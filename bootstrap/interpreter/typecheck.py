@@ -3,6 +3,7 @@
 
 import functools
 
+from .box import Box
 from .frontend import AST
 from .types import Type
 from ..parser import Token
@@ -14,32 +15,56 @@ class TypingFailed(Exception):
         super().__init__(msg)
 
 
-class TypeEnvironment:
+class TypedEnvironment:
     def __init__(self):
-        self.names       = {}
+        self.types       = {}
+        self.values      = {}
         self.expressions = {}
 
 
     def dump(self):
-        for name,namedType in self.names.items():
-            print(f'{name} :: {namedType}')
+        for name,namedType in self.types.items():
+            if name in self.values:
+                withVal = f' = {self.values[name]}'
+            else:
+                withVal = ''
+            print(f'{name} :: {namedType}{withVal}')
 
-    def set(self, name, nameType):
+
+    def wipe(self):
+        keys = tuple(self.values.keys())
+        for k in keys:
+            if not self.types[k].isBuiltin():
+                del self.values[k]
+
+
+    def add(self, name, nameType):
         assert isinstance(name,str), name
         assert isinstance(nameType,Type), nameType
-        if not name in self.names:
-            self.names[name] = nameType
+        if not name in self.types:
+            self.types[name] = nameType
         else:
-            self.names[name] = self.names[name].join(nameType)
+            self.types[name] = self.types[name].join(nameType)
+
+
+    def set(self, name, value):
+        assert name in self.types, f'Cannot set value for unknown {name}'
+        assert isinstance(value,Box), f'Cannot use {value} as value for {name}'
+        assert value.type==self.types[name], f'Type mismatch using {value} for {name}'
+        self.values[name] = value
+
+
+    def lookup(self, name):
+        return self.values[name], self.types[name]
 
 
     def makeChild(self):
         '''A child environment contains references to all functions declared in this environment, but not any
            references to data values.'''
-        result = TypeEnvironment()
-        for name,nameType in self.names.items():
+        result = TypedEnvironment()
+        for name,nameType in self.types.items():
             if name[:5]=='type '  or  nameType.isFunction()  or  nameType.isBuiltin()  or  nameType.isEnum():
-                result.set(name, nameType)
+                result.add(name, nameType)
         return result
 
 
@@ -64,9 +89,9 @@ class TypeEnvironment:
     def fromStatement(self, tree):
         if isinstance(tree, AST.Assignment):
             newType = self.fromExpression(tree.expr)
-            self.set(tree.target, newType)
+            self.add(tree.target, newType)
         elif len(tree.children)>=2  and  tree.terminalAt(0,'return'):
-            self.set('%return%', self.fromExpression(tree.children[1]))
+            self.add('%return%', self.fromExpression(tree.children[1]))
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
@@ -80,15 +105,15 @@ class TypeEnvironment:
                 argsContainer = self.makeRecordDecl(c.arguments)
                 inside = self.makeChild()
                 for argName, argType in argsContainer.params:
-                    inside.set(argName, argType)
+                    inside.add(argName, argType)
                 inside.fromScope(c.body)
-                if not '%return%' in inside.names:
+                if not '%return%' in inside.types:
                     raise TypingFailed(c, f'Function did not return a value')
-                combined = self.makeTypeDecl(c.retType).join(inside.names['%return%'])
-                self.set(c.name, Type.FUNCTION(argsContainer, self.makeTypeDecl(c.retType), inside))
+                combined = self.makeTypeDecl(c.retType).join(inside.types['%return%'])
+                self.add(c.name, Type.FUNCTION(argsContainer, self.makeTypeDecl(c.retType), inside))
             elif isinstance(c, AST.TypeSynonym):
                 theType = self.makeTypeDecl(c.namedType)
-                self.set('type '+c.name, theType)
+                self.add('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
             elif type(c) in (AST.Assignment,):
@@ -97,18 +122,18 @@ class TypeEnvironment:
                 names = list(cc.span for cc in c.children[3:-1])
                 enumName = c.children[1].span
                 enumType = Type.ENUM(enumName, names)
-                self.set('enum '+enumName, enumType)
+                self.add('enum '+enumName, enumType)
                 for n in names:
-                    self.set(n, enumType)
+                    self.add(n, enumType)
             else:
                 raise TypingFailed(c, f'Unable to typecheck {c}')
 
 
     def makeCall(self, tree):
         argType = self.fromExpression(tree.arg)
-        if not tree.function in self.names:
+        if not tree.function in self.types:
             raise TypingFailed(tree, f"Call to unknown function {tree.function}")
-        fType = self.names[tree.function]
+        fType = self.types[tree.function]
         print(f'Typecheck call p1={fType.param1} p2={fType.param2}')
         dump(tree)
         checkArg = fType.param1.join(argType)
@@ -119,10 +144,10 @@ class TypeEnvironment:
     def makeFromIdent(self, tree):
         if tree.span in ('true','false'):
             return Type.BOOL()
-        if not tree.span in self.names:
+        if not tree.span in self.types:
             self.dump()
             raise TypingFailed(tree, f"Cannot infer type of {tree.span}")
-        return self.names[tree.span]
+        return self.types[tree.span]
 
 
     def makeMap(self, tree):
@@ -185,14 +210,14 @@ class TypeEnvironment:
             return Type.TUPLE(tuple(self.makeTypeDecl(t) for t in tree.children[1:-1]))
         if tree.terminalAt(0,'enum'):
             typeName = f'enum {tree.children[1].span}'
-            if not typeName in self.names:
+            if not typeName in self.types:
                 raise TypingFailed(tree, f'Unknown {typeName}')
-            return self.names[typeName]
+            return self.types[typeName]
         if tree.terminalAt(0,'type'):
             typeName = f'type {tree.children[1].span}'
-            if not typeName in self.names:
+            if not typeName in self.types:
                 raise TypingFailed(tree, f'Unknown {typeName}')
-            return self.names[typeName]
+            return self.types[typeName]
         raise TypingFailed(tree, f'Unexpected type_decl {tree}')
 
     def makeFromTree(self, tree):

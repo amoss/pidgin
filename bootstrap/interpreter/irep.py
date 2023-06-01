@@ -89,4 +89,17 @@ class Block:
         pass
 
 
+class Function:
+    def __init__(self, entry, typeEnv):
+        self.children = {}
+        self.typeEnv = typeEnv
+        self.entry = entry
+
+    def dump(self):
+        print(f'Function:')
+        self.entry.dump()
+        for c in self.children.values():
+            c.dump()
+
+
 

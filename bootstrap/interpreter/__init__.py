@@ -5,8 +5,8 @@ import argparse
 import sys
 
 from .box import Box
-from .execution import Environment, Execution, execute
+from .execution import Execution, execute
 from .frontend import buildParser, buildPidginParser, buildGrammar, buildCommon, stage2, AST
 from .translation import BlockBuilder, ProgramBuilder
 from .types import Type
-from .typecheck import TypeEnvironment, TypingFailed
+from .typecheck import TypedEnvironment, TypingFailed

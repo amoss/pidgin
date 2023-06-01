@@ -9,7 +9,7 @@ if rootDir not in sys.path:
 import argparse
 import traceback
 
-from bootstrap.interpreter import buildPidginParser, Box, execute, Environment, Type, TypeEnvironment, TypingFailed, \
+from bootstrap.interpreter import buildPidginParser, Box, execute, Type, TypingFailed, \
                                   BlockBuilder, Execution, ProgramBuilder
 import bootstrap.interpreter.builtins as builtins
 from bootstrap.util import dump
@@ -59,26 +59,16 @@ if args.start=='expr':
         print(pyResult)
 elif args.start=='program':
     try:
-        typeEnv = TypeEnvironment()
-        typeEnv.set('len', Type.FUNCTION(Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None)), Type.NUMBER(), None))
-        typeEnv.fromScope(trees[0])
+        progBuilder = ProgramBuilder(trees[0])
+        progBuilder.outermost.dump()
     except TypingFailed as e:
         traceback.print_exc()
         dump(e.tree)
         sys.exit(-1)
-
-    try:
-        progBuilder = ProgramBuilder(trees[0], typeEnv)
-        progBuilder.outermost.dump()
-    except:
-        traceback.print_exc()
-    env = Environment()
-    env.insert('len', Type('builtin'), builtins.builtin_len)
-
-    e = Execution(progBuilder.outermost.entry, Environment())
+    progBuilder.typeEnv.wipe()
+    progBuilder.typeEnv.dump()
+    e = Execution(progBuilder.outermost, progBuilder.typeEnv)
     while e.step():
         pass
-    execute(trees[0], typeEnv, env)
-    env.dump()
 else:
     assert False, "Unexpected entry point {args.start}"
