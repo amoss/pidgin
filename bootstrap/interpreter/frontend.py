@@ -235,6 +235,10 @@ class AST:
             for c in children:
                 self.record[c.name] = c.nameType
 
+    class Return:
+        def __init__(self, expr):
+            self.expr = expr
+
     class Set:
         def __init__(self, children):
             self.elements = children
@@ -269,6 +273,8 @@ def transformDeclaration(node):
 def transformStmt(node):
     if len(node.children)==3  and  node.terminalAt(1,'='):
         return AST.Assignment(node.children[0].span, node.children[2])
+    if len(node.children)>=2  and  node.terminalAt(0,'return'):
+        return AST.Return(node.children[1])
     return node
 
 def onlyElemList(node):

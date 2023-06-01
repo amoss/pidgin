@@ -20,6 +20,7 @@ class TypedEnvironment:
         self.types       = {}
         self.values      = {}
         self.expressions = {}
+        self.instructions = {}
 
 
     def dump(self):
@@ -90,8 +91,8 @@ class TypedEnvironment:
         if isinstance(tree, AST.Assignment):
             newType = self.fromExpression(tree.expr)
             self.add(tree.target, newType)
-        elif len(tree.children)>=2  and  tree.terminalAt(0,'return'):
-            self.add('%return%', self.fromExpression(tree.children[1]))
+        elif isinstance(tree, AST.Return):
+            self.add('%return%', self.fromExpression(tree.expr))
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
@@ -116,7 +117,7 @@ class TypedEnvironment:
                 self.add('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
-            elif type(c) in (AST.Assignment,):
+            elif type(c) in (AST.Assignment,AST.Return):
                 self.fromStatement(c)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='enum_decl':
                 names = list(cc.span for cc in c.children[3:-1])

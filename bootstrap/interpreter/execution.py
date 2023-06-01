@@ -47,35 +47,35 @@ from ..util import dump
 #                result.insert(name, kind, self.values[name])
 #        return result
 
-def processDeclaration(node, env):
-    print(f'exec decl {node}')
-    assert not env.contains(node.name), node.name
-    env.insert(node.name, Type("func"), node)
+#def processDeclaration(node, env):
+#    print(f'exec decl {node}')
+#    assert not env.contains(node.name), node.name
+#    env.insert(node.name, Type("func"), node)
+#
+#def executeAssignment(node, env):
+#    print(f'execute {node.children[0]} = {node.children[2]} env: {",".join(env.values.keys())}')
+#    try:
+#        box = evaluate(node.children[2], env)
+#        env.insert(node.children[0].span, box.type, box)
+#    except:
+#        raise
+#
+#
+#def executeReturn(node, env):
+#    print(f'return {node}')
+#    box = evaluate(node.children[1], env)
+#    print(f'  box= {box}')
+#    env.insert('%return%', box.type, box)
+#    dump(node)
 
-def executeAssignment(node, env):
-    print(f'execute {node.children[0]} = {node.children[2]} env: {",".join(env.values.keys())}')
-    try:
-        box = evaluate(node.children[2], env)
-        env.insert(node.children[0].span, box.type, box)
-    except:
-        raise
-
-
-def executeReturn(node, env):
-    print(f'return {node}')
-    box = evaluate(node.children[1], env)
-    print(f'  box= {box}')
-    env.insert('%return%', box.type, box)
-    dump(node)
-
-def executeStatement(node, env):
-    if len(node.children)==3  and  node.terminalAt(1,'='):
-        executeAssignment(node, env)
-    elif len(node.children)>=2  and  node.terminalAt(0,'return'):
-        executeReturn(node, env)
-    else:
-        print('Unknown statement:')
-        dump(node)
+#def executeStatement(node, env):
+#    if len(node.children)==3  and  node.terminalAt(1,'='):
+#        executeAssignment(node, env)
+#    elif len(node.children)>=2  and  node.terminalAt(0,'return'):
+#        executeReturn(node, env)
+#    else:
+#        print('Unknown statement:')
+#        dump(node)
 
 class Execution:
     @dataclass
@@ -92,12 +92,14 @@ class Execution:
         outermost.entry.makeLabels()
 
     def step(self):
+        print('step', len(self.stack), )
         if len(self.stack)==0:
             return False
         frame = self.stack[-1]
+        print('frame', len(frame.current.instructions), frame.position)
         if frame.position >= len(frame.current.instructions):
+            print(f'Need to return value and unwind stack')
             return False
-        frame.env.dump()
         inst = frame.current.instructions[frame.position]
         print(f'step {frame.current.label}_{frame.position}: {inst}')
         if hasattr(inst, 'transfer')  and  getattr(inst, 'transfer') is not None:
@@ -121,7 +123,6 @@ class Execution:
             function = fType.function
             childEnv = frame.env.makeChild()
             args = frame.values[inst.values[0]]
-            print(args.type.isRecord())
             assert args.type.isRecord(), f'Cannot bind argument into child env, not record?'
             for k,v in args.raw.items():
                 childEnv.add(k,v.type)
@@ -139,27 +140,27 @@ class Execution:
         assert False
         return False
 
-def execute(node, typeEnv, env):
-
-    e = Execution(Block(), env)
-
-
-    if isinstance(node, AST.FunctionDecl):
-        for stmt in node.body:
-            if isinstance(stmt, AST.FunctionDecl):
-                processDeclaration(stmt,env)
-        for stmt in node.body:
-            if isinstance(stmt, Token)  and stmt.symbol.name == 'statement':
-                executeStatement(stmt, env)
-        return
-    assert node.symbol.isNonterminal, node
-    if node.symbol.name == 'program':
-        for child in node.children:
-            if isinstance(child, AST.FunctionDecl):
-                processDeclaration(child,env)
-        for child in node.children:
-            if isinstance(child, Token)  and  child.symbol.name == 'statement':
-                executeStatement(child, env)
+#def execute(node, typeEnv, env):
+#
+#    e = Execution(Block(), env)
+#
+#
+#    if isinstance(node, AST.FunctionDecl):
+#        for stmt in node.body:
+#            if isinstance(stmt, AST.FunctionDecl):
+#                processDeclaration(stmt,env)
+#        for stmt in node.body:
+#            if isinstance(stmt, Token)  and stmt.symbol.name == 'statement':
+#                executeStatement(stmt, env)
+#        return
+#    assert node.symbol.isNonterminal, node
+#    if node.symbol.name == 'program':
+#        for child in node.children:
+#            if isinstance(child, AST.FunctionDecl):
+#                processDeclaration(child,env)
+#        for child in node.children:
+#            if isinstance(child, Token)  and  child.symbol.name == 'statement':
+#                executeStatement(child, env)
 
 
 

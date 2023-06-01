@@ -44,12 +44,21 @@ class Type:
         return hash(self.sig())
 
 
+    def isBuiltin(self):
+        return self.kind=="func"  and  self.builtin is not None
+
+
+    def isEnum(self):
+        return self.kind=='enum'
+
+
     def isFunction(self):
         return self.kind=="func"  and  self.builtin is None
 
 
-    def isBuiltin(self):
-        return self.kind=="func"  and  self.builtin is not None
+    def isNumber(self):
+        return self.kind=="number"
+
 
     def isRecord(self):
         return self.kind=='record'
@@ -58,8 +67,6 @@ class Type:
     def isSet(self):
         return self.kind=='set'
 
-    def isEnum(self):
-        return self.kind=='enum'
 
     def join(self, other):
         if self.kind=='sum'  and  other.kind=='sum':

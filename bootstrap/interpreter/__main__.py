@@ -9,7 +9,7 @@ if rootDir not in sys.path:
 import argparse
 import traceback
 
-from bootstrap.interpreter import buildPidginParser, Box, execute, Type, TypingFailed, \
+from bootstrap.interpreter import buildPidginParser, Box, Type, TypingFailed, \
                                   BlockBuilder, Execution, ProgramBuilder
 import bootstrap.interpreter.builtins as builtins
 from bootstrap.util import dump

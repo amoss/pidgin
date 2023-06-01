@@ -8,6 +8,7 @@ from .irep import Block, Instruction, Function
 from .types import Type
 from .typecheck import TypedEnvironment
 from ..parser import Token
+from ..util import dump
 
 class BlockBuilder:
     def __init__(self, types):
@@ -23,6 +24,8 @@ class BlockBuilder:
             print(f'Building {stmt}')
             if isinstance(stmt, AST.Assignment):
                 self.assignment(stmt)
+            elif isinstance(stmt, AST.Return):
+                self.returnstmt(stmt)
 
 
     def assignment(self, stmt):
@@ -30,42 +33,50 @@ class BlockBuilder:
         self.current.defs[stmt.target] = self.expression(stmt.expr)
 
 
+    def addInstruction(self, inst, instType):
+        self.current.instructions.append(inst)
+        self.types.instructions[inst] = instType
+        return inst
+
     def expression(self, expr):
         if isinstance(expr, AST.NumberLit):
             inst = Instruction.CONSTANT( Box(Type.NUMBER(), expr.content) )
-            self.current.instructions.append(inst)
-            return inst
+            return self.addInstruction(inst, Type.NUMBER())
 
         if isinstance(expr, AST.StringLit):
             inst = Instruction.CONSTANT( Box(Type.STRING(), expr.content) )
-            self.current.instructions.append(inst)
-            return inst
+            return self.addInstruction(inst, Type.STRING())
 
         if isinstance(expr, AST.Ident):
             print(f'Building expression/Ident {expr.span}')
+            if expr.span=="true":
+                return self.addInstruction( Instruction.CONSTANT( Box(Type.BOOL(), True) ), Type.BOOL() )
+            if expr.span=="false":
+                return self.addInstruction( Instruction.CONSTANT( Box(Type.BOOL(), False) ), Type.BOOL() )
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
             inst = Instruction.INPUT(expr.span)
-            self.current.instructions.append(inst)
             self.current.defs[expr.span] = inst
-            return inst
+            return self.addInstruction(inst, self.types.types[expr.span])
 
 
         if isinstance(expr,Token)  and  expr.symbol.isNonterminal  and  expr.tag in ('binop1','binop2'):
-            lhs = addExpression(expr.children[0])
+            lhs = self.expression(expr.children[0])
+            dump(expr)
             for opChild in expr.children[1:]:
-                op = opChild[0].span
-                rhs = addExpression(opChild[1])
-                cons = despatch[(lhs.typeOf(), rhs.typeOf(), op)]
-                inst = cons(lhs,rhs)
-                self.current.instructions.append(inst)
+                op = opChild.children[0].span
+                rhs = self.expression(opChild.children[1])
+                if self.types.instructions[lhs].isNumber() and self.types.instructions[rhs].isNumber():
+                    inst = Instruction.ADD_NUMBER(lhs,rhs)
+                    self.addInstruction(inst, Type.NUMBER())
+                else:
+                    assert False, f'Unknown types for add operation'
                 lhs = inst
             return inst
 
         if isinstance(expr, AST.Call):
             inst = Instruction.CALL( expr.function, self.expression(expr.arg) )
-            self.current.instructions.append(inst)
-            return inst
+            return self.addInstruction(inst, self.types.types[expr.function].param2)
 
         if isinstance(expr, AST.Record):
             return self.record(expr)
@@ -81,15 +92,19 @@ class BlockBuilder:
         for name, valueAST in rec.record.items():
             print(valueAST)
             r = Instruction.RECORD_SET(r, name, self.expression(valueAST))
-            self.current.instructions.append(r)
+            self.addInstruction(r, self.types.expressions[rec])
         return r
+
+    def returnstmt(self, stmt):
+        print(f'Building return')
+        self.current.defs['%return%'] = self.expression(stmt.expr)
 
     def set(self, theSet):
         s = Instruction.NEW(self.types.expressions[theSet])
         self.current.instructions.append(s)
         for valueAST in theSet.elements:
             s = Instruction.SET_INSERT(s, self.expression(valueAST))
-            self.current.instructions.append(s)
+            self.addInstruction(s, self.types.expressions[theSet])
         return s
 
 

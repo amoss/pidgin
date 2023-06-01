@@ -2,6 +2,7 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .box import Box
+from .types import Type
 
 class Instruction:
     def __init__(self, op, *values, function=None, name=None, theType=None, box=None, transfer=None):
@@ -30,6 +31,10 @@ class Instruction:
 
     def isInput(self):
         return self.op=="input"
+
+    @staticmethod
+    def ADD_NUMBER(lhs, rhs):
+        return Instruction("add", lhs, rhs, transfer=lambda vs: Box(Type.NUMBER(), vs[0].raw + vs[1].raw))
 
     @staticmethod
     def CALL(target, argument):
