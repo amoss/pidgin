@@ -52,11 +52,11 @@ class Type:
         return self.kind=="func"  and  self.builtin is not None
 
     def isRecord(self):
-        return self.kind=='[:]'
+        return self.kind=='record'
 
 
     def isSet(self):
-        return self.kind=='{}'
+        return self.kind=='set'
 
     def isEnum(self):
         return self.kind=='enum'

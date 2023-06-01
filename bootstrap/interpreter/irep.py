@@ -28,6 +28,9 @@ class Instruction:
     def isCall(self):
         return self.op=="call"
 
+    def isInput(self):
+        return self.op=="input"
+
     @staticmethod
     def CALL(target, argument):
         return Instruction("call", argument, function=target)
@@ -58,10 +61,6 @@ class Block:
     def __init__(self):
         self.instructions = []
         self.defs = {}
-            # From symbol-table (i.e. first time use in this block no preceeding def)
-            # From previous def
-            # Constant
-        self.uses = {}
         self.condition = None
         self.trueSucc  = None
         self.falseSucc = None

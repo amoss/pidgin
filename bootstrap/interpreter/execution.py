@@ -97,14 +97,15 @@ class Execution:
         frame = self.stack[-1]
         if frame.position >= len(frame.current.instructions):
             return False
+        frame.env.dump()
         inst = frame.current.instructions[frame.position]
+        print(f'step {frame.current.label}_{frame.position}: {inst}')
         if hasattr(inst, 'transfer')  and  getattr(inst, 'transfer') is not None:
             inputs = []
             for v in inst.values:
                 assert v in frame.values, f'Instruction {inst} requires unevaluated value {v}'
                 inputs.append(frame.values[v])
             result = inst.transfer(tuple(inputs))
-            print(f'step {inst.label}: {inputs} -> {result}')
             frame.values[inst] = result
             frame.position += 1
             return True
@@ -113,17 +114,30 @@ class Execution:
             if fType.isBuiltin():
                 print(f'calling builtin {inst.function} env: {",".join(frame.env.values.keys())}')
                 arg = frame.values[inst.values[0]]
-                result = frame.env.values[inst.function](arg)
+                result = fType.builtin(arg)
                 frame.values[inst] = result
                 frame.position += 1
                 return True
             assert inst.function in frame.function.children, f'Unknown call target {inst.function}'
             function = frame.function.children[inst.function]
             childEnv = frame.env.makeChild()
+            args = frame.values[inst.values[0]]
+            print(args.type.isRecord())
+            assert args.type.isRecord(), f'Cannot bind argument into child env, not record?'
+            for k,v in args.raw.items():
+                childEnv.add(k,v.type)
+                childEnv.set(k,v)
             print('Child env')
             childEnv.dump()
             self.stack.append( Execution.Frame(function, function.entry, 0, childEnv) )
             return True
+        if inst.isInput():
+            print(f'Executing input {inst}')
+            frame.env.dump()
+            frame.values[inst] = frame.env.values[inst.name]
+            frame.position += 1
+            return True
+        assert False
         return False
 
 def execute(node, typeEnv, env):

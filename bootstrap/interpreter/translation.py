@@ -42,11 +42,13 @@ class BlockBuilder:
             return inst
 
         if isinstance(expr, AST.Ident):
+            print(f'Building expression/Ident {expr.span}')
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
-            if not expr.span in self.current.uses:
-                self.current.uses[expr.span] = Instruction.INPUT(expr.span)
-            return self.current.uses[expr.span]
+            inst = Instruction.INPUT(expr.span)
+            self.current.instructions.append(inst)
+            self.current.defs[expr.span] = inst
+            return inst
 
 
         if isinstance(expr,Token)  and  expr.symbol.isNonterminal  and  expr.tag in ('binop1','binop2'):
