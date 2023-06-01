@@ -118,8 +118,7 @@ class Execution:
                 frame.values[inst] = result
                 frame.position += 1
                 return True
-            assert inst.function in frame.function.children, f'Unknown call target {inst.function}'
-            function = frame.function.children[inst.function]
+            function = fType.function
             childEnv = frame.env.makeChild()
             args = frame.values[inst.values[0]]
             print(args.type.isRecord())

@@ -112,6 +112,7 @@ class ProgramBuilder:
         for decl in scope:
             if isinstance(decl, AST.FunctionDecl):
                 result.children[decl.name] = self.doScope(decl.body, scopeTypes.types[decl.name].innerEnv)
+                scopeTypes.types[decl.name].function = result.children[decl.name]
         return result
 
 
