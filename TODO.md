@@ -17,6 +17,12 @@ Short-term
 Long-term
 ---------
 
+* Add location information to parser tokens.
+* Error handling for ECLR. Rough idea is that if the parse fails then we walk
+  back through the configurations where the parser blocked and work out how
+  to repair the parse. Repair should be a combination of popping tokens off the
+  stack and skipping characters in the input. After repair the resulting
+  tree(s) will feature error nodes where the popped tokens would have been.
 * Transliteration into C, javascript.
 * Conversion to c++ / llvm (use a transliterated parser as the front-end).
 * Compilation into native code.
