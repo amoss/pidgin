@@ -62,7 +62,7 @@ class Instruction:
     def TUPLE_SET(record, pos, value):
         assert isinstance(pos,int)
         return Instruction("tuple_set", record, value, position=pos,
-                           transfer=lambda vs: Box(vs[0].type, vs[0].raw[:pos]+[vs[1]]+vs[0].raw[pos+1:]))
+                           transfer=lambda vs: Box(vs[0].type, vs[0].raw[:pos]+(vs[1],)+vs[0].raw[pos+1:]))
 
     @staticmethod
     def  SET_INSERT(theSet, newElement):
@@ -105,9 +105,11 @@ class Function:
         self.children = {}
         self.typeEnv = typeEnv
         self.entry = entry
+        self.name = None
 
     def dump(self):
-        print(f'Function:')
+        name = 'outermost' if self.name is None else self.name
+        print(f'Function: {name}')
         self.entry.dump()
         for c in self.children.values():
             c.dump()

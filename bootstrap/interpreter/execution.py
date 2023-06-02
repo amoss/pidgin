@@ -96,6 +96,10 @@ class Execution:
             return False
         frame = self.stack[-1]
         if frame.position >= len(frame.current.instructions):
+            if len(self.stack)==1  and  not '%return%' in frame.current.defs:
+                frame.env.dump()
+                print('Done.')
+                return False
             result = frame.values[ frame.current.defs['%return%'] ]
             self.stack = self.stack[:-1]
             frame = self.stack[-1]

@@ -53,11 +53,14 @@ class BlockBuilder:
                 return self.addInstruction( Instruction.CONSTANT( Box(Type.BOOL(), True) ), Type.BOOL() )
             if expr.span=="false":
                 return self.addInstruction( Instruction.CONSTANT( Box(Type.BOOL(), False) ), Type.BOOL() )
+            exprType = self.types.types[expr.span]
+            if exprType.isEnum():
+                return self.addInstruction( Instruction.CONSTANT( Box(exprType, exprType.params.index(expr.span))), exprType)
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
             inst = Instruction.INPUT(expr.span)
             self.current.defs[expr.span] = inst
-            return self.addInstruction(inst, self.types.types[expr.span])
+            return self.addInstruction(inst, exprType)
 
 
         if isinstance(expr,Token)  and  expr.symbol.isNonterminal  and  expr.tag in ('binop1','binop2'):
@@ -106,6 +109,7 @@ class BlockBuilder:
     def returnstmt(self, stmt):
         print(f'Building return')
         self.current.defs['%return%'] = self.expression(stmt.expr)
+        print(f'Ended return {self.current.defs}')
 
     def set(self, theSet):
         s = Instruction.NEW(self.types.expressions[theSet])
@@ -135,6 +139,7 @@ class ProgramBuilder:
         for decl in scope:
             if isinstance(decl, AST.FunctionDecl):
                 result.children[decl.name] = self.doScope(decl.body, scopeTypes.types[decl.name].innerEnv)
+                result.children[decl.name].name = decl.name
                 scopeTypes.types[decl.name].function = result.children[decl.name]
         return result
 
