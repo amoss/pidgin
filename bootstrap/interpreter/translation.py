@@ -30,7 +30,9 @@ class BlockBuilder:
 
     def assignment(self, stmt):
         print(f'Building assign')
-        self.current.defs[stmt.target] = self.expression(stmt.expr)
+        inst = self.expression(stmt.expr)
+        self.current.defs[stmt.target] = inst
+        self.addInstruction( Instruction.STORE(inst, stmt.target), self.types.expressions[stmt.expr])
 
 
     def addInstruction(self, inst, instType):
@@ -58,7 +60,7 @@ class BlockBuilder:
                 return self.addInstruction( Instruction.CONSTANT( Box(exprType, exprType.params.index(expr.span))), exprType)
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
-            inst = Instruction.INPUT(expr.span)
+            inst = Instruction.LOAD(expr.span)
             self.current.defs[expr.span] = inst
             return self.addInstruction(inst, exprType)
 

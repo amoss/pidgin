@@ -70,8 +70,12 @@ class Execution:
                 childEnv.set(k,v)
             self.stack.append( Execution.Frame(function, function.entry, 0, childEnv) )
             return True
-        if inst.isInput():
+        if inst.isLoad():
             frame.values[inst] = frame.env.values[inst.name]
+            frame.position += 1
+            return True
+        if inst.isStore():
+            frame.env.values[inst.name] = frame.values[inst.values[0]]
             frame.position += 1
             return True
         assert False

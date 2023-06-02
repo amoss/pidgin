@@ -30,8 +30,11 @@ class Instruction:
     def isCall(self):
         return self.op=="call"
 
-    def isInput(self):
-        return self.op=="input"
+    def isLoad(self):
+        return self.op=="load"
+
+    def isStore(self):
+        return self.op=="store"
 
     @staticmethod
     def ADD_NUMBER(lhs, rhs):
@@ -46,8 +49,8 @@ class Instruction:
         return Instruction("constant", box=box, transfer=lambda _:box)
 
     @staticmethod
-    def INPUT(name):
-        return Instruction("input", name=name)
+    def LOAD(name):
+        return Instruction("load", name=name)
 
     @staticmethod
     def NEW(valType):
@@ -57,6 +60,11 @@ class Instruction:
     def RECORD_SET(record, name, value):
         return Instruction("record_set", record, value, name=name,
                            transfer=lambda vs: Box(vs[0].type, dict([(k,v) for k,v in vs[0].raw.items() if k!=name] + [(name,vs[1])])))
+
+    @staticmethod
+    def STORE(value, name):
+        assert isinstance(name,str)
+        return Instruction("store", value, name=name)
 
     @staticmethod
     def TUPLE_SET(record, pos, value):
@@ -113,6 +121,8 @@ class Function:
         self.entry.dump()
         for c in self.children.values():
             c.dump()
+        if '%return%' in self.entry.defs:
+            print(f'return {self.entry.defs["%return%"]}')
 
 
 
