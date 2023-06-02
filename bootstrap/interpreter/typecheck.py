@@ -136,8 +136,7 @@ class TypedEnvironment:
             raise TypingFailed(tree, f"Call to unknown function {tree.function}")
         fType = self.types[tree.function]
         checkArg = fType.param1.join(argType)
-        checkRet = Type.NUMBER()                        # TODO: return types
-        return checkRet
+        return fType.param2
 
 
     def makeFromIdent(self, tree):
