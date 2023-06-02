@@ -135,8 +135,6 @@ class TypedEnvironment:
         if not tree.function in self.types:
             raise TypingFailed(tree, f"Call to unknown function {tree.function}")
         fType = self.types[tree.function]
-        print(f'Typecheck call p1={fType.param1} p2={fType.param2}')
-        dump(tree)
         checkArg = fType.param1.join(argType)
         checkRet = Type.NUMBER()                        # TODO: return types
         return checkRet
@@ -222,7 +220,6 @@ class TypedEnvironment:
         raise TypingFailed(tree, f'Unexpected type_decl {tree}')
 
     def makeFromTree(self, tree):
-        dump(tree)
         despatch = {
             '+':  self.checkPlus,
             #'.+': postfixTypeCheck,

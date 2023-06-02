@@ -68,6 +68,10 @@ class Type:
         return self.kind=='set'
 
 
+    def isTuple(self):
+        return self.kind=='tuple'
+
+
     def join(self, other):
         if self.kind=='sum'  and  other.kind=='sum':
             raise TypesCannotJoin(None, f'sum-sum-joins nots implemented')

@@ -87,13 +87,21 @@ class BlockBuilder:
         assert False, f'Cannot translate unexpected expression node {expr}'
 
     def record(self, rec):
-        r = Instruction.NEW(self.types.expressions[rec])
-        self.current.instructions.append(r)
-        for name, valueAST in rec.record.items():
-            print(valueAST)
-            r = Instruction.RECORD_SET(r, name, self.expression(valueAST))
-            self.addInstruction(r, self.types.expressions[rec])
-        return r
+        dump(rec)
+        recType = self.types.expressions[rec]
+        r = Instruction.NEW(recType)
+        self.addInstruction(r, recType)
+        if recType.isRecord():
+            for name, valueAST in rec.record.items():
+                r = Instruction.RECORD_SET(r, name, self.expression(valueAST))
+                self.addInstruction(r, recType)
+            return r
+        if recType.isTuple():
+            for pos, identVal in enumerate(rec.children):
+                r = Instruction.TUPLE_SET(r, pos, self.expression(identVal.value))
+                self.addInstruction(r, recType)
+            return r
+        assert False, f'AST.Record must describe either a named-record or a tuple'
 
     def returnstmt(self, stmt):
         print(f'Building return')
