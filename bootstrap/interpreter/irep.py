@@ -118,6 +118,7 @@ class Function:
     def dump(self):
         name = 'outermost' if self.name is None else self.name
         print(f'Function: {name}')
+        self.typeEnv.dump()
         self.entry.dump()
         for c in self.children.values():
             c.dump()

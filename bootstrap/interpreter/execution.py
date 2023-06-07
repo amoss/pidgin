@@ -20,9 +20,15 @@ class Execution:
         env: TypedEnvironment
         values: dict[Instruction,Box] = field(default_factory=dict)
 
-    def __init__(self, outermost, initialEnv):
+    def __init__(self, outermost, initialEnv, input=''):
         self.outermost = outermost
-        self.stack = [Execution.Frame(outermost, outermost.entry, 0, initialEnv)]
+        main = outermost.children['main']
+        mainEnv = main.typeEnv.makeCopy()
+        mainEnv.add('stdin', Type.STRING())
+        mainEnv.set('stdin', Box(Type.STRING(),raw=input))
+        print('Setting up initial stack, main env:')
+        mainEnv.dump()
+        self.stack = [Execution.Frame(main, main.entry, 0, mainEnv)]
         outermost.entry.makeLabels()
 
     def step(self):
@@ -30,11 +36,12 @@ class Execution:
             return False
         frame = self.stack[-1]
         if frame.position >= len(frame.current.instructions):
-            if len(self.stack)==1  and  not '%return%' in frame.current.defs:
+            if len(self.stack)==1:
                 frame.env.dump()
                 print('Done.')
                 return False
             result = frame.values[ frame.current.defs['%return%'] ]
+            print(f'Returned len={len(self.stack)} with {result}')
             self.stack = self.stack[:-1]
             frame = self.stack[-1]
             inst = frame.current.instructions[frame.position]
@@ -62,13 +69,13 @@ class Execution:
                 frame.position += 1
                 return True
             function = fType.function
-            childEnv = frame.env.makeChild()
+            callEnv = function.typeEnv.makeCopy()
             args = frame.values[inst.values[0]]
             assert args.type.isRecord(), f'Cannot bind argument into child env, not record?'
             for k,v in args.raw.items():
-                childEnv.add(k,v.type)
-                childEnv.set(k,v)
-            self.stack.append( Execution.Frame(function, function.entry, 0, childEnv) )
+                #callEnv.add(k,v.type)
+                callEnv.set(k,v)
+            self.stack.append( Execution.Frame(function, function.entry, 0, callEnv) )
             return True
         if inst.isLoad():
             frame.values[inst] = frame.env.values[inst.name]
@@ -76,6 +83,8 @@ class Execution:
             return True
         if inst.isStore():
             frame.env.values[inst.name] = frame.values[inst.values[0]]
+            print(f'Stored {frame.env.values[inst.name]} as {inst.name}')
+            frame.env.dump()
             frame.position += 1
             return True
         assert False

@@ -129,8 +129,9 @@ class ProgramBuilder:
         self.typeEnv = TypedEnvironment()
         aggregates = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None))
         self.typeEnv.add('len', Type.FUNCTION(aggregates, Type.NUMBER(), None, builtin=builtin_len))
-        self.typeEnv.fromScope(toplevel)
+        self.typeEnv.fromDeclarations(toplevel)
         self.outermost = self.doScope(toplevel, self.typeEnv)
+
 
     def doScope(self, scope, scopeTypes):
         builder = BlockBuilder(scopeTypes)

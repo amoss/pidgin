@@ -12,6 +12,7 @@ import traceback
 from bootstrap.interpreter import buildPidginParser, Box, Type, TypingFailed, \
                                   BlockBuilder, Execution, ProgramBuilder
 import bootstrap.interpreter.builtins as builtins
+from bootstrap.parser import Token
 from bootstrap.util import dump
 
 
@@ -27,14 +28,17 @@ if args.input is None and args.file is None:
     sys.exit(-1)
 
 sys.setrecursionlimit(5000)
-parser = buildPidginParser(start=args.start)
+start = 'program' if args.start=='main' else args.start
+parser = buildPidginParser(start=start)
 
 if args.input is not None:
-    trees = list(parser.execute(args.input, True))
-    parser.trace.output(open('inttrace.dot','wt'))
+    rawInput = args.input
 if args.file is not None:
-    trees = list(parser.execute(open(args.file).read(), True))
-    parser.trace.output(open('inttrace.dot','wt'))
+    rawInput = open(args.file).read()
+if args.start == 'main':
+    rawInput = 'func main:int [stdin:string] {\n' + rawInput + '\nreturn 0}'
+trees = list(parser.execute(rawInput, True))
+parser.trace.output(open('inttrace.dot','wt'))
 
 if len(trees)==0:
     print("Parse error")
@@ -49,7 +53,7 @@ if args.dumpast:
     dump(trees[0])
 
 if args.start=='expr':
-    typeEnv = TypeEnvironment()
+    typeEnv = TypedEnvironment()
     typeEnv.fromExpression(trees[0])
     result = Box.fromConstantExpression(trees[0])
     pyResult = result.unbox()
@@ -57,9 +61,10 @@ if args.start=='expr':
         print(repr(pyResult))
     else:
         print(pyResult)
-elif args.start=='program':
+elif args.start=='program' or args.start=='main':
     try:
-        progBuilder = ProgramBuilder(trees[0])
+        root = trees[0] if isinstance(trees[0], Token) else (trees[0],)
+        progBuilder = ProgramBuilder(root)
         progBuilder.outermost.dump()
     except TypingFailed as e:
         traceback.print_exc()
@@ -67,7 +72,8 @@ elif args.start=='program':
         sys.exit(-1)
     progBuilder.typeEnv.wipe()
     progBuilder.typeEnv.dump()
-    e = Execution(progBuilder.outermost, progBuilder.typeEnv)
+    input = sys.stdin.read()
+    e = Execution(progBuilder.outermost, progBuilder.typeEnv, input=input)
     while e.step():
         pass
 else:

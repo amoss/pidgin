@@ -24,12 +24,13 @@ class TypedEnvironment:
 
 
     def dump(self):
+        print('TypedEnv:')
         for name,namedType in self.types.items():
             if name in self.values:
                 withVal = f' = {self.values[name]}'
             else:
                 withVal = ''
-            print(f'{name} :: {namedType}{withVal}')
+            print(f'  {name} :: {namedType}{withVal}')
 
 
     def wipe(self):
@@ -51,7 +52,7 @@ class TypedEnvironment:
     def set(self, name, value):
         assert name in self.types, f'Cannot set value for unknown {name}'
         assert isinstance(value,Box), f'Cannot use {value} as value for {name}'
-        assert value.type==self.types[name], f'Type mismatch using {value} for {name}'
+        assert value.type==self.types[name], f'Type mismatch using {value}:{value.type} for {name}:{self.types[name]}'
         self.values[name] = value
 
 
@@ -66,6 +67,13 @@ class TypedEnvironment:
         for name,nameType in self.types.items():
             if name[:5]=='type '  or  nameType.isFunction()  or  nameType.isBuiltin()  or  nameType.isEnum():
                 result.add(name, nameType)
+        return result
+
+    def makeCopy(self):
+        '''A copy of th environmen is used as an initial state for a call, contains all types but not any values.'''
+        result = TypedEnvironment()
+        for name,nameType in self.types.items():
+            result.add(name, nameType)
         return result
 
 
@@ -96,6 +104,35 @@ class TypedEnvironment:
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
+
+    def fromDeclarations(self, tree):
+        if isinstance(tree,Token):
+            tree = tree.children
+        else:
+            assert isinstance(tree,tuple), tree
+        for c in tree:
+            if isinstance(c, AST.FunctionDecl):
+                argsContainer = self.makeRecordDecl(c.arguments)
+                inside = self.makeChild()
+                for argName, argType in argsContainer.params:
+                    inside.add(argName, argType)
+                inside.fromScope(c.body)
+                if not '%return%' in inside.types:
+                    raise TypingFailed(c, f'Function did not return a value')
+                combined = self.makeTypeDecl(c.retType).join(inside.types['%return%'])
+                self.add(c.name, Type.FUNCTION(argsContainer, self.makeTypeDecl(c.retType), inside))
+            elif isinstance(c, AST.TypeSynonym):
+                theType = self.makeTypeDecl(c.namedType)
+                self.add('type '+c.name, theType)
+            elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='enum_decl':
+                names = list(cc.span for cc in c.children[3:-1])
+                enumName = c.children[1].span
+                enumType = Type.ENUM(enumName, names)
+                self.add('enum '+enumName, enumType)
+                for n in names:
+                    self.add(n, enumType)
+            else:
+                raise TypingFailed(c, f'Unable to typecheck {c} at toplevel')
 
     def fromScope(self, tree):
         assert isinstance(tree,tuple)  or  isinstance(tree,Token)

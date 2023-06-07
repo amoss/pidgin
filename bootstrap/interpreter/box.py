@@ -22,7 +22,7 @@ class Box:
         return hash((self.type,self.raw))
 
     def __str__(self):
-        return f'box({self.type},{self.raw})'
+        return f'box({self.type},{repr(self.raw)})'
 
 #    def plusTypeCheck(left, right):
 #        if not left.eqOrCoerce(right): return None

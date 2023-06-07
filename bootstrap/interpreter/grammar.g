@@ -1,6 +1,6 @@
 {
     'program": { [NS!'decl"] }
-    'decl": { [T!'func" N!'ident" T!':" N!'type_decl" N!'record_decl" T!'{" NS!'statement" T!'}"]
+    'decl": { [T!'func" N!'ident" T!':" N!'type_decl" N!'record_decl" T!'{" NS!'decl" T!'}"]
               [N!'enum_decl"]
               [N!'statement"]
               [T!'type" N!'ident" T!':" N!'type_decl"]

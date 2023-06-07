@@ -1,9 +1,6 @@
 Short-term
 -----------
 
-* Add an entry point definition.
-* Work out how to handle implicit function wrapper for top-level statements.
-* Provide access to stdin.
 * Add an output/print statement.
 * Add conditionals.
 * Add if-then-else statements, extend basic block translation.

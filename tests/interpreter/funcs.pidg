@@ -2,7 +2,7 @@ func foo:int [x:int y:set<string>] {
     return x+len!y
 }
 
-func blah:int [left:set<int> right:set<int>] {
+func blah:int [left:set<string> right:set<string>] {
     x = foo![x:len!left y:right]
     y = [x:len!right y:left]
     return x + foo!y
@@ -21,5 +21,5 @@ func NA:type symbol  [n:string]         { return [:Nonterminal :n  :{} :Any     
 func NO:type symbol  [n:string]         { return [:Nonterminal :n  :{} :Optional :false] }
 func NS:type symbol  [n:string]         { return [:Nonterminal :n  :{} :Some     :false] }
 
-name = blah![left:{1,2} right:{1,2,3}]
+name = blah![left:{'1",'2"} right:{'1",'2",'3"}]
 clause = TA![s:{'x" 'y"}]

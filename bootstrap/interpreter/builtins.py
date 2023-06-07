@@ -7,6 +7,6 @@ from .types import Type
 def builtin_len(arg):
     print(f'Builtin len: {arg}')
     if arg.type.isSet():
-        return Box(Type('box num'), len(arg.raw))
+        return Box(Type.NUMBER(), len(arg.raw))
     assert False, f'Unimplemented builtin_len on {arg.type}'
 
