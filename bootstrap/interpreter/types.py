@@ -72,7 +72,12 @@ class Type:
         return self.kind=='tuple'
 
 
+    def isVoid(self):
+        return self.kind=='void'
+
+
     def join(self, other):
+        print(f'Try join {self.kind} <-> {other.kind}')
         if self.kind=='sum'  and  other.kind=='sum':
             raise TypesCannotJoin(None, f'sum-sum-joins nots implemented')
         if self.kind=='sum'  or   other.kind=='sum':
@@ -98,17 +103,29 @@ class Type:
         else:
             param2 = other.param2
 
+        # Empty records cannot appear in user code but are necessary to allow typechecking of sum-types over any
+        # record, e.g. for builtin_print
         if self.kind=="record":
-            selfNames, selfTypes  = list(zip(*self.params))
-            otherNames, otherTypes = list(zip(*other.params))
-            if selfNames!=otherNames:
-                raise TypesCannotJoin(f'Records have different labellings: {",".join(selfNames)} and {",".join(otherNames)}')
-            joinTypes = (s.join(o) for s,o in zip(selfTypes,otherTypes))
-            params = zip(selfNames, joinTypes)
+            if len(self.params)==0:
+                params = other.params
+            elif len(other.params)==0:
+                params = self.params
+            else:
+                selfNames, selfTypes  = list(zip(*self.params))
+                otherNames, otherTypes = list(zip(*other.params))
+                if selfNames!=otherNames:
+                    raise TypesCannotJoin(f'Records have different labellings: {",".join(selfNames)} and {",".join(otherNames)}')
+                joinTypes = (s.join(o) for s,o in zip(selfTypes,otherTypes))
+                params = zip(selfNames, joinTypes)
         elif self.kind=="tuple":
-            if len(self.params)!=len(other.params):
-                raise TypesCannotJoin(f'Anonymous records of different lengths {self}, {other}')
-            params = ( s.join(o) for s,o in zip(self.params, other.params) )
+            if len(self.params)==0:
+                params = other.params
+            elif len(other.params)==0:
+                params = self.params
+            else:
+                if len(self.params)!=len(other.params):
+                    raise TypesCannotJoin(f'Anonymous records of different lengths {self}, {other}')
+                params = ( s.join(o) for s,o in zip(self.params, other.params) )
         else:
             params = None
 
@@ -191,3 +208,7 @@ class Type:
     @staticmethod
     def STRING():
         return Type("string",zero="")
+
+    @staticmethod
+    def VOID():
+        return Type("void")

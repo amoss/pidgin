@@ -10,3 +10,6 @@ def builtin_len(arg):
         return Box(Type.NUMBER(), len(arg.raw))
     assert False, f'Unimplemented builtin_len on {arg.type}'
 
+def builtin_print(arg):
+    print(f'Builtin print: {arg}')
+

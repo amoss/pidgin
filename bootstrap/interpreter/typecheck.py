@@ -101,6 +101,9 @@ class TypedEnvironment:
             self.add(tree.target, newType)
         elif isinstance(tree, AST.Return):
             self.add('%return%', self.fromExpression(tree.expr))
+        elif isinstance(tree, AST.Call):
+            retType = self.makeCall(tree)
+            assert retType.isVoid(), f'Call in statement to non-void function {tree.name}'
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
@@ -154,7 +157,7 @@ class TypedEnvironment:
                 self.add('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
-            elif type(c) in (AST.Assignment,AST.Return):
+            elif type(c) in (AST.Assignment, AST.Return, AST.Call):
                 self.fromStatement(c)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='enum_decl':
                 names = list(cc.span for cc in c.children[3:-1])

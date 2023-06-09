@@ -9,6 +9,7 @@
     'enum_decl": { [T!'enum" N!'ident" T!'[" NS!'ident" T!']"] }
     'statement": { [T!'return" N!'expr" ]
                    [N!'ident"  T!'=" N!'expr"]
+                   [N!'ident" T!'!" N!'atom"]
                  }
     'name_type": { [N!'ident" T!':" N!'type_decl"] }
     'type_decl": { [T!'string"]

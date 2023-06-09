@@ -275,6 +275,8 @@ def transformStmt(node):
         return AST.Assignment(node.children[0].span, node.children[2])
     if len(node.children)>=2  and  node.terminalAt(0,'return'):
         return AST.Return(node.children[1])
+    if len(node.children)==3  and  node.terminalAt(1,'!'):
+        return AST.Call(node.children[0], node.children[2])
     return node
 
 def onlyElemList(node):

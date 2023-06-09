@@ -2,7 +2,7 @@
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .box import Box
-from .builtins import builtin_len
+from .builtins import builtin_len, builtin_print
 from .frontend import AST
 from .irep import Block, Instruction, Function
 from .types import Type
@@ -26,6 +26,9 @@ class BlockBuilder:
                 self.assignment(stmt)
             elif isinstance(stmt, AST.Return):
                 self.returnstmt(stmt)
+            elif isinstance(stmt, AST.Call):
+                inst = Instruction.CALL( stmt.function, self.expression(stmt.arg) )
+                self.addInstruction(inst, self.types.types[stmt.function].param2)
 
 
     def assignment(self, stmt):
@@ -129,6 +132,9 @@ class ProgramBuilder:
         self.typeEnv = TypedEnvironment()
         aggregates = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None))
         self.typeEnv.add('len', Type.FUNCTION(aggregates, Type.NUMBER(), None, builtin=builtin_len))
+        printables = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None), Type.RECORD((),), Type.TUPLE((),),
+                              Type.STRING(), Type.NUMBER())
+        self.typeEnv.add('print', Type.FUNCTION(printables, Type.VOID(), None, builtin=builtin_print))
         self.typeEnv.fromDeclarations(toplevel)
         self.outermost = self.doScope(toplevel, self.typeEnv)
 
