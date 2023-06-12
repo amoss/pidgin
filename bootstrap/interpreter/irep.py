@@ -49,6 +49,22 @@ class Instruction:
         return Instruction("constant", box=box, transfer=lambda _:box)
 
     @staticmethod
+    def EQUAL(lhs, rhs):
+        return Instruction("equal", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw == vs[1].raw))
+
+    @staticmethod
+    def GREAT(lhs, rhs):
+        return Instruction("great", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw > vs[1].raw))
+
+    @staticmethod
+    def INEQUAL(lhs, rhs):
+        return Instruction("inequal", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw != vs[1].raw))
+
+    @staticmethod
+    def LESS(lhs, rhs):
+        return Instruction("less", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw < vs[1].raw))
+
+    @staticmethod
     def LOAD(name):
         return Instruction("load", name=name)
 
@@ -91,11 +107,24 @@ class Block:
     def __str__(self):
         return f'bb({self.label},{len(self.instructions)})'
 
-    def dump(self):
+    def dump(self, done=None):
         self.makeLabels()
+        if done is None:  done = set()
         print(f'{self}:')
         for i, inst in enumerate(self.instructions):
             print(f'  {self.label}_{i}: {inst}')
+        if self.trueSucc is None:
+            print(f'  Block exits function')
+        else:
+            print(f'  True  -> {self.trueSucc}')
+        if self.falseSucc is not None:
+            print(f'  False -> {self.falseSucc}')
+        done.add(self)
+        if self.trueSucc is not None and self.trueSucc not in done:
+            self.trueSucc.dump(done=done)
+        if self.falseSucc is not None and self.falseSucc not in done:
+            self.falseSucc.dump(done=done)
+
 
     def makeLabels(self):
         for i, inst in enumerate(self.instructions):

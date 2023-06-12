@@ -31,6 +31,24 @@ class BlockBuilder:
                 self.addInstruction(inst, self.types.types[stmt.function].param2)
             elif type(stmt) in (AST.FunctionDecl, AST.EnumDecl, AST.TypeSynonym):
                 pass
+            elif isinstance(stmt, AST.If):
+                inst = self.condition(stmt.condition)
+                header = self.current
+                trueBB = Block()
+                self.current.trueSucc = trueBB
+                self.current = trueBB
+                self.fromScope(stmt.trueStmts)        # self.currents updates to merged exit
+                mergeBB = Block()
+                self.current.trueSucc = mergeBB
+                if stmt.elseStmts is not None:
+                    falseBB = Block()
+                    header.falseSucc = falseBB
+                    self.current = falseBB
+                    self.fromScope(stmt.elseStmts)   # self.currents updates to merged exit
+                    self.current.trueSucc = mergeBB
+                else:
+                    header.falseSucc = mergeBB
+                self.current = mergeBB
             else:
                 dump(stmt)
                 assert False, f'Unrecognised statement during translation {stmt}'
@@ -47,6 +65,19 @@ class BlockBuilder:
         self.current.instructions.append(inst)
         self.types.instructions[inst] = instType
         return inst
+
+    def condition(self, condition):
+        lhs = self.expression(condition.children[0])
+        rhs = self.expression(condition.children[2])
+        if condition.children[1].span=='<':
+            return self.addInstruction( Instruction.LESS(lhs,rhs), Type.BOOL())
+        if condition.children[1].span=='>':
+            return self.addInstruction( Instruction.GREAT(lhs,rhs), Type.BOOL())
+        if condition.children[1].span=='==':
+            return self.addInstruction( Instruction.EQUAL(lhs,rhs), Type.BOOL())
+        if condition.children[1].span=='!=':
+            return self.addInstruction( Instruction.INEQUAL(lhs,rhs), Type.BOOL())
+        assert False, f'Unknown conditional in translation {self.children[1].span}'
 
     def expression(self, expr):
         if isinstance(expr, AST.NumberLit):
