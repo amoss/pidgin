@@ -36,17 +36,31 @@ class Execution:
             return False
         frame = self.stack[-1]
         if frame.position >= len(frame.current.instructions):
-            if len(self.stack)==1:
-                frame.env.dump()
-                print('Done.')
-                return False
-            result = frame.values[ frame.current.defs['%return%'] ]
-            print(f'Returned len={len(self.stack)} with {result}')
-            self.stack = self.stack[:-1]
-            frame = self.stack[-1]
-            inst = frame.current.instructions[frame.position]
-            frame.values[inst] = result
-            frame.position += 1
+            if frame.current.trueSucc is None:
+                if len(self.stack)==1:
+                    frame.env.dump()
+                    print('Done.')
+                    return False
+                result = frame.values[ frame.current.defs['%return%'] ]
+                print(f'Returned len={len(self.stack)} with {result}')
+                self.stack = self.stack[:-1]
+                frame = self.stack[-1]
+                inst = frame.current.instructions[frame.position]
+                frame.values[inst] = result
+                frame.position += 1
+                return True
+            if frame.current.falseSucc is None:
+                frame.current = frame.current.trueSucc
+                frame.position = 0
+                return True
+            conditional = frame.current.instructions[frame.position-1]
+            print(f'Conditional jump {frame.values[conditional]} t={frame.current.trueSucc} f={frame.current.falseSucc}')
+            assert frame.values[conditional].type.isBool(), f'Block conditional has wrong type'
+            if frame.values[conditional].raw:
+                frame.current = frame.current.trueSucc
+            else:
+                frame.current = frame.current.falseSucc
+            frame.position = 0
             return True
         inst = frame.current.instructions[frame.position]
         print(f'step {frame.current.label}_{frame.position}: {inst}')

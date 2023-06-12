@@ -44,6 +44,9 @@ class Type:
         return hash(self.sig())
 
 
+    def isBool(self):
+        return self.kind=='bool'
+
     def isBuiltin(self):
         return self.kind=="func"  and  self.builtin is not None
 
