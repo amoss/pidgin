@@ -10,7 +10,9 @@
     'statement": { [T!'return" N!'expr" ]
                    [N!'ident"  T!'=" N!'expr"]
                    [N!'ident" T!'!" N!'atom"]
+                   [T!'if" N!'condition" T!'{" NS!'statement" T!'}" NO!'else"]
                  }
+    'else":      { [T!'else" T!'{" NO!'statement" T!'}" ] }
     'name_type": { [N!'ident" T!':" N!'type_decl"] }
     'type_decl": { [T!'string"]
                    [T!'int"]
@@ -43,6 +45,13 @@
     'binop4":     { [N!'ident",    T!'!",   N!'atom"]
                     [N!'atom"]
                   }
+
+    'condition":    { [N!'expr" T!'<" N!'expr"]
+                      [N!'expr" T!'>" N!'expr"]
+                      [N!'expr" T!'==" N!'expr"]
+                      [N!'expr" T!'!=" N!'expr"]
+                    }
+
     'atom": { [N!'ident"]
               [N!'number"]
               [N!'str_lit"]

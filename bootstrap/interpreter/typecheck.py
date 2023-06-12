@@ -104,6 +104,11 @@ class TypedEnvironment:
         elif isinstance(tree, AST.Call):
             retType = self.makeCall(tree)
             assert retType.isVoid(), f'Call in statement to non-void function {tree.name}'
+        elif isinstance(tree, AST.If):
+            self.checkCondition(tree.condition)
+            self.fromScope(tree.trueStmts)
+            if tree.elseStmts is not None:
+                self.fromScope(tree.elseStmts)
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
@@ -157,14 +162,12 @@ class TypedEnvironment:
                 self.add('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
-            elif type(c) in (AST.Assignment, AST.Return, AST.Call):
+            elif type(c) in (AST.Assignment, AST.Return, AST.Call, AST.If):
                 self.fromStatement(c)
-            elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='enum_decl':
-                names = list(cc.span for cc in c.children[3:-1])
-                enumName = c.children[1].span
-                enumType = Type.ENUM(enumName, names)
-                self.add('enum '+enumName, enumType)
-                for n in names:
+            elif isinstance(c, AST.EnumDecl):
+                enumType = Type.ENUM(c.name, c.enumNames)
+                self.add('enum '+c.name, enumType)
+                for n in c.enumNames:
                     self.add(n, enumType)
             else:
                 raise TypingFailed(c, f'Unable to typecheck {c}')
@@ -289,6 +292,37 @@ class TypedEnvironment:
             assert op in despatch, f'Cannot typecheck unknown operator {op}'
             curType = despatch[op](c, curType, self.fromExpression(c.children[1]))
         return curType
+
+
+    def checkCondition(self, tree):
+        despatch = {
+            '<': self.checkLess,
+            '>': self.checkGreat,
+            '==': self.checkEqual,
+            '!=': self.checkInequal,
+        }
+        op = tree.children[1].span
+        assert op in despatch, f'Unknown conditional operation {op}'
+        lhs = self.fromExpression(tree.children[0])
+        rhs = self.fromExpression(tree.children[2])
+        despatch[op](lhs,rhs)
+
+    def checkLess(self, lhs, rhs):
+        assert lhs==rhs, f'Cannot compare {lhs} and {rhs}'
+        if not lhs.isNumber():
+            assert False, f'Cannot perform < comparison on {lhs}'
+    def checkGreat(self, lhs, rhs):
+        assert lhs==rhs, f'Cannot compare {lhs} and {rhs}'
+        if not lhs.isNumber():
+            assert False, f'Cannot perform > comparison on {lhs}'
+    def checkEqual(self, lhs, rhs):
+        assert lhs==rhs, f'Cannot compare {lhs} and {rhs}'
+        if not lhs.isNumber() and not lhs.isString():
+            assert False, f'Cannot perform == comparison on {lhs}'
+    def checkInequal(self, lhs, rhs):
+        assert lhs==rhs, f'Cannot compare {lhs} and {rhs}'
+        if not lhs.isNumber() and not lhs.isString():
+            assert False, f'Cannot perform == comparison on {lhs}'
 
     def checkPlus(self, tree, leftType, rightType):
         if leftType.kind in ('map', 'record'):

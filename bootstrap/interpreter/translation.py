@@ -29,6 +29,11 @@ class BlockBuilder:
             elif isinstance(stmt, AST.Call):
                 inst = Instruction.CALL( stmt.function, self.expression(stmt.arg) )
                 self.addInstruction(inst, self.types.types[stmt.function].param2)
+            elif type(stmt) in (AST.FunctionDecl, AST.EnumDecl, AST.TypeSynonym):
+                pass
+            else:
+                dump(stmt)
+                assert False, f'Unrecognised statement during translation {stmt}'
 
 
     def assignment(self, stmt):

@@ -154,10 +154,11 @@ class AST:
             return f"{self.function}!{self.arg}"
 
     class EnumDecl:
-        def __init__(self, node):
-            pass
+        def __init__(self, name, enumNames):
+            self.name = name
+            self.enumNames = enumNames
         def __str__(self):
-            return f'Decl({self.name})'
+            return f'Enum({self.name},{self.enumNames})'
 
     class FunctionDecl:
         def __init__(self, name, retType, args, body):
@@ -185,6 +186,15 @@ class AST:
                 self.value = value
         def __str__(self):
             return f"{self.key}:{self.value}"
+
+    class If:
+        def __init__(self, condition, trueStmts, elseStmts):
+            self.condition = condition
+            print(f'If.True = {trueStmts}')
+            self.trueStmts = trueStmts
+            self.elseStmts = elseStmts
+        def __str__(self):
+            return f"If({self.condition},{self.trueStmts},{self.elseStmts})"
 
     class KeyVal:
         def __init__(self, key, value):
@@ -263,8 +273,7 @@ def transformDeclaration(node):
     if node.children[0].span == "func":
         assert isinstance(node.children[4], AST.RecordDecl), node.children[4]
         return AST.FunctionDecl(node.children[1].span, node.children[3], node.children[4], node.children[6:-1])
-    elif node.children[0].span == "enum":
-        pass
+
     elif node.children[0].span == "type":
         return AST.TypeSynonym(node.children[1].span, node.children[3])
     else:
@@ -277,6 +286,10 @@ def transformStmt(node):
         return AST.Return(node.children[1])
     if len(node.children)==3  and  node.terminalAt(1,'!'):
         return AST.Call(node.children[0], node.children[2])
+    if len(node.children)>=5  and  node.terminalAt(0,'if'):
+        if node.terminalAt(-1, '}'):
+            return AST.If(node.children[1], node.children[3:-1], None)
+        return AST.If(node.children[1], node.children[3:-2], node.children[-1])
     return node
 
 def onlyElemList(node):
@@ -302,6 +315,8 @@ ntTransformer = {
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
     'comma_pair':   (lambda node: node.children[0]),
     'decl':         (lambda node: transformDeclaration(node)),
+    'else':         (lambda node: node.children[2:-1]),
+    'enum_decl':    (lambda node: AST.EnumDecl(node.children[1].span, list(c.span for c in node.children[3:-1]))),
     'ident':        (lambda node: AST.Ident("".join(n.span for n in node.children))),
     'iv_comma':     (lambda node: node.children[0]),
     'iv_pair':      (lambda node: AST.IdentVal(node.children[0], node.children[2]) if len(node.children)==3\
