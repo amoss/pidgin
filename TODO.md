@@ -1,12 +1,13 @@
 Short-term
 -----------
 
-* Add an output/print statement.
-* Add conditionals.
-* Add if-then-else statements, extend basic block translation.
 * Add a for-each loop that can iterate over sequences and sets.
 * Handle SSA properly, respect last def of variables, introduce phi-nodes.
 * Fill out set of operators and their implementations.
+* Graph output of intermediate representation?
+* Add implicit threading of stdin/stdout to translation and type-checking.
+  Rework input to match, add stream/channel types and remove the string input
+  at the beginning.
 * Write a test-suite of simple programs, extend the test runner to handle.
 * Add patterns to the language.
 * Start reworking the ECLR parsing algorithm in pidgin.
