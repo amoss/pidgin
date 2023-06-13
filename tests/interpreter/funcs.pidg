@@ -37,6 +37,10 @@ else {
 clause = TA![s:{'x" 'y"}]
 print!clause
 
+i = 0
+while i<3 {
+    i = i+1
+}
 for e in {1,2,3} {
     print!e
 }

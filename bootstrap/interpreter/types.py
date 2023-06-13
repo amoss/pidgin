@@ -168,6 +168,10 @@ class Type:
         return Type("func", param1=argType, param2=retType, innerEnv=innerEnv, builtin=builtin)
 
     @staticmethod
+    def ITERATOR(elemType):
+        return Type("iterator", param1=elemType)
+
+    @staticmethod
     def MAP(keyType, valType):
         assert (keyType is None  and  valType is None)  or  \
                (isinstance(keyType, Type)  and  isinstance(valType,Type)), f'{keyType}:{valType}'

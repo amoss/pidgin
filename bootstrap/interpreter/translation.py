@@ -49,6 +49,46 @@ class BlockBuilder:
                 else:
                     header.falseSucc = mergeBB
                 self.current = mergeBB
+            elif isinstance(stmt, AST.While):
+                headerBB = Block()
+                self.current.trueSucc = headerBB
+                self.current = headerBB
+                inst = self.condition(stmt.condition)
+                bodyBB = Block()
+                headerBB.trueSucc = bodyBB
+                self.current = bodyBB
+                self.fromScope(stmt.scope)        # self.currents updates to merged exit
+                self.current.trueSucc = headerBB
+                mergeBB = Block()
+                headerBB.falseSucc = mergeBB
+                self.current = mergeBB
+            elif isinstance(stmt, AST.For):
+                initBB = Block()
+                self.current.trueSucc = initBB
+                val = self.expression(stmt.expr)
+                iterator = Instruction.ITER_INIT(val)
+                elemType = self.types.types[stmt.ident.span]
+                self.addInstruction(iterator, Type.ITERATOR(elemType))
+
+                headerBB = Block()
+                self.current.trueSucc = headerBB
+                self.current = headerBB
+                inst = Instruction.ITER_CHECK(iterator)
+                self.addInstruction(inst, Type.BOOL())
+
+                mergeBB = Block()
+                self.current.falseSucc = mergeBB
+                bodyBB = Block()
+                self.current.trueSucc = bodyBB
+                self.current = bodyBB
+                nextVal = Instruction.ITER_ACCESS(iterator)     # TODO: not pure, requires two outputs
+                self.addInstruction(nextVal, elemType)
+                inst = Instruction.STORE(nextVal, stmt.ident.span)
+                self.addInstruction(inst, elemType)
+                self.fromScope(stmt.scope)
+                self.current.trueSucc = headerBB
+
+                self.current = mergeBB
             else:
                 dump(stmt)
                 assert False, f'Unrecognised statement during translation {stmt}'
@@ -62,6 +102,7 @@ class BlockBuilder:
 
 
     def addInstruction(self, inst, instType):
+        inst.label = f'{self.current.label}_{len(self.current.instructions)}'
         self.current.instructions.append(inst)
         self.types.instructions[inst] = instType
         return inst
@@ -128,10 +169,22 @@ class BlockBuilder:
         if isinstance(expr, AST.Set):
             return self.set(expr)
 
+        if isinstance(expr, AST.Order):
+            return self.order(expr)
+
         assert False, f'Cannot translate unexpected expression node {expr}'
 
+    def order(self, theOrd):
+        print(f'New order: {self.types.expressions[theOrd]}')
+        s = Instruction.NEW(self.types.expressions[theOrd])
+        self.addInstruction(s, self.types.expressions[theOrd])
+        for valueAST in theOrd.seq:
+            s = Instruction.ORD_APPEND(s, self.expression(valueAST))
+            self.addInstruction(s, self.types.expressions[theOrd])
+        return s
+
+
     def record(self, rec):
-        dump(rec)
         recType = self.types.expressions[rec]
         r = Instruction.NEW(recType)
         self.addInstruction(r, recType)
@@ -148,13 +201,11 @@ class BlockBuilder:
         assert False, f'AST.Record must describe either a named-record or a tuple'
 
     def returnstmt(self, stmt):
-        print(f'Building return')
         self.current.defs['%return%'] = self.expression(stmt.expr)
-        print(f'Ended return {self.current.defs}')
 
     def set(self, theSet):
         s = Instruction.NEW(self.types.expressions[theSet])
-        self.current.instructions.append(s)
+        self.addInstruction(s, self.types.expressions[theSet])
         for valueAST in theSet.elements:
             s = Instruction.SET_INSERT(s, self.expression(valueAST))
             self.addInstruction(s, self.types.expressions[theSet])

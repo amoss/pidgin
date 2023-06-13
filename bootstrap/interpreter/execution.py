@@ -29,7 +29,6 @@ class Execution:
         print('Setting up initial stack, main env:')
         mainEnv.dump()
         self.stack = [Execution.Frame(main, main.entry, 0, mainEnv)]
-        outermost.entry.makeLabels()
 
     def step(self):
         if len(self.stack)==0:
@@ -71,6 +70,7 @@ class Execution:
                 inputs.append(frame.values[v])
             result = inst.transfer(tuple(inputs))
             frame.values[inst] = result
+            print(f' = {result}')
             frame.position += 1
             return True
         if inst.isCall():
@@ -101,6 +101,15 @@ class Execution:
             frame.env.dump()
             frame.position += 1
             return True
+        if inst.isIterAccess():
+            # TODO: this is not pure. fix when we do SSA properly and add multiple ouputs to instructions.
+            # should be a new version of the iterator as well as value, and propagate back around loop back-edge
+            # via a phi-node.
+            iterator = frame.values[inst.values[0]]
+            val = iterator.raw[2][iterator.raw[0]]
+            iterator.raw[0] += 1    # TODO: don't update existing value
+            frame.values[inst] = val
+            frame.position += 1
+            return True
         assert False
-        return False
 

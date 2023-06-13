@@ -30,6 +30,9 @@ class Instruction:
     def isCall(self):
         return self.op=="call"
 
+    def isIterAccess(self):
+        return self.op=="iter_access"
+
     def isLoad(self):
         return self.op=="load"
 
@@ -61,6 +64,18 @@ class Instruction:
         return Instruction("inequal", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw != vs[1].raw))
 
     @staticmethod
+    def ITER_INIT(collection):
+        return Instruction("iter_init", collection, transfer=lambda vs: Box(Type.ITERATOR(vs[0].type.param1),
+                                                                            [0,len(vs[0].raw),tuple(vs[0].raw)]))
+    # TODO: Iterator is a list as we have a dirty stateful hack to remove in execution.
+
+    def ITER_CHECK(iterator):
+        return Instruction("iter_check", iterator, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw[0]<vs[0].raw[1]))
+
+    def ITER_ACCESS(iterator):
+        return Instruction("iter_access", iterator)
+
+    @staticmethod
     def LESS(lhs, rhs):
         return Instruction("less", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw < vs[1].raw))
 
@@ -71,6 +86,10 @@ class Instruction:
     @staticmethod
     def NEW(valType):
         return Instruction("new", theType=valType, transfer=lambda _:Box(valType))
+
+    @staticmethod
+    def ORD_APPEND(ord, val):
+        return Instruction("ord_append", ord, val, transfer=lambda vs: Box(vs[0].type, vs[0].raw + [val]))
 
     @staticmethod
     def RECORD_SET(record, name, value):
@@ -108,8 +127,7 @@ class Block:
         return f'bb({self.label},{len(self.instructions)})'
 
     def dump(self, done=None):
-        self.makeLabels()
-        if done is None:  done = set()
+        if done is None:     done = set()
         print(f'{self}:')
         for i, inst in enumerate(self.instructions):
             print(f'  {self.label}_{i}: {inst}')
@@ -124,11 +142,6 @@ class Block:
             self.trueSucc.dump(done=done)
         if self.falseSucc is not None and self.falseSucc not in done:
             self.falseSucc.dump(done=done)
-
-
-    def makeLabels(self):
-        for i, inst in enumerate(self.instructions):
-            inst.label = f'{self.label}_{i}'
 
     def addCondSucc(self, value, trueSucc, falseSucc):
         pass
