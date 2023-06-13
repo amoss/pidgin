@@ -1,8 +1,8 @@
 Short-term
 -----------
 
-* Add a for-each loop that can iterate over sequences and sets.
 * Handle SSA properly, respect last def of variables, introduce phi-nodes.
+* Add multiple outputs for instructions.
 * Fill out set of operators and their implementations.
 * Graph output of intermediate representation?
 * Add implicit threading of stdin/stdout to translation and type-checking.
