@@ -63,6 +63,10 @@ class Type:
         return self.kind=="number"
 
 
+    def isOrder(self):
+        return self.kind=="order"
+
+
     def isRecord(self):
         return self.kind=='record'
 
@@ -80,7 +84,6 @@ class Type:
 
 
     def join(self, other):
-        print(f'Try join {self.kind} <-> {other.kind}')
         if self.kind=='sum'  and  other.kind=='sum':
             raise TypesCannotJoin(None, f'sum-sum-joins nots implemented')
         if self.kind=='sum'  or   other.kind=='sum':

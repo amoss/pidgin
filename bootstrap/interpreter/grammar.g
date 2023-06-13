@@ -11,6 +11,8 @@
                    [N!'ident"  T!'=" N!'expr"]
                    [N!'ident" T!'!" N!'atom"]
                    [T!'if" N!'condition" T!'{" NS!'statement" T!'}" NO!'else"]
+                   [T!'while" N!'condition" T!'{" NS!'statement" T!'}"]
+                   [T!'for" N!'ident" T!'in" N!'expr" T!'{" NS!'statement" T!'}"]
                  }
     'else":      { [T!'else" T!'{" NO!'statement" T!'}" ] }
     'name_type": { [N!'ident" T!':" N!'type_decl"] }

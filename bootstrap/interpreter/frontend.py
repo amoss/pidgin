@@ -160,12 +160,21 @@ class AST:
         def __str__(self):
             return f'Enum({self.name},{self.enumNames})'
 
+    class For:
+        def __init__(self, ident, expr, scope):
+            self.ident = ident
+            self.expr = expr
+            self.scope = scope
+        def __str__(self):
+            return f"For({self.ident} in {self.expr},{self.scope})"
+
     class FunctionDecl:
         def __init__(self, name, retType, args, body):
             self.name      = name
             self.arguments = args
             self.body      = body
             self.retType   = retType
+
     class Ident:
         def __init__(self, content):
             assert isinstance(content,str), content
@@ -190,7 +199,6 @@ class AST:
     class If:
         def __init__(self, condition, trueStmts, elseStmts):
             self.condition = condition
-            print(f'If.True = {trueStmts}')
             self.trueStmts = trueStmts
             self.elseStmts = elseStmts
         def __str__(self):
@@ -267,6 +275,13 @@ class AST:
             self.name = name
             self.namedType = namedType
 
+    class While:
+        def __init__(self, condition, scope):
+            self.condition = condition
+            self.scope = scope
+        def __str__(self):
+            return f"While({self.condition},{self.scope})"
+
 def transformDeclaration(node):
     assert isinstance(node, Token)  and  len(node.children)>=2  and  isinstance(node.children[1], AST.Ident),\
            f'Invalid declaration for {node}'
@@ -290,6 +305,10 @@ def transformStmt(node):
         if node.terminalAt(-1, '}'):
             return AST.If(node.children[1], node.children[3:-1], None)
         return AST.If(node.children[1], node.children[3:-2], node.children[-1])
+    if len(node.children)>=5  and node.terminalAt(0,'while'):
+        return AST.While(node.children[1], node.children[3:-1])
+    if len(node.children)>=7  and node.terminalAt(0,'for'):
+        return AST.For(node.children[1], node.children[3], node.children[5:-1])
     return node
 
 def onlyElemList(node):

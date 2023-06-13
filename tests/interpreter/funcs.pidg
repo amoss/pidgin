@@ -36,3 +36,11 @@ else {
 
 clause = TA![s:{'x" 'y"}]
 print!clause
+
+for e in {1,2,3} {
+    print!e
+}
+
+for s in ['x",'y",'z"] {
+    print!s
+}

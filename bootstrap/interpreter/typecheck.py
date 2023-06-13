@@ -109,6 +109,18 @@ class TypedEnvironment:
             self.fromScope(tree.trueStmts)
             if tree.elseStmts is not None:
                 self.fromScope(tree.elseStmts)
+        elif isinstance(tree, AST.While):
+            self.checkCondition(tree.condition)
+            self.fromScope(tree.scope)
+        elif isinstance(tree, AST.For):
+            exprType = self.fromExpression(tree.expr)
+            assert exprType.isSet() or exprType.isOrder(), f'Cannot iterate over {exprType}'
+            elemType = exprType.param1
+            if tree.ident.span in self.types:
+                itType = self.makeFromIdent(tree.ident)
+                elemType = itType.join(elemType)
+            self.add(tree.ident.span, elemType)
+            self.fromScope(tree.scope)
         else:
             raise TypingFailed(tree, f'Unexpected statement during type-check {tree}')
 
@@ -162,7 +174,7 @@ class TypedEnvironment:
                 self.add('type '+c.name, theType)
             elif isinstance(c, Token)  and  c.symbol.isNonterminal  and  c.symbol.name=='statement':
                 self.fromStatement(c)
-            elif type(c) in (AST.Assignment, AST.Return, AST.Call, AST.If):
+            elif type(c) in (AST.Assignment, AST.Return, AST.Call, AST.If, AST.For, AST.While):
                 self.fromStatement(c)
             elif isinstance(c, AST.EnumDecl):
                 enumType = Type.ENUM(c.name, c.enumNames)
@@ -202,7 +214,7 @@ class TypedEnvironment:
     def makeOrder(self, tree):
         if len(tree.seq)==0:         return Type.ORDER(None)
         try:
-            return Type.ORDER(functool.reduce(Types.join, tree.seq))
+            return Type.ORDER(functools.reduce(Type.join, [self.fromExpression(e) for e in tree.seq]))
         except TypingFailed as e:
             raise TypingFailed(e.tree, 'Type mismatch in set elements') from e
 
