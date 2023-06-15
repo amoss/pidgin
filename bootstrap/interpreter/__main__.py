@@ -70,6 +70,7 @@ elif args.start=='program' or args.start=='main':
         traceback.print_exc()
         dump(e.tree)
         sys.exit(-1)
+    progBuilder.outermost.children['main'].entry.dot(open('ssa.dot','wt'))
     progBuilder.typeEnv.wipe()
     progBuilder.typeEnv.dump()
     input = sys.stdin.read()

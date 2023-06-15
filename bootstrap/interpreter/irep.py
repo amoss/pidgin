@@ -27,6 +27,29 @@ class Instruction:
             fieldStr = ''
         return f'{self.op}({",".join(v.label for v in self.values)}{fieldStr})'
 
+    def dot(self, output):
+        if len(self.values)>0:
+            cellLabel = self.op
+            if self.name is not None:
+                cellLabel += ' ' + self.name
+            if self.function is not None:
+                cellLabel += ' ' + self.function
+
+            inPorts = [ f'<TD PORT="in{i}" HEIGHT="6" WIDTH="6" FIXEDSIZE="TRUE"><FONT POINT-SIZE="6">{i}</FONT></TD>'
+                        for i in range(len(self.values)) ]
+            inSpacing = [ '<TD></TD>' ] * len(inPorts)
+            inCells = [cell for pair in zip(inPorts,inSpacing) for cell in pair][:-1]
+            inRow = "".join(inCells)
+            print(f' i{self.label} [shape=none,' +
+                  f'label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="1"><TR>{inRow}</TR>' +
+                  f'<TR><TD COLSPAN="{len(inCells)}">{cellLabel}</TD></TR>'
+                  f'</TABLE>>];', file=output)
+        else:
+            print(f' i{self.label} [shape=none,label={self.op}];', file=output)
+
+        for i,v in enumerate(self.values):
+            print(f' i{v.label} -> i{self.label}:in{i};', file=output)
+
     def isCall(self):
         return self.op=="call"
 
@@ -142,6 +165,14 @@ class Block:
             self.trueSucc.dump(done=done)
         if self.falseSucc is not None and self.falseSucc not in done:
             self.falseSucc.dump(done=done)
+
+    def dot(self, output):
+        print('digraph {', file=output)
+        print(f'subgraph bblock_{self.label} {{', file=output)
+        for i in self.instructions:
+            i.dot(output)
+        print('}', file=output)
+        print('}', file=output)
 
     def addCondSucc(self, value, trueSucc, falseSucc):
         pass
