@@ -27,7 +27,7 @@ class Instruction:
             fieldStr = ''
         return f'{self.op}({",".join(v.label for v in self.values)}{fieldStr})'
 
-    def dot(self, output):
+    def dot(self, blockName, output):
         if len(self.values)>0:
             cellLabel = self.op
             if self.name is not None:
@@ -46,6 +46,7 @@ class Instruction:
                   f'</TABLE>>];', file=output)
         else:
             print(f' i{self.label} [shape=none,label={self.op}];', file=output)
+            print(f' {blockName}_entry -> i{self.label} [color=none];', file=output)
 
         for i,v in enumerate(self.values):
             print(f' i{v.label} -> i{self.label}:in{i};', file=output)
@@ -167,11 +168,14 @@ class Block:
             self.falseSucc.dump(done=done)
 
     def dot(self, output):
-        print('digraph {', file=output)
-        print(f'subgraph bblock_{self.label} {{', file=output)
+        print(f'subgraph cluster_bblock{self.label} {{', file=output)
+        print(' color=grey;', file=output)
+        print(f' bblock{self.label}_entry [shape=none, fontcolor="grey"];', file=output)
+        print(f' bblock{self.label}_exit [shape=none, fontcolor="grey"];', file=output)
         for i in self.instructions:
-            i.dot(output)
-        print('}', file=output)
+            i.dot(f'bblock{self.label}',output)
+        if len(self.instructions)>0:
+            print(f' i{self.instructions[-1].label} -> bblock{self.label}_exit [color=none];', file=output)
         print('}', file=output)
 
     def addCondSucc(self, value, trueSucc, falseSucc):
@@ -197,6 +201,28 @@ class Function:
             c.dump()
         if '%return%' in self.entry.defs:
             print(f'return {self.entry.defs["%return%"]}')
+
+    def dot(self, output):
+        print('digraph {', file=output)
+        done = set()
+        todo = set([self.entry])
+        while len(todo)>0:
+            block = todo.pop()
+            done.add(block)
+            block.dot(output)
+            if block.trueSucc is not None:
+                if block.trueSucc not in done:
+                    todo.add(block.trueSucc)
+                print(f' bblock{block.label}_exit -> bblock{block.trueSucc.label}_entry '
+                       '[label="true",color="grey",fontcolor="grey"];', file=output)
+            if block.falseSucc is not None:
+                if block.falseSucc not in done:
+                    todo.add(block.falseSucc)
+                print(f' bblock{block.label}_exit -> bblock{block.falseSucc.label}_entry ' + 
+                       '[label="false",color="grey",fontcolor="grey"];', file=output)
+
+        print('}', file=output)
+        
 
 
 
