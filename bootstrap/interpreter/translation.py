@@ -4,7 +4,7 @@
 from .box import Box
 from .builtins import builtin_len, builtin_print
 from .frontend import AST
-from .irep import Block, Instruction, Function
+from .irep import Block, Instruction, Function, Value
 from .types import Type
 from .typecheck import TypedEnvironment
 from ..parser import Token
@@ -15,6 +15,7 @@ class BlockBuilder:
         self.current = Block()
         self.entry   = self.current
         self.types   = types
+        self.definitions = {}
 
 
     def fromScope(self, scope):
@@ -98,7 +99,7 @@ class BlockBuilder:
         print(f'Building assign')
         inst = self.expression(stmt.expr)
         self.current.defs[stmt.target] = inst
-        self.addInstruction( Instruction.STORE(inst, stmt.target), self.types.expressions[stmt.expr])
+        #self.addInstruction( Instruction.STORE(inst, stmt.target), self.types.expressions[stmt.expr])
 
 
     def addInstruction(self, inst, instType):
@@ -122,32 +123,29 @@ class BlockBuilder:
 
     def expression(self, expr):
         if isinstance(expr, AST.NumberLit):
-            inst = Instruction.CONSTANT( Box(Type.NUMBER(), expr.content) )
-            return self.addInstruction(inst, Type.NUMBER())
+            return Value(constant=Box(Type.NUMBER(), expr.content))
 
         if isinstance(expr, AST.StringLit):
-            inst = Instruction.CONSTANT( Box(Type.STRING(), expr.content) )
-            return self.addInstruction(inst, Type.STRING())
+            return Value(constant=Box(Type.STRING(), expr.content))
 
         if isinstance(expr, AST.Ident):
             print(f'Building expression/Ident {expr.span}')
             if expr.span=="true":
-                return self.addInstruction( Instruction.CONSTANT( Box(Type.BOOL(), True) ), Type.BOOL() )
+                return Value(constant=Box(Type.BOOL(), True))
             if expr.span=="false":
-                return self.addInstruction( Instruction.CONSTANT( Box(Type.BOOL(), False) ), Type.BOOL() )
+                return Value(constant=Box(Type.BOOL(), False))
             exprType = self.types.types[expr.span]
             if exprType.isEnum():
-                return self.addInstruction( Instruction.CONSTANT( Box(exprType, exprType.params.index(expr.span))), exprType)
+                return Value(constant=Box(exprType, exprType.params.index(expr.span)))
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
-            inst = Instruction.LOAD(expr.span)
-            self.current.defs[expr.span] = inst
-            return self.addInstruction(inst, exprType)
-
+            value = Value(phi=expr.span)
+            #value = Value(instruction=self.addInstruction(Instruction.LOAD(expr.span),exprType))
+            self.current.defs[expr.span] = value
+            return value
 
         if isinstance(expr,Token)  and  expr.symbol.isNonterminal  and  expr.tag in ('binop1','binop2'):
             lhs = self.expression(expr.children[0])
-            dump(expr)
             for opChild in expr.children[1:]:
                 op = opChild.children[0].span
                 rhs = self.expression(opChild.children[1])
@@ -157,11 +155,11 @@ class BlockBuilder:
                 else:
                     assert False, f'Unknown types for add operation'
                 lhs = inst
-            return inst
+            return Value(instruction=inst)
 
         if isinstance(expr, AST.Call):
             inst = Instruction.CALL( expr.function, self.expression(expr.arg) )
-            return self.addInstruction(inst, self.types.types[expr.function].param2)
+            return Value(instruction=self.addInstruction(inst, self.types.types[expr.function].param2))
 
         if isinstance(expr, AST.Record):
             return self.record(expr)

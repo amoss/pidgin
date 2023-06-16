@@ -8,6 +8,8 @@ class Instruction:
     def __init__(self, op, *values, function=None, name=None, theType=None, box=None, transfer=None, position=None):
         self.op = op
         self.values = values
+        for v in values:
+            assert isinstance(v, Value), v
         self.function = function
         self.name = name
         self.theType = theType
@@ -25,7 +27,7 @@ class Instruction:
             fieldStr = ' ' + ",".join(f for f in fields)
         else:
             fieldStr = ''
-        return f'{self.op}({",".join(v.label for v in self.values)}{fieldStr})'
+        return f'{self.op}({",".join(str(v) for v in self.values)}{fieldStr})'
 
     def dot(self, blockName, output):
         if len(self.values)>0:
@@ -49,7 +51,13 @@ class Instruction:
             print(f' {blockName}_entry -> i{self.label} [color=none];', file=output)
 
         for i,v in enumerate(self.values):
-            print(f' i{v.label} -> i{self.label}:in{i};', file=output)
+            if v.constant is not None:
+                print(f'v{hash(v)} [label="{str(v.constant)}"];', file=output)
+                print(f'v{hash(v)} -> i{self.label}:in{i};', file=output)
+            if v.instruction is not None:
+                print(f' i{v.instruction.label} -> i{self.label}:in{i};', file=output)
+            if v.argument is not None:
+                print(f' arg_{v.argument} -> i{self.label}:in{i};', file=output)
 
     def isCall(self):
         return self.op=="call"
@@ -70,10 +78,6 @@ class Instruction:
     @staticmethod
     def CALL(target, argument):
         return Instruction("call", argument, function=target)
-
-    @staticmethod
-    def CONSTANT(box):
-        return Instruction("constant", box=box, transfer=lambda _:box)
 
     @staticmethod
     def EQUAL(lhs, rhs):
@@ -134,6 +138,29 @@ class Instruction:
     @staticmethod
     def  SET_INSERT(theSet, newElement):
         return Instruction("set_insert", theSet, newElement, transfer=lambda vs: Box(vs[0].type,vs[0].raw.union(set([vs[1]]))))
+
+class Value:
+    def __init__(self, instruction=None, output=None, argument=None, phi=None, constant=None):
+        self.instruction = instruction
+        self.output = output
+        assert output is None  or  instruction is not None, f'Output index needs an instruction source'
+        self.argument = argument
+        self.constant = constant
+        self.phi = phi
+        assert constant is None  or  isinstance(constant,Box), constant
+        assert len([x for x in (instruction,argument,phi,constant) if x is not None])==1
+
+    def __str__(self):
+        if self.instruction is not None:
+            if self.output is None:
+                return f'i{self.instruction.label}'
+            return f'i{self.instruction.label}#{self.output}'
+        if self.constant is not None:
+            return f'constant {self.constant}'
+        if self.phi is not None:
+            return 'phi'
+        assert False
+
 
 class Block:
     counter = 1
