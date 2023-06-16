@@ -75,6 +75,10 @@ class Type:
         return self.kind=='set'
 
 
+    def isString(self):
+        return self.kind=='string'
+
+
     def isTuple(self):
         return self.kind=='tuple'
 

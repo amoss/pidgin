@@ -1,0 +1,5 @@
+a = 3
+if len!stdin > 2 {
+    a = 4
+}
+print!a

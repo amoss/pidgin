@@ -217,7 +217,7 @@ class ProgramBuilder:
 
     def __init__(self, toplevel):
         self.typeEnv = TypedEnvironment()
-        aggregates = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None))
+        aggregates = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None), Type.STRING())
         self.typeEnv.add('len', Type.FUNCTION(aggregates, Type.NUMBER(), None, builtin=builtin_len))
         printables = Type.SUM(Type.SET(None), Type.ORDER(None), Type.MAP(None,None), Type.RECORD((),), Type.TUPLE((),),
                               Type.STRING(), Type.NUMBER())

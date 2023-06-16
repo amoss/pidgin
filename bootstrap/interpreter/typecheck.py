@@ -5,7 +5,7 @@ import functools
 
 from .box import Box
 from .frontend import AST
-from .types import Type
+from .types import Type, TypesCannotJoin
 from ..parser import Token
 from ..util import dump
 
@@ -190,7 +190,10 @@ class TypedEnvironment:
         if not tree.function in self.types:
             raise TypingFailed(tree, f"Call to unknown function {tree.function}")
         fType = self.types[tree.function]
-        checkArg = fType.param1.join(argType)
+        try:
+            checkArg = fType.param1.join(argType)
+        except TypesCannotJoin as e:
+            raise TypingFailed(tree, f"Call to {tree.function} was invalid") from e
         return fType.param2
 
 
