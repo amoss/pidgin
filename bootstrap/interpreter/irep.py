@@ -30,13 +30,12 @@ class Instruction:
         return f'{self.op}({",".join(str(v) for v in self.values)}{fieldStr})'
 
     def dot(self, blockName, output):
+        cellLabel = self.op
+        if self.name is not None:
+            cellLabel += ' ' + self.name
+        if self.function is not None:
+            cellLabel += ' ' + self.function
         if len(self.values)>0:
-            cellLabel = self.op
-            if self.name is not None:
-                cellLabel += ' ' + self.name
-            if self.function is not None:
-                cellLabel += ' ' + self.function
-
             inPorts = [ f'<TD PORT="in{i}" HEIGHT="6" WIDTH="6" FIXEDSIZE="TRUE"><FONT POINT-SIZE="6">{i}</FONT></TD>'
                         for i in range(len(self.values)) ]
             inSpacing = [ '<TD></TD>' ] * len(inPorts)
@@ -47,7 +46,7 @@ class Instruction:
                   f'<TR><TD COLSPAN="{len(inCells)}">{cellLabel}</TD></TR>'
                   f'</TABLE>>];', file=output)
         else:
-            print(f' i{self.label} [shape=none,label={self.op}];', file=output)
+            print(f' i{self.label} [shape=none,label="{cellLabel}"];', file=output)
             print(f' {blockName}_entry -> i{self.label} [color=none];', file=output)
 
         for i,v in enumerate(self.values):
@@ -120,6 +119,10 @@ class Instruction:
         return Instruction("ord_append", ord, val, transfer=lambda vs: Box(vs[0].type, vs[0].raw + [val]))
 
     @staticmethod
+    def PHI(name):
+        return Instruction("phi", name=name)
+
+    @staticmethod
     def RECORD_SET(record, name, value):
         return Instruction("record_set", record, value, name=name,
                            transfer=lambda vs: Box(vs[0].type, dict([(k,v) for k,v in vs[0].raw.items() if k!=name] + [(name,vs[1])])))
@@ -177,6 +180,13 @@ class Block:
     def __str__(self):
         return f'bb({self.label},{len(self.instructions)})'
 
+    def connect(self, condition, succ):
+        if condition:
+            self.trueSucc = succ
+        else:
+            self.falseSucc = succ
+        succ.preds.add(self)
+
     def dump(self, done=None):
         if done is None:     done = set()
         print(f'{self}:')
@@ -188,6 +198,8 @@ class Block:
             print(f'  True  -> {self.trueSucc}')
         if self.falseSucc is not None:
             print(f'  False -> {self.falseSucc}')
+        for k,v in self.defs.items():
+            print(f'  {k} <- {v}')
         done.add(self)
         if self.trueSucc is not None and self.trueSucc not in done:
             self.trueSucc.dump(done=done)

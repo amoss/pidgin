@@ -5,6 +5,7 @@ from .box import Box
 from .builtins import builtin_len, builtin_print
 from .frontend import AST
 from .irep import Block, Instruction, Function, Value
+from .reachingdefs import calcReachingDefs
 from .types import Type
 from .typecheck import TypedEnvironment
 from ..parser import Token
@@ -36,58 +37,58 @@ class BlockBuilder:
                 inst = self.condition(stmt.condition)
                 header = self.current
                 trueBB = Block()
-                self.current.trueSucc = trueBB
+                self.current.connect(True,trueBB)
                 self.current = trueBB
                 self.fromScope(stmt.trueStmts)        # self.currents updates to merged exit
                 mergeBB = Block()
-                self.current.trueSucc = mergeBB
+                self.current.connect(True,mergeBB)
                 if stmt.elseStmts is not None:
                     falseBB = Block()
-                    header.falseSucc = falseBB
+                    header.connect(False,falseBB)
                     self.current = falseBB
                     self.fromScope(stmt.elseStmts)   # self.currents updates to merged exit
-                    self.current.trueSucc = mergeBB
+                    self.current.connect(True,mergeBB)
                 else:
-                    header.falseSucc = mergeBB
+                    header.connect(False,mergeBB)
                 self.current = mergeBB
             elif isinstance(stmt, AST.While):
                 headerBB = Block()
-                self.current.trueSucc = headerBB
+                self.current.connect(True,headerBB)
                 self.current = headerBB
                 inst = self.condition(stmt.condition)
                 bodyBB = Block()
-                headerBB.trueSucc = bodyBB
+                headerBB.connect(True,bodyBB)
                 self.current = bodyBB
                 self.fromScope(stmt.scope)        # self.currents updates to merged exit
-                self.current.trueSucc = headerBB
+                self.current.connect(True,headerBB)
                 mergeBB = Block()
-                headerBB.falseSucc = mergeBB
+                headerBB.connect(False,mergeBB)
                 self.current = mergeBB
             elif isinstance(stmt, AST.For):
                 initBB = Block()
-                self.current.trueSucc = initBB
+                self.current.connect(True,initBB)
                 val = self.expression(stmt.expr)
                 iterator = Instruction.ITER_INIT(val)
                 elemType = self.types.types[stmt.ident.span]
                 self.addInstruction(iterator, Type.ITERATOR(elemType))
 
                 headerBB = Block()
-                self.current.trueSucc = headerBB
+                self.current.connect(True,headerBB)
                 self.current = headerBB
                 inst = Instruction.ITER_CHECK(iterator)
                 self.addInstruction(inst, Type.BOOL())
 
                 mergeBB = Block()
-                self.current.falseSucc = mergeBB
+                self.current.connect(False,mergeBB)
                 bodyBB = Block()
-                self.current.trueSucc = bodyBB
+                self.current.connect(True,bodyBB)
                 self.current = bodyBB
                 nextVal = Instruction.ITER_ACCESS(iterator)     # TODO: not pure, requires two outputs
                 self.addInstruction(nextVal, elemType)
                 inst = Instruction.STORE(nextVal, stmt.ident.span)
                 self.addInstruction(inst, elemType)
                 self.fromScope(stmt.scope)
-                self.current.trueSucc = headerBB
+                self.current.connect(True,headerBB)
 
                 self.current = mergeBB
             else:
@@ -139,7 +140,8 @@ class BlockBuilder:
                 return Value(constant=Box(exprType, exprType.params.index(expr.span)))
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
-            value = Value(phi=expr.span)
+            value = Value(instruction=self.addInstruction(Instruction.PHI(expr.span),exprType))
+            #value = Value(phi=expr.span)
             #value = Value(instruction=self.addInstruction(Instruction.LOAD(expr.span),exprType))
             self.current.defs[expr.span] = value
             return value
@@ -222,6 +224,7 @@ class ProgramBuilder:
         self.typeEnv.add('print', Type.FUNCTION(printables, Type.VOID(), None, builtin=builtin_print))
         self.typeEnv.fromDeclarations(toplevel)
         self.outermost = self.doScope(toplevel, self.typeEnv)
+        calcReachingDefs(self.outermost.children['main'].entry)
 
 
     def doScope(self, scope, scopeTypes):
