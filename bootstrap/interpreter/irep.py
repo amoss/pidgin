@@ -23,6 +23,8 @@ class Instruction:
         for attr in ('function','name','theType','box','position'):
             if getattr(self,attr) is not None:
                 fields.append(f'{attr}={getattr(self,attr)}')
+        if hasattr(self,'uses'):
+            fields.append(f'uses={len(getattr(self,"uses"))}')
         if len(fields)>0:
             fieldStr = ' ' + ",".join(f for f in fields)
         else:
@@ -76,6 +78,16 @@ class Instruction:
 
     def isStore(self):
         return self.op=="store"
+
+    def replace(self, value, replacement):
+        newValues = list(self.values)
+        if isinstance(value, Instruction):
+            for i in range(len(self.values)):
+                if self.values[i].instruction==value:
+                    newValues[i] = replacement
+            self.values = newValues
+        else:
+            assert False
 
     @staticmethod
     def ADD_NUMBER(lhs, rhs):

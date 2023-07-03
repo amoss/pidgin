@@ -6,6 +6,8 @@ from .builtins import builtin_len, builtin_print
 from .frontend import AST
 from .irep import Block, Instruction, Function, Value
 from .reachingdefs import calcReachingDefs
+from .defuse import calcDefUse
+from .eliminatePhi import eliminatePhi
 from .types import Type
 from .typecheck import TypedEnvironment
 from ..parser import Token
@@ -231,6 +233,8 @@ class ProgramBuilder:
         self.typeEnv.fromDeclarations(toplevel)
         self.outermost = self.doScope(toplevel, self.typeEnv)
         calcReachingDefs(self.outermost.children['main'])
+        calcDefUse(self.outermost.children['main'])
+        eliminatePhi(self.outermost.children['main'])
 
 
     def doScope(self, scope, scopeTypes):

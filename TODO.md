@@ -1,8 +1,8 @@
 Short-term
 -----------
 
-* Handle SSA properly, respect last def of variables, introduce phi-nodes.
-* Add multiple outputs for instructions.
+* Add multiple outputs for instructions (so that iterators can be handled correctly).
+* Expand the set of tests to cover the SSA generation.
 * Fill out set of operators and their implementations.
 * Add implicit threading of stdin/stdout to translation and type-checking.
   Rework input to match, add stream/channel types and remove the string input
