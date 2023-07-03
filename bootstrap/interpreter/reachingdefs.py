@@ -36,18 +36,22 @@ from ..util import MultiDict
 def findReachingDefs(name, block, memo):
     if block in memo.map:    return memo.map[block]
     merged = set()
+    print(f'findReachingDef on blk{block.label} merging preds {[b.label for b in block.preds]}')
     for pred in block.preds:
         merged.update( findDef(name, pred, memo) )     # All loops are broken by at least one def
-    memo.update(block, merged)
     return merged
 
 def findDef(name, block, memo):
     if block in memo.map:    return memo.map[block]
     lastDef = block.lastDefinition(name)
     if lastDef is not None:
+        print(f'findDef on blk{block.label} found last def')
         memo.store(block, (lastDef, block) )
         return memo.map[block]
-    return findReachingDefs(name, block, memo)
+    print(f'blk{block.label} had no lastDef - searching')
+    incoming = findReachingDefs(name, block, memo)
+    memo.update(block, incoming)
+    return incoming
 
 
 def calcReachingDefs(func):
