@@ -290,7 +290,7 @@ class Function:
                 print(f' bblock{block.label}_exit -> bblock{block.trueSucc.label}_entry '
                        '[label="true",color="grey",fontcolor="grey"];', file=output)
             if block.falseSucc is not None:
-                print(f' bblock{block.label}_exit -> bblock{block.falseSucc.label}_entry ' + 
+                print(f' bblock{block.label}_exit -> bblock{block.falseSucc.label}_entry ' +
                        '[label="false",color="grey",fontcolor="grey"];', file=output)
         for block in self.entry.reachable():
             block.dotEdges(output)

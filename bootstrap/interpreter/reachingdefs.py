@@ -33,23 +33,24 @@ from ..util import MultiDict
 # linear if we process the instructions in the right order and it is blocked by actual joins
 # eliminating looping paths) ???
 
-def findReachingDefs(name, block, memo):
-    if block in memo.map:    return memo.map[block]
+def findReachingDefs(name, block, memo, argNames):
+    if len(block.preds)==0 and name in argNames:
+        return set([(None,None)])
     merged = set()
     print(f'findReachingDef on blk{block.label} merging preds {[b.label for b in block.preds]}')
     for pred in block.preds:
-        merged.update( findDef(name, pred, memo) )     # All loops are broken by at least one def
+        merged.update( findDef(name, pred, memo, argNames) )     # All loops are broken by at least one def
     return merged
 
-def findDef(name, block, memo):
+def findDef(name, block, memo, argNames):
     if block in memo.map:    return memo.map[block]
     lastDef = block.lastDefinition(name)
     if lastDef is not None:
-        print(f'findDef on blk{block.label} found last def')
+        print(f'findDef on blk{block.label} found last def {lastDef}')
         memo.store(block, (lastDef, block) )
         return memo.map[block]
     print(f'blk{block.label} had no lastDef - searching')
-    incoming = findReachingDefs(name, block, memo)
+    incoming = findReachingDefs(name, block, memo, argNames)
     memo.update(block, incoming)
     return incoming
 
@@ -58,16 +59,13 @@ def calcReachingDefs(func):
     funcArgs = func.type.param1.params
     memoTables = {}
     entry = func.entry
-    for pair in funcArgs:
-        print(f'Initial def of {pair[0]} in {func} is argument')
-        memoTables[pair[0]] = MultiDict()
-        memoTables[pair[0]].store( entry, (None,None) )
+    argNames = [pair[0] for pair in funcArgs]
 
     for block in entry.reachable():
         for phi in block.instructions:
             if not phi.isPhi():     continue
             if phi.name not in memoTables:  memoTables[phi.name] = MultiDict()
-            defs = findReachingDefs(phi.name, block, memoTables[phi.name])
+            defs = findReachingDefs(phi.name, block, memoTables[phi.name], argNames)
             print(f'In blk{block.label}: {phi} updating with {defs}')
             sources, phi.inputBlocks = zip(*defs)
             values = []
