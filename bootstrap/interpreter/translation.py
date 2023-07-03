@@ -100,12 +100,13 @@ class BlockBuilder:
         print(f'Building assign')
         inst = self.expression(stmt.expr)
         self.current.defs[stmt.target] = inst
-        #self.addInstruction( Instruction.STORE(inst, stmt.target), self.types.expressions[stmt.expr])
+        self.addInstruction( Instruction.STORE(inst, stmt.target), self.types.expressions[stmt.expr])
 
 
     def addInstruction(self, inst, instType):
         inst.label = f'{self.current.label}_{len(self.current.instructions)}'
         self.current.instructions.append(inst)
+        inst.theType = instType                         # TODO: do we need both?
         self.types.instructions[inst] = instType
         return inst
 
@@ -140,6 +141,7 @@ class BlockBuilder:
                 return Value(constant=Box(exprType, exprType.params.index(expr.span)))
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
+            assert exprType is not None
             value = Value(instruction=self.addInstruction(Instruction.PHI(expr.span),exprType))
             #value = Value(phi=expr.span)
             #value = Value(instruction=self.addInstruction(Instruction.LOAD(expr.span),exprType))
@@ -151,7 +153,11 @@ class BlockBuilder:
             for opChild in expr.children[1:]:
                 op = opChild.children[0].span
                 rhs = self.expression(opChild.children[1])
-                if self.types.instructions[lhs].isNumber() and self.types.instructions[rhs].isNumber():
+                # lhs and rhs are now values, how do we extract the type?
+                print(lhs, type(lhs))
+                print(rhs)
+                if lhs.type().isNumber() and rhs.type().isNumber():
+                #if self.types.instructions[lhs].isNumber() and self.types.instructions[rhs].isNumber():
                     inst = Instruction.ADD_NUMBER(lhs,rhs)
                     self.addInstruction(inst, Type.NUMBER())
                 else:
@@ -224,7 +230,7 @@ class ProgramBuilder:
         self.typeEnv.add('print', Type.FUNCTION(printables, Type.VOID(), None, builtin=builtin_print))
         self.typeEnv.fromDeclarations(toplevel)
         self.outermost = self.doScope(toplevel, self.typeEnv)
-        calcReachingDefs(self.outermost.children['main'].entry)
+        calcReachingDefs(self.outermost.children['main'])
 
 
     def doScope(self, scope, scopeTypes):
@@ -238,6 +244,7 @@ class ProgramBuilder:
                 result.children[decl.name] = self.doScope(decl.body, scopeTypes.types[decl.name].innerEnv)
                 result.children[decl.name].name = decl.name
                 scopeTypes.types[decl.name].function = result.children[decl.name]
+                result.children[decl.name].type = scopeTypes.types[decl.name]
         return result
 
 

@@ -3,3 +3,7 @@ if len!stdin > 2 {
     a = 4
 }
 print!a
+while a<5 {
+    a = a+1
+    print!a
+}

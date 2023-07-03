@@ -52,3 +52,9 @@ class MultiDict:
         if not k in self.map.keys():
             self.map[k] = set()
         self.map[k].add(v)
+
+    def update(self, k, vs):
+        if not k in self.map.keys():
+            self.map[k] = set()
+        for v in vs:
+            self.map[k].add(v)

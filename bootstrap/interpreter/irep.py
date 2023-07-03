@@ -67,6 +67,9 @@ class Instruction:
     def isLoad(self):
         return self.op=="load"
 
+    def isPhi(self):
+        return self.op=="phi"
+
     def isStore(self):
         return self.op=="store"
 
@@ -162,6 +165,16 @@ class Value:
             return f'constant {self.constant}'
         if self.phi is not None:
             return 'phi'
+        if self.argument is not None:
+            return f'arg={self.argument}'
+        assert False
+
+    def type(self):
+        if self.instruction is not None:
+            assert self.instruction.theType is not None, self.instruction
+            return self.instruction.theType
+        if self.constant is not None:
+            return self.constant.type
         assert False
 
 
@@ -177,8 +190,10 @@ class Block:
         self.label     = Block.counter
         Block.counter += 1
 
+
     def __str__(self):
         return f'bb({self.label},{len(self.instructions)})'
+
 
     def connect(self, condition, succ):
         if condition:
@@ -186,6 +201,19 @@ class Block:
         else:
             self.falseSucc = succ
         succ.preds.add(self)
+
+
+    def dot(self, output):
+        print(f'subgraph cluster_bblock{self.label} {{', file=output)
+        print(' color=grey;', file=output)
+        print(f' bblock{self.label}_entry [shape=none, fontcolor="grey"];', file=output)
+        print(f' bblock{self.label}_exit [shape=none, fontcolor="grey"];', file=output)
+        for i in self.instructions:
+            i.dot(f'bblock{self.label}',output)
+        if len(self.instructions)>0:
+            print(f' i{self.instructions[-1].label} -> bblock{self.label}_exit [color=none];', file=output)
+        print('}', file=output)
+
 
     def dump(self, done=None):
         if done is None:     done = set()
@@ -206,22 +234,26 @@ class Block:
         if self.falseSucc is not None and self.falseSucc not in done:
             self.falseSucc.dump(done=done)
 
-    def dot(self, output):
-        print(f'subgraph cluster_bblock{self.label} {{', file=output)
-        print(' color=grey;', file=output)
-        print(f' bblock{self.label}_entry [shape=none, fontcolor="grey"];', file=output)
-        print(f' bblock{self.label}_exit [shape=none, fontcolor="grey"];', file=output)
+
+    def lastDefinition(self, name):
+        result = None
         for i in self.instructions:
-            i.dot(f'bblock{self.label}',output)
-        if len(self.instructions)>0:
-            print(f' i{self.instructions[-1].label} -> bblock{self.label}_exit [color=none];', file=output)
-        print('}', file=output)
+            if (i.isStore() or i.isPhi()) and i.name==name:
+                result = i
+        return result
 
-    def addCondSucc(self, value, trueSucc, falseSucc):
-        pass
 
-    def addSucc(self, succ):
-        pass
+    def reachable(self, done=None):
+        if done is None:     done = set()
+        if self in done:     return
+        yield self
+        done.add(self)
+        if self.trueSucc is not None  and  not self.trueSucc in done:
+            for block in self.trueSucc.reachable(done=done):
+                yield block
+        if self.falseSucc is not None  and  not self.falseSucc in done:
+            for block in self.falseSucc.reachable(done=done):
+                yield block
 
 
 class Function:
