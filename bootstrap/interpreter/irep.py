@@ -29,7 +29,7 @@ class Instruction:
             fieldStr = ''
         return f'{self.op}({",".join(str(v) for v in self.values)}{fieldStr})'
 
-    def dot(self, blockName, output):
+    def dotNode(self, blockName, output):
         cellLabel = self.op
         if self.name is not None:
             cellLabel += ' ' + self.name
@@ -47,6 +47,10 @@ class Instruction:
                   f'</TABLE>>];', file=output)
         else:
             print(f' i{self.label} [shape=none,label="{cellLabel}"];', file=output)
+
+
+    def dotEdges(self, blockName, output):
+        if len(self.values)==0:
             print(f' {blockName}_entry -> i{self.label} [color=none];', file=output)
 
         for i,v in enumerate(self.values):
@@ -203,16 +207,21 @@ class Block:
         succ.preds.add(self)
 
 
-    def dot(self, output):
+    def dotDecls(self, output):
         print(f'subgraph cluster_bblock{self.label} {{', file=output)
         print(' color=grey;', file=output)
         print(f' bblock{self.label}_entry [shape=none, fontcolor="grey"];', file=output)
         print(f' bblock{self.label}_exit [shape=none, fontcolor="grey"];', file=output)
         for i in self.instructions:
-            i.dot(f'bblock{self.label}',output)
+            i.dotNode(f'bblock{self.label}',output)
+        print('}', file=output)
+
+
+    def dotEdges(self, output):
+        for i in self.instructions:
+            i.dotEdges(f'bblock{self.label}',output)
         if len(self.instructions)>0:
             print(f' i{self.instructions[-1].label} -> bblock{self.label}_exit [color=none];', file=output)
-        print('}', file=output)
 
 
     def dump(self, done=None):
@@ -275,25 +284,17 @@ class Function:
 
     def dot(self, output):
         print('digraph {', file=output)
-        done = set()
-        todo = set([self.entry])
-        while len(todo)>0:
-            block = todo.pop()
-            done.add(block)
-            block.dot(output)
+        for block in self.entry.reachable():
+            block.dotDecls(output)
             if block.trueSucc is not None:
-                if block.trueSucc not in done:
-                    todo.add(block.trueSucc)
                 print(f' bblock{block.label}_exit -> bblock{block.trueSucc.label}_entry '
                        '[label="true",color="grey",fontcolor="grey"];', file=output)
             if block.falseSucc is not None:
-                if block.falseSucc not in done:
-                    todo.add(block.falseSucc)
                 print(f' bblock{block.label}_exit -> bblock{block.falseSucc.label}_entry ' + 
                        '[label="false",color="grey",fontcolor="grey"];', file=output)
+        for block in self.entry.reachable():
+            block.dotEdges(output)
 
         print('}', file=output)
-        
-
 
 
