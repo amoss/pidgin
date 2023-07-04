@@ -152,8 +152,6 @@ class BlockBuilder:
                 return self.current.defs[expr.span]
             assert exprType is not None
             value = Value(instruction=self.addInstruction(Instruction.PHI(expr.span),exprType))
-            #value = Value(phi=expr.span)
-            #value = Value(instruction=self.addInstruction(Instruction.LOAD(expr.span),exprType))
             self.current.defs[expr.span] = value
             return value
 

@@ -162,16 +162,15 @@ class Instruction:
         return Instruction("set_insert", theSet, newElement, transfer=lambda vs: Box(vs[0].type,vs[0].raw.union(set([vs[1]]))))
 
 class Value:
-    def __init__(self, instruction=None, output=None, argument=None, phi=None, constant=None):
+    def __init__(self, instruction=None, output=None, argument=None, constant=None):
         self.instruction = instruction
         assert instruction is None  or  isinstance(instruction,Instruction), instruction
         self.output = output
         assert output is None  or  instruction is not None, f'Output index needs an instruction source'
         self.argument = argument
         self.constant = constant
-        self.phi = phi
         assert constant is None  or  isinstance(constant,Box), constant
-        assert len([x for x in (instruction,argument,phi,constant) if x is not None])==1
+        assert len([x for x in (instruction,argument,constant) if x is not None])==1
 
     def __str__(self):
         if self.instruction is not None:
@@ -180,11 +179,18 @@ class Value:
             return f'i{self.instruction.label}#{self.output}'
         if self.constant is not None:
             return f'constant {self.constant}'
-        if self.phi is not None:
-            return 'phi'
         if self.argument is not None:
             return f'arg={self.argument}'
         assert False
+
+    def sig(self):
+        return (self.instruction, self.output, self.argument, self.constant)
+
+    def __hash__(self):
+        return hash(self.sig())
+
+    def __eq__(self, other):
+        return self.sig()==other.sig()
 
     def type(self):
         if self.instruction is not None:
