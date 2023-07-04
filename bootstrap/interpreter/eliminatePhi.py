@@ -5,7 +5,12 @@ def eliminatePhi(func):
     for block in func.entry.reachable():
         delete = []
         for inst in block.instructions:
-            if inst.isPhi()  and  len(inst.values)==1:
+            if not inst.isPhi():    continue
+            if inst in inst.uses:
+                print(f'Eliminate self-loop on phi {inst}')
+                inst.uses = [ u for u in inst.uses if u != inst ]
+                inst.values = tuple(v for v in inst.values if v.instruction!=inst)
+            if len(inst.values)==1:
                 print(f'Eliminate redundant phi {inst}')
                 for eachUse in inst.uses:
                     eachUse.replace(inst, inst.values[0])
