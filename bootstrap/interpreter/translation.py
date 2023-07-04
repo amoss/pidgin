@@ -67,17 +67,21 @@ class BlockBuilder:
                 headerBB.connect(False,mergeBB)
                 self.current = mergeBB
             elif isinstance(stmt, AST.For):
+                # The iterator is not programmer-visible so instead of generating a fresh illegal name we build
+                # the PHI instruction directly on the unnamed value.
                 initBB = Block()
                 self.current.connect(True,initBB)
                 val = self.expression(stmt.expr)
-                iterator = Instruction.ITER_INIT(val)
+                initIterator = Instruction.ITER_INIT(val)
                 elemType = self.types.types[stmt.ident.span]
-                self.addInstruction(iterator, Type.ITERATOR(elemType))
+                self.addInstruction(initIterator, Type.ITERATOR(elemType))
 
                 headerBB = Block()
                 self.current.connect(True,headerBB)
                 self.current = headerBB
-                inst = Instruction.ITER_CHECK(iterator)
+                phi = Instruction.PHI(None)
+                self.addInstruction(phi, Type.ITERATOR(elemType))
+                inst = Instruction.ITER_CHECK(Value(instruction=phi))
                 self.addInstruction(inst, Type.BOOL())
 
                 mergeBB = Block()
@@ -85,10 +89,13 @@ class BlockBuilder:
                 bodyBB = Block()
                 self.current.connect(True,bodyBB)
                 self.current = bodyBB
-                nextVal = Instruction.ITER_ACCESS(iterator)     # TODO: not pure, requires two outputs
-                self.addInstruction(nextVal, elemType)
-                inst = Instruction.STORE(nextVal, stmt.ident.span)
+                access = Instruction.ITER_ACCESS(Value(instruction=phi))
+                self.addInstruction(access, elemType)
+                inst = Instruction.STORE(Value(instruction=access,output=1), stmt.ident.span)
                 self.addInstruction(inst, elemType)
+                self.current.defs[stmt.ident.span] = Value(instruction=access,output=1)
+                phi.values = (Value(instruction=initIterator), Value(instruction=access,output=0))
+                phi.inputBlocks = [initBB, bodyBB]
                 self.fromScope(stmt.scope)
                 self.current.connect(True,headerBB)
 
@@ -100,9 +107,9 @@ class BlockBuilder:
 
     def assignment(self, stmt):
         print(f'Building assign')
-        inst = self.expression(stmt.expr)
-        self.current.defs[stmt.target] = inst
-        self.addInstruction( Instruction.STORE(inst, stmt.target), self.types.expressions[stmt.expr])
+        value = self.expression(stmt.expr)
+        self.current.defs[stmt.target] = value
+        self.addInstruction( Instruction.STORE(value, stmt.target), self.types.expressions[stmt.expr])
 
 
     def addInstruction(self, inst, instType):

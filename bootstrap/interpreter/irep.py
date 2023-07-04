@@ -164,6 +164,7 @@ class Instruction:
 class Value:
     def __init__(self, instruction=None, output=None, argument=None, phi=None, constant=None):
         self.instruction = instruction
+        assert instruction is None  or  isinstance(instruction,Instruction), instruction
         self.output = output
         assert output is None  or  instruction is not None, f'Output index needs an instruction source'
         self.argument = argument
@@ -248,7 +249,7 @@ class Block:
         if self.falseSucc is not None:
             print(f'  False -> {self.falseSucc}')
         for k,v in self.defs.items():
-            print(f'  {k} <- {v}')
+            print(f'  def {k} <- {v}')
         done.add(self)
         if self.trueSucc is not None and self.trueSucc not in done:
             self.trueSucc.dump(done=done)

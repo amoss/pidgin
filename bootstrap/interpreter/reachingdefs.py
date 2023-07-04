@@ -49,7 +49,7 @@ def findDef(name, block, memo, argNames):
         print(f'findDef on blk{block.label} found last def {lastDef}')
         memo.store(block, (lastDef, block) )
         return memo.map[block]
-    print(f'blk{block.label} had no lastDef - searching')
+    print(f'blk{block.label} had no lastDef for {name} - searching')
     incoming = findReachingDefs(name, block, memo, argNames)
     memo.update(block, incoming)
     return incoming
@@ -61,9 +61,11 @@ def calcReachingDefs(func):
     entry = func.entry
     argNames = [pair[0] for pair in funcArgs]
 
+    func.dump()
+
     for block in entry.reachable():
         for phi in block.instructions:
-            if not phi.isPhi():     continue
+            if not phi.isPhi() or len(phi.values)>0:     continue
             if phi.name not in memoTables:  memoTables[phi.name] = MultiDict()
             defs = findReachingDefs(phi.name, block, memoTables[phi.name], argNames)
             print(f'In blk{block.label}: {phi} updating with {defs}')
