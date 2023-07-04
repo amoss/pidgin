@@ -329,8 +329,13 @@ class SynToken:
 def collectSpans(node):
     return SynToken("".join(n.span for n in node.children))
 
+def transformAtom(node):
+    if len(node.children)==3 and node.terminalAt(0,'(') and node.terminalAt(2,')'):
+        return node.children[1]
+    return node
 
 ntTransformer = {
+    'atom':         (lambda node: transformAtom(node)),
     'binop4':       (lambda node: AST.Call(node.children[0], node.children[2])),
     'comma_pair':   (lambda node: node.children[0]),
     'decl':         (lambda node: transformDeclaration(node)),

@@ -198,14 +198,14 @@ class BlockBuilder:
         self.addInstruction(r, recType)
         if recType.isRecord():
             for name, valueAST in rec.record.items():
-                r = Instruction.RECORD_SET(r, name, self.expression(valueAST))
+                r = Instruction.RECORD_SET(Value(instruction=r), name, self.expression(valueAST))
                 self.addInstruction(r, recType)
-            return r
+            return Value(instruction=r)
         if recType.isTuple():
             for pos, identVal in enumerate(rec.children):
-                r = Instruction.TUPLE_SET(r, pos, self.expression(identVal.value))
+                r = Instruction.TUPLE_SET(Value(instruction=r), pos, self.expression(identVal.value))
                 self.addInstruction(r, recType)
-            return r
+            return Value(instruction=r)
         assert False, f'AST.Record must describe either a named-record or a tuple'
 
     def returnstmt(self, stmt):
@@ -215,9 +215,9 @@ class BlockBuilder:
         s = Instruction.NEW(self.types.expressions[theSet])
         self.addInstruction(s, self.types.expressions[theSet])
         for valueAST in theSet.elements:
-            s = Instruction.SET_INSERT(s, self.expression(valueAST))
+            s = Instruction.SET_INSERT(Value(instruction=s), self.expression(valueAST))
             self.addInstruction(s, self.types.expressions[theSet])
-        return s
+        return Value(instruction=s)
 
 
 
