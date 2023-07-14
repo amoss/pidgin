@@ -21,6 +21,7 @@ class TypedEnvironment:
         self.values      = {}
         self.expressions = {}
         self.instructions = {}
+        self.freshCounter = 0
 
 
     def dump(self):
@@ -47,6 +48,14 @@ class TypedEnvironment:
             self.types[name] = nameType
         else:
             self.types[name] = self.types[name].join(nameType)
+
+
+    def freshName(self, nameType):
+        assert isinstance(nameType,Type), nameType
+        name = f'%{self.freshCounter}'
+        self.freshCounter += 1
+        self.types[name] = nameType
+        return name
 
 
     def set(self, name, value):

@@ -5,7 +5,8 @@ from .box import Box
 from .types import Type
 
 class Instruction:
-    def __init__(self, op, *values, function=None, name=None, theType=None, box=None, transfer=None, position=None):
+    def __init__(self, op, *values, function=None, name=None, theType=None, outTypes=None, box=None, transfer=None,
+                 position=None):
         self.op = op
         self.values = values
         for v in values:
@@ -13,10 +14,12 @@ class Instruction:
         self.function = function
         self.name = name
         self.theType = theType
+        self.outTypes = outTypes
         self.box = box
         self.label = "unassigned"
         self.position = position
         self.transfer = transfer
+        self.block = None
 
     def __str__(self):
         fields = []
@@ -37,18 +40,42 @@ class Instruction:
             cellLabel += ' ' + self.name
         if self.function is not None:
             cellLabel += ' ' + self.function
+#        if len(self.values)>0:
+#            inPorts = [ f'<TD PORT="in{i}" HEIGHT="6" WIDTH="6" FIXEDSIZE="TRUE"><FONT POINT-SIZE="6">{i}</FONT></TD>'
+#                        for i in range(len(self.values)) ]
+#            inSpacing = [ '<TD></TD>' ] * len(inPorts)
+#            inCells = [cell for pair in zip(inPorts,inSpacing) for cell in pair][:-1]
+#            inRow = "".join(inCells)
+#            print(f' i{self.label} [shape=none,' +
+#                  f'label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="1"><TR>{inRow}</TR>' +
+#                  f'<TR><TD COLSPAN="{len(inCells)}">{cellLabel}</TD></TR>' +
+#                  outRow +
+#                  f'</TABLE>>];', file=output)
+#        else:
+#            print(f' i{self.label} [shape=none,label="{cellLabel}"];', file=output)
+
+        inRow, outRow, width = '', '', 1
         if len(self.values)>0:
             inPorts = [ f'<TD PORT="in{i}" HEIGHT="6" WIDTH="6" FIXEDSIZE="TRUE"><FONT POINT-SIZE="6">{i}</FONT></TD>'
                         for i in range(len(self.values)) ]
             inSpacing = [ '<TD></TD>' ] * len(inPorts)
             inCells = [cell for pair in zip(inPorts,inSpacing) for cell in pair][:-1]
-            inRow = "".join(inCells)
-            print(f' i{self.label} [shape=none,' +
-                  f'label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="1"><TR>{inRow}</TR>' +
-                  f'<TR><TD COLSPAN="{len(inCells)}">{cellLabel}</TD></TR>'
-                  f'</TABLE>>];', file=output)
-        else:
-            print(f' i{self.label} [shape=none,label="{cellLabel}"];', file=output)
+            if len(inCells)>width:
+                width = len(inCells)
+            inRow = '<TR>' + "".join(inCells) + '</TR>'
+        if self.outTypes is not None and self.theType is None:
+            outPorts = [ f'<TD PORT="out{i}" HEIGHT="6" WIDTH="6" FIXEDSIZE="TRUE"><FONT POINT-SIZE="6">{i}</FONT></TD>'
+                        for i in range(len(self.outTypes)) ]
+            outSpacing = [ '<TD></TD>' ] * len(outPorts)
+            outCells = [cell for pair in zip(outPorts,outSpacing) for cell in pair][:-1]
+            if len(outCells)>width:
+                width = len(outCells)
+            outRow = '<TR>' + "".join(outCells) + '</TR>'
+        print(f' i{self.label} [shape=none,label=<<TABLE BORDER="0" CELLBORDER="0" CELLPADDING="1">' +
+              inRow +
+              f'<TR><TD COLSPAN="{width}">{cellLabel}</TD></TR>' +
+              outRow +
+              '</TABLE>>];', file=output)
 
 
     def dotEdges(self, blockName, output):
@@ -91,39 +118,53 @@ class Instruction:
 
     @staticmethod
     def ADD_NUMBER(lhs, rhs):
-        return Instruction("add", lhs, rhs, transfer=lambda vs: Box(Type.NUMBER(), vs[0].raw + vs[1].raw))
+        t = Type.NUMBER()
+        return Instruction("add", lhs, rhs, theType=t, transfer=lambda vs: Box(t, vs[0].raw + vs[1].raw))
 
     @staticmethod
-    def CALL(target, argument):
-        return Instruction("call", argument, function=target)
+    def CALL(target, retType, argument):
+        return Instruction("call", argument, function=target, theType=retType)
 
     @staticmethod
     def EQUAL(lhs, rhs):
-        return Instruction("equal", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw == vs[1].raw))
+        t = Type.BOOL()
+        return Instruction("equal", lhs, rhs, theType=t, transfer=lambda vs: Box(t, vs[0].raw == vs[1].raw))
 
     @staticmethod
     def GREAT(lhs, rhs):
-        return Instruction("great", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw > vs[1].raw))
+        t = Type.BOOL()
+        return Instruction("great", lhs, rhs, theType=t, transfer=lambda vs: Box(t, vs[0].raw > vs[1].raw))
 
     @staticmethod
     def INEQUAL(lhs, rhs):
-        return Instruction("inequal", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw != vs[1].raw))
+        t = Type.BOOL()
+        return Instruction("inequal", lhs, rhs, theType=t, transfer=lambda vs: Box(t, vs[0].raw != vs[1].raw))
 
     @staticmethod
     def ITER_INIT(collection):
-        return Instruction("iter_init", collection, transfer=lambda vs: Box(Type.ITERATOR(vs[0].type.param1),
-                                                                            [0,len(vs[0].raw),tuple(vs[0].raw)]))
-    # TODO: Iterator is a list as we have a dirty stateful hack to remove in execution.
+        print(f'Init iterator from {type(collection)} {collection.type()}')
+        itType = Type.ITERATOR(collection.type().param1)      # NOTE: Will be different for maps
+        return Instruction("iter_init", collection, theType=itType,
+                           transfer=lambda vs: Box(itType, (0,len(vs[0].raw),tuple(vs[0].raw))))
 
     def ITER_CHECK(iterator):
-        return Instruction("iter_check", iterator, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw[0]<vs[0].raw[1]))
+        t = Type.BOOL()
+        return Instruction("iter_check", iterator, theType=t, transfer=lambda vs: Box(t, vs[0].raw[0]<vs[0].raw[1]))
 
     def ITER_ACCESS(iterator):
-        return Instruction("iter_access", iterator)
+        '''Output 0 is the new iterator state
+           Output 1 is the iterated value.'''
+        t = iterator.type()
+        return Instruction("iter_access", iterator, outTypes=(t,t.param1),
+                           transfer=lambda vs: (Box(t, (vs[0].raw[0]+1, vs[0].raw[1], vs[0].raw[2])),
+                                                # Box(t.param1, vs[0].raw[2][vs[0].raw[0].raw]) ) boxes are immutable
+                                                vs[0].raw[2][vs[0].raw[0]] )
+                          )
 
     @staticmethod
     def LESS(lhs, rhs):
-        return Instruction("less", lhs, rhs, transfer=lambda vs: Box(Type.BOOL(), vs[0].raw < vs[1].raw))
+        t = Type.BOOL()
+        return Instruction("less", lhs, rhs, theType=t, transfer=lambda vs: Box(t, vs[0].raw < vs[1].raw))
 
     @staticmethod
     def LOAD(name):
@@ -135,31 +176,37 @@ class Instruction:
 
     @staticmethod
     def ORD_APPEND(ord, val):
-        return Instruction("ord_append", ord, val, transfer=lambda vs: Box(vs[0].type, vs[0].raw + [val]))
+        t = ord.type()
+        return Instruction("ord_append", ord, val, theType=t, transfer=lambda vs: Box(t, vs[0].raw + [val]))
 
     @staticmethod
-    def PHI(name):
-        return Instruction("phi", name=name)
+    def PHI(name, theType):
+        return Instruction("phi", name=name, theType=theType)
 
     @staticmethod
     def RECORD_SET(record, name, value):
-        return Instruction("record_set", record, value, name=name,
-                           transfer=lambda vs: Box(vs[0].type, dict([(k,v) for k,v in vs[0].raw.items() if k!=name] + [(name,vs[1])])))
+        t = record.type()
+        return Instruction("record_set", record, value, name=name, theType=t,
+                           transfer=lambda vs: Box(t, dict([(k,v) for k,v in vs[0].raw.items() if k!=name] + [(name,vs[1])])))
+
+    @staticmethod
+    def SET_INSERT(theSet, newElement):
+        t = theSet.type()
+        return Instruction("set_insert", theSet, newElement, theType=t,
+                           transfer=lambda vs: Box(t, vs[0].raw.union(set([vs[1]]))))
 
     @staticmethod
     def STORE(value, name):
         assert isinstance(name,str)
-        return Instruction("store", value, name=name)
+        return Instruction("store", value, name=name, theType=value.type())
 
     @staticmethod
     def TUPLE_SET(record, pos, value):
         assert isinstance(pos,int)
-        return Instruction("tuple_set", record, value, position=pos,
-                           transfer=lambda vs: Box(vs[0].type, vs[0].raw[:pos]+(vs[1],)+vs[0].raw[pos+1:]))
+        t = record.type()
+        return Instruction("tuple_set", record, value, position=pos, theType=t,
+                           transfer=lambda vs: Box(t, vs[0].raw[:pos]+(vs[1],)+vs[0].raw[pos+1:]))
 
-    @staticmethod
-    def  SET_INSERT(theSet, newElement):
-        return Instruction("set_insert", theSet, newElement, transfer=lambda vs: Box(vs[0].type,vs[0].raw.union(set([vs[1]]))))
 
 class Value:
     def __init__(self, instruction=None, output=None, argument=None, constant=None):
@@ -193,9 +240,11 @@ class Value:
         return self.sig()==other.sig()
 
     def type(self):
-        if self.instruction is not None:
+        if self.instruction is not None and self.output is None:
             assert self.instruction.theType is not None, self.instruction
             return self.instruction.theType
+        if self.instruction is not None and self.output is not None:
+            return self.instruction.outTypes[self.output]
         if self.constant is not None:
             return self.constant.type
         assert False
@@ -262,6 +311,17 @@ class Block:
         if self.falseSucc is not None and self.falseSucc not in done:
             self.falseSucc.dump(done=done)
 
+
+    def insert(self, instruction, pos=-1):
+        instruction.block = self
+        if pos==-1:
+            instruction.label = f'{self.label}_{len(self.instructions)}'
+            self.instructions.append(instruction)
+        else:
+            self.instructions = self.instructions[:pos] + [instruction] + self.instructions[pos:]
+            for i in range(pos, len(self.instructions)+1):
+                self.instructions[i].label = f'{self.label}_{i}'
+        return instruction
 
     def lastDefinition(self, name):
         result = None

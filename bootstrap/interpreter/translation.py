@@ -31,8 +31,7 @@ class BlockBuilder:
             elif isinstance(stmt, AST.Return):
                 self.returnstmt(stmt)
             elif isinstance(stmt, AST.Call):
-                inst = Instruction.CALL( stmt.function, self.expression(stmt.arg) )
-                self.addInstruction(inst, self.types.types[stmt.function].param2)
+                self.current.insert(Instruction.CALL( stmt.function, self.types.types[stmt.function].param2, self.expression(stmt.arg) ))
             elif type(stmt) in (AST.FunctionDecl, AST.EnumDecl, AST.TypeSynonym):
                 pass
             elif isinstance(stmt, AST.If):
@@ -72,30 +71,34 @@ class BlockBuilder:
                 initBB = Block()
                 self.current.connect(True,initBB)
                 val = self.expression(stmt.expr)
-                initIterator = Instruction.ITER_INIT(val)
                 elemType = self.types.types[stmt.ident.span]
-                self.addInstruction(initIterator, Type.ITERATOR(elemType))
+                initIterator = Instruction.ITER_INIT(val)
+                self.current.insert(initIterator)
+                itName = self.types.freshName(initIterator.theType)
+                self.current.insert(Instruction.STORE(Value(instruction=initIterator), itName))
 
                 headerBB = Block()
                 self.current.connect(True,headerBB)
                 self.current = headerBB
-                phi = Instruction.PHI(None)
-                self.addInstruction(phi, Type.ITERATOR(elemType))
+                phi = Instruction.PHI(itName, theType=initIterator.theType)
+                self.current.insert(phi)
                 inst = Instruction.ITER_CHECK(Value(instruction=phi))
-                self.addInstruction(inst, Type.BOOL())
+                self.current.insert(inst)
 
                 mergeBB = Block()
                 self.current.connect(False,mergeBB)
                 bodyBB = Block()
                 self.current.connect(True,bodyBB)
                 self.current = bodyBB
-                access = Instruction.ITER_ACCESS(Value(instruction=phi))
-                self.addInstruction(access, elemType)
-                inst = Instruction.STORE(Value(instruction=access,output=1), stmt.ident.span)
-                self.addInstruction(inst, elemType)
-                self.current.defs[stmt.ident.span] = Value(instruction=access,output=1)
-                phi.values = (Value(instruction=initIterator), Value(instruction=access,output=0))
-                phi.inputBlocks = [initBB, bodyBB]
+                access = self.current.insert(Instruction.ITER_ACCESS(Value(instruction=phi)))
+                newIt   = Value(instruction=access, output=0)
+                itValue = Value(instruction=access, output=1)
+
+                storeIt = self.current.insert(Instruction.STORE(itValue, stmt.ident.span))
+                self.current.defs[stmt.ident.span] = Value(instruction=storeIt)
+                self.current.insert(Instruction.STORE(newIt, itName))
+                self.current.defs[newIt] = newIt
+
                 self.fromScope(stmt.scope)
                 self.current.connect(True,headerBB)
 
@@ -109,27 +112,20 @@ class BlockBuilder:
         print(f'Building assign')
         value = self.expression(stmt.expr)
         self.current.defs[stmt.target] = value
-        self.addInstruction( Instruction.STORE(value, stmt.target), self.types.expressions[stmt.expr])
+        self.current.insert( Instruction.STORE(value, stmt.target) )
 
-
-    def addInstruction(self, inst, instType):
-        inst.label = f'{self.current.label}_{len(self.current.instructions)}'
-        self.current.instructions.append(inst)
-        inst.theType = instType                         # TODO: do we need both?
-        self.types.instructions[inst] = instType
-        return inst
 
     def condition(self, condition):
         lhs = self.expression(condition.children[0])
         rhs = self.expression(condition.children[2])
         if condition.children[1].span=='<':
-            return self.addInstruction( Instruction.LESS(lhs,rhs), Type.BOOL())
+            return self.current.insert( Instruction.LESS(lhs,rhs) )
         if condition.children[1].span=='>':
-            return self.addInstruction( Instruction.GREAT(lhs,rhs), Type.BOOL())
+            return self.current.insert( Instruction.GREAT(lhs,rhs) )
         if condition.children[1].span=='==':
-            return self.addInstruction( Instruction.EQUAL(lhs,rhs), Type.BOOL())
+            return self.current.insert( Instruction.EQUAL(lhs,rhs) )
         if condition.children[1].span=='!=':
-            return self.addInstruction( Instruction.INEQUAL(lhs,rhs), Type.BOOL())
+            return self.current.insert( Instruction.INEQUAL(lhs,rhs) )
         assert False, f'Unknown conditional in translation {self.children[1].span}'
 
     def expression(self, expr):
@@ -151,7 +147,9 @@ class BlockBuilder:
             if expr.span in self.current.defs:
                 return self.current.defs[expr.span]
             assert exprType is not None
-            value = Value(instruction=self.addInstruction(Instruction.PHI(expr.span),exprType))
+            inst = Instruction.PHI(expr.span, exprType)
+            self.current.insert(inst)
+            value = Value(instruction=inst)
             self.current.defs[expr.span] = value
             return value
 
@@ -166,15 +164,16 @@ class BlockBuilder:
                 if lhs.type().isNumber() and rhs.type().isNumber():
                 #if self.types.instructions[lhs].isNumber() and self.types.instructions[rhs].isNumber():
                     inst = Instruction.ADD_NUMBER(lhs,rhs)
-                    self.addInstruction(inst, Type.NUMBER())
+                    self.current.insert(inst)
                 else:
                     assert False, f'Unknown types for add operation'
                 lhs = inst
             return Value(instruction=inst)
 
         if isinstance(expr, AST.Call):
-            inst = Instruction.CALL( expr.function, self.expression(expr.arg) )
-            return Value(instruction=self.addInstruction(inst, self.types.types[expr.function].param2))
+            inst = Instruction.CALL( expr.function, self.types.types[expr.function].param2, self.expression(expr.arg) )
+            self.current.insert(inst)
+            return Value(instruction=inst)
 
         if isinstance(expr, AST.Record):
             return self.record(expr)
@@ -190,26 +189,26 @@ class BlockBuilder:
     def order(self, theOrd):
         print(f'New order: {self.types.expressions[theOrd]}')
         s = Instruction.NEW(self.types.expressions[theOrd])
-        self.addInstruction(s, self.types.expressions[theOrd])
+        self.current.insert(s)
         for valueAST in theOrd.seq:
             s = Instruction.ORD_APPEND(s, self.expression(valueAST))
-            self.addInstruction(s, self.types.expressions[theOrd])
+            self.current.insert(s)
         return s
 
 
     def record(self, rec):
         recType = self.types.expressions[rec]
         r = Instruction.NEW(recType)
-        self.addInstruction(r, recType)
+        self.current.insert(r)
         if recType.isRecord():
             for name, valueAST in rec.record.items():
                 r = Instruction.RECORD_SET(Value(instruction=r), name, self.expression(valueAST))
-                self.addInstruction(r, recType)
+                self.current.insert(r)
             return Value(instruction=r)
         if recType.isTuple():
             for pos, identVal in enumerate(rec.children):
                 r = Instruction.TUPLE_SET(Value(instruction=r), pos, self.expression(identVal.value))
-                self.addInstruction(r, recType)
+                self.current.insert(r)
             return Value(instruction=r)
         assert False, f'AST.Record must describe either a named-record or a tuple'
 
@@ -218,10 +217,10 @@ class BlockBuilder:
 
     def set(self, theSet):
         s = Instruction.NEW(self.types.expressions[theSet])
-        self.addInstruction(s, self.types.expressions[theSet])
+        self.current.insert(s)
         for valueAST in theSet.elements:
             s = Instruction.SET_INSERT(Value(instruction=s), self.expression(valueAST))
-            self.addInstruction(s, self.types.expressions[theSet])
+            self.current.insert(s)
         return Value(instruction=s)
 
 

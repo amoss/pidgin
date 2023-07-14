@@ -23,8 +23,13 @@ class Execution:
         def resolve(self, value):
             if value.constant is not None:
                 return value.constant
+            if value.output is not None and value.instruction is not None:
+                return self.values[value.instruction][value.output]
             if value.instruction is not None:
                 return self.values[value.instruction]
+            if value.argument is not None:
+                return self.env.values[value.argument]
+
             assert False, f'Cannot resolve {value} in frame'
 
     def __init__(self, outermost, initialEnv, input=''):
@@ -99,20 +104,29 @@ class Execution:
             frame.position += 1
             return True
         if inst.isStore():
-            frame.env.values[inst.name] = frame.values[inst.values[0]]
-            print(f'Stored {frame.env.values[inst.name]} as {inst.name}')
+            value = frame.resolve(inst.values[0])
+            print(f'Stored {value} as {inst.name}')
+            frame.env.values[inst.name] = value
+            frame.values[inst] = value
             frame.env.dump()
             frame.position += 1
             return True
-        if inst.isIterAccess():
-            # TODO: this is not pure. fix when we do SSA properly and add multiple ouputs to instructions.
-            # should be a new version of the iterator as well as value, and propagate back around loop back-edge
-            # via a phi-node.
-            iterator = frame.values[inst.values[0]]
-            val = iterator.raw[2][iterator.raw[0]]
-            iterator.raw[0] += 1    # TODO: don't update existing value
-            frame.values[inst] = val
-            frame.position += 1
-            return True
+        if inst.isPhi():
+            if inst.name is None:
+                assert False
+            else:
+                result = frame.env.values[inst.name]
+                frame.values[inst] = result
+                frame.position += 1
+                print(f'Phi of {inst.name} resolved to {result}')
+                return True
+#        if inst.isIterAccess():
+#            iterator = frame.values[inst.values[0]]
+#            val = iterator.raw[2][iterator.raw[0]]
+#            newIt = Box
+#            iterator.raw[0] += 1    # TODO: don't update existing value
+#            frame.values[inst] = val
+#            frame.position += 1
+#            return True
         assert False
 

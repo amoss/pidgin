@@ -1,6 +1,7 @@
 # Copyright (C) 2023 Dr Andrew Moss.    You should have received a copy of the GNU General Public License
 #                                       along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from .irep import Instruction, Value
 from ..util import strs
 
 def eliminatePhi(func):
@@ -29,6 +30,4 @@ def eliminatePhi(func):
             if len(delete)>0:
                 block.instructions = [ inst for inst in block.instructions if inst not in delete ]
                 eliminated = True
-
-
 
