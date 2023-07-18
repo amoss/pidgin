@@ -101,18 +101,9 @@ def trees_from_spec(max_degree, spec):
     if len(spec)==0:
         yield []
     else:
-        for tree in trees(max_degree, spec[0][0], spec[0][1]):
+        for tree in trees_of_degree(max_degree, spec[0][0], spec[0][1]):
             for suffix in trees_from_spec(max_degree, spec[1:]):
                 yield [tree] + suffix
-
-def trees(max_degree, root_degree, nodes):
-    if nodes==0:
-        yield Node()
-    else:
-        for spec in tree_child_specs(max_degree, root_degree, nodes):
-            for children in trees_from_spec(max_degree, spec):
-                yield Node(children=children)
-
 
 def tree_child_specs(max_degree, root_degree, nodes):
     assert nodes >= root_degree
@@ -130,7 +121,22 @@ def tree_child_specs(max_degree, root_degree, nodes):
             for left_degree in range(1, min(max_degree,left_size)+1):
                 for suffix in tree_child_specs(max_degree, root_degree-1, nodes-left_size-1):
                     yield [(left_degree,left_size)] + suffix
-        
+
+def trees_of_degree(max_degree, root_degree, nodes):
+    if nodes==0:
+        yield Node()
+    else:
+        for spec in tree_child_specs(max_degree, root_degree, nodes):
+            for children in trees_from_spec(max_degree, spec):
+                yield Node(children=children)
+
+def trees(max_degree, nodes):
+    if nodes==0:
+        yield Node()
+    else:
+        for degree in range(1,min(nodes,max_degree)+1):
+            for tree in trees_of_degree(max_degree, degree, nodes):
+                yield tree
 
 
 
