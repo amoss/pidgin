@@ -1,7 +1,9 @@
 Short-term
 -----------
 
-* Add multiple outputs for instructions (so that iterators can be handled correctly).
+* Fast generation of random trees.
+* Transformation of tree+grammar to language string.
+* Look at other bias parameters (e.g. fixed number of nonterminals by tag).
 * Expand the set of tests to cover the SSA generation.
 * Fill out set of operators and their implementations.
 * Add implicit threading of stdin/stdout to translation and type-checking.
@@ -30,7 +32,4 @@ Open questions
 
 * How should the parts of the parser be structured in the language to access
   as first-class primitives?
-* How should generation be handled for ECLR (i.e. do some experiments on tree
-  generation to work out how to adaptively shape trees from bias parameters and
-  convert to sampling of grammars).
 
