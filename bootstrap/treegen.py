@@ -1,4 +1,4 @@
-import random
+import math, random
 
 class Node:
     def __init__(self, children=None):
@@ -85,6 +85,7 @@ def count_partitions(n,max_int=None):
     return count
 
 
+# Rough sketch
 
 def child_degrees(max_nodes, length, max_degree):
     if max_nodes==0:
@@ -96,14 +97,7 @@ def child_degrees(max_nodes, length, max_degree):
             for suffix in child_degrees(max_nodes-i,length-1,max_degree):
                 yield [i] + suffix
 
-
-def trees_from_spec(max_degree, spec):
-    if len(spec)==0:
-        yield []
-    else:
-        for tree in trees_of_degree(max_degree, spec[0][0], spec[0][1]):
-            for suffix in trees_from_spec(max_degree, spec[1:]):
-                yield [tree] + suffix
+# Specification generator for subtrees (auxillery)
 
 def tree_child_specs(max_degree, root_degree, nodes):
     assert nodes >= root_degree
@@ -122,6 +116,17 @@ def tree_child_specs(max_degree, root_degree, nodes):
                 for suffix in tree_child_specs(max_degree, root_degree-1, nodes-left_size-1):
                     yield [(left_degree,left_size)] + suffix
 
+# Tree generator (wrt spec generator auxillery)
+
+def trees_from_spec(max_degree, spec):
+    if len(spec)==0:
+        yield []
+    else:
+        for tree in trees_of_degree(max_degree, spec[0][0], spec[0][1]):
+            for suffix in trees_from_spec(max_degree, spec[1:]):
+                yield [tree] + suffix
+
+
 def trees_of_degree(max_degree, root_degree, nodes):
     if nodes==0:
         yield Node()
@@ -137,6 +142,29 @@ def trees(max_degree, nodes):
         for degree in range(1,min(nodes,max_degree)+1):
             for tree in trees_of_degree(max_degree, degree, nodes):
                 yield tree
+
+# Tree counting function (wrt spec generator auxillery)
+
+def count_by_degree(max_degree, root_degree, nodes):
+    if nodes==0:
+        return 1
+    combinations = [ count_by_spec(max_degree,spec) for spec in tree_child_specs(max_degree, root_degree, nodes) ]
+    return sum(combinations)
+
+def count_by_spec(max_degree, spec):
+    return math.prod(count_by_degree(max_degree, degree, size) for (degree,size) in spec)
+
+def count_tree(max_degree, nodes):
+    if nodes==0:
+        return 1
+    return sum(count_by_degree(max_degree, degree, nodes) for degree in range(1,min(nodes,max_degree)+1) )
+
+
+for n in range(1,100):
+    print(f'{n} {len(list(trees(4,n)))} {count_tree(4,n)}')
+
+
+
 
 
 
