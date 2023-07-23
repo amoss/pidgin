@@ -159,9 +159,37 @@ def count_tree(max_degree, nodes):
         return 1
     return sum(count_by_degree(max_degree, degree, nodes) for degree in range(1,min(nodes,max_degree)+1) )
 
+# Memoised counting function
+
+def memo_count(max_degree, root_degree, nodes):
+    memo_count.table = getattr(memo_count,'table',{})
+    key = (max_degree,root_degree,nodes)
+    if key in memo_count.table:      return memo_count.table[key]
+    if root_degree==1:
+        if nodes-1==0:
+            return 1
+        subtrees = sum(memo_count(max_degree,degree,nodes-1) for degree in range(1,min(nodes-1,max_degree)+1))
+        memo_count.table[key] = subtrees
+        return subtrees
+    combinations = memo_count(max_degree, root_degree-1, nodes-1)   # First child leaf combinations
+    free_nodes = nodes - root_degree
+    for left_size in range(1,free_nodes+1):
+        for left_degree in range(1, min(max_degree,left_size)+1):
+            combinations += memo_count(max_degree, left_degree, left_size) * \
+                            memo_count(max_degree, root_degree-1, nodes-left_size-1)
+    memo_count.table[key] = combinations
+    return combinations
+
+def memo_tree(max_degree, nodes):
+    if nodes==0:
+        return 1
+    return sum(memo_count(max_degree, degree, nodes) for degree in range(1,min(nodes,max_degree)+1) )
+
+
 
 for n in range(1,100):
-    print(f'{n} {len(list(trees(4,n)))} {count_tree(4,n)}')
+    #print(f'{n} {len(list(trees(4,n)))} {count_tree(4,n)} {memo_tree(4,n)}')
+    print(f'{n} {memo_tree(4,n)}')
 
 
 
