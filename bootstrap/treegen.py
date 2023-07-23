@@ -162,6 +162,11 @@ def count_tree(max_degree, nodes):
 # Memoised counting function
 
 def memo_count(max_degree, root_degree, nodes):
+    '''Note that this functions counts both the number of trees with *nodes* below the root arranged so that
+       there are *root_degree* immediate children, and the number of forests with *root_degree* trees containing
+       a total of *nodes*. These are the same because we use the count of nodes within the tree (i.e. not
+       counting the root). In particular the product in the innermost loop is used the number of trees on the
+       left and the number of forests on the right.'''
     memo_count.table = getattr(memo_count,'table',{})
     key = (max_degree,root_degree,nodes)
     if key in memo_count.table:      return memo_count.table[key]
@@ -185,11 +190,43 @@ def memo_tree(max_degree, nodes):
         return 1
     return sum(memo_count(max_degree, degree, nodes) for degree in range(1,min(nodes,max_degree)+1) )
 
+# Tree sampler
+
+def weighted_choice(keys_weights):
+    total = sum(key_weights)
+    choice = random.randrange(total)
+    weight_sum = 0
+    for pos,(key,weight) in enumerate(key_weights):
+        if choice < weight_sum+weight:
+            return key
+        weight_sum += weight
+    assert False
+
+def tree_sample(max_degree, nodes):
+    if nodes==0: return Node()
+    combs_by_degree = [ (degree,memo_count(max_degree,degree,nodes)) for degree in range(1,min(max_degree,nodes)+1) ]
+    degree = weighted_choice(combs_by_degree)
+    if degree==1:
+        subtree = tree_sample(max_degree, nodes-1)
+        return Node([subtree])
+    free_nodes = nodes - root_degree
+    ### Not quite right...
+    ### Need to work out the distributions of sizes to subtrees and fix those sizes first with a weighted choice.
+    ##  Then sample each subtree.
+    combs_by_spec = [ (left_size,left_degree,memo_count(max_degree,left_degree,left_size) *     # Trees in left-most
+                                             memo_count(max_degree,degree-1,nodes-left_size-1)) # Forests
+                        for left_size in range(1,free_nodes+1)
+                        for left_degree in range(1, min(max_degree,left_size)+1)
+                    ]
+    left_size,left_degree = weighted_choice(combs_by_spec)
+
+
+
 
 
 for n in range(1,100):
     #print(f'{n} {len(list(trees(4,n)))} {count_tree(4,n)} {memo_tree(4,n)}')
-    print(f'{n} {memo_tree(4,n)}')
+    print(f'{memo_tree(6,n)}')
 
 
 
