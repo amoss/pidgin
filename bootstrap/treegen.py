@@ -40,21 +40,12 @@ class Distribution:
     def dump(self):
         for k in sorted(self.store.keys()):
             print(f'{k} : {self.store[k]}')
+        print(f'Max ratio: {self.maxRatio()}')
 
     def maxRatio(self):
         high = max(self.store.values())
         low  = min(self.store.values())
         return high/low
-
-
-# Different approaches for generating random trees:
-#  1. Pick a random node, add a child
-#       Results show this is very skewed and non-uniform. I wonder if this is equivalent to a Prufer sequence
-#       but without the normalization step from picking the degrees first and then joining?
-#  2. Generate a Prufer sequence, convert to tree
-#  3. Partition the number of remaining nodes and generate subtrees
-#  4. Start with forest of nodes, choose joins.
-#  5. Random walk down tree, deciding where to add node
 
 
 def ip(n,k=None):
@@ -193,40 +184,51 @@ def memo_tree(max_degree, nodes):
 # Tree sampler
 
 def weighted_choice(keys_weights):
-    total = sum(key_weights)
+    if len(keys_weights)==1:   return keys_weights[0][0]
+    print(keys_weights)
+    total = sum(w for _,w in keys_weights)
     choice = random.randrange(total)
     weight_sum = 0
-    for pos,(key,weight) in enumerate(key_weights):
+    for pos,(key,weight) in enumerate(keys_weights):
+        #print(f'key:{key}   weight: {weight}')
         if choice < weight_sum+weight:
             return key
         weight_sum += weight
     assert False
 
+def tree_sample_by_degree(max_degree, root_degree, nodes):
+    assert (nodes>0) == (root_degree>0)
+    if nodes==0:         return Node()
+    if root_degree==1:   return Node([tree_sample(max_degree, nodes-1)])
+    print(f'sample degree={root_degree} node={nodes}')
+    free_nodes = nodes - root_degree
+    if free_nodes==0:    return Node([Node() for i in range(root_degree)])
+    combs_by_spec = [ ((left_size,left_degree),memo_count(max_degree, left_degree, left_size) *
+                                               memo_count(max_degree, root_degree-1, nodes-left_size-1))
+                        for left_size in range(1,free_nodes+1)
+                        for left_degree in range(1, min(max_degree,left_size)+1)
+                    ]
+    left_size, left_degree = weighted_choice(combs_by_spec)
+
+    first_child = tree_sample_by_degree(max_degree, left_degree, left_size)
+    rest        = tree_sample_by_degree(max_degree, root_degree-1, nodes-left_size-1)
+    children    = [first_child] + rest.children
+    return Node(children)
+
+
 def tree_sample(max_degree, nodes):
     if nodes==0: return Node()
     combs_by_degree = [ (degree,memo_count(max_degree,degree,nodes)) for degree in range(1,min(max_degree,nodes)+1) ]
     degree = weighted_choice(combs_by_degree)
-    if degree==1:
-        subtree = tree_sample(max_degree, nodes-1)
-        return Node([subtree])
-    free_nodes = nodes - root_degree
-    ### Not quite right...
-    ### Need to work out the distributions of sizes to subtrees and fix those sizes first with a weighted choice.
-    ##  Then sample each subtree.
-    combs_by_spec = [ (left_size,left_degree,memo_count(max_degree,left_degree,left_size) *     # Trees in left-most
-                                             memo_count(max_degree,degree-1,nodes-left_size-1)) # Forests
-                        for left_size in range(1,free_nodes+1)
-                        for left_degree in range(1, min(max_degree,left_size)+1)
-                    ]
-    left_size,left_degree = weighted_choice(combs_by_spec)
+    return tree_sample_by_degree(max_degree, degree, nodes)
 
 
-
-
-
-for n in range(1,100):
-    #print(f'{n} {len(list(trees(4,n)))} {count_tree(4,n)} {memo_tree(4,n)}')
-    print(f'{memo_tree(6,n)}')
+d = Distribution()
+n = 3
+for i in range(10):
+    #d.add( random.randrange(50) )
+    d.add( tree_sample(2,n) )
+d.dump()
 
 
 
