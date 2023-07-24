@@ -185,7 +185,7 @@ def memo_tree(max_degree, nodes):
 
 def weighted_choice(keys_weights):
     if len(keys_weights)==1:   return keys_weights[0][0]
-    print(keys_weights)
+    #print(keys_weights)
     total = sum(w for _,w in keys_weights)
     choice = random.randrange(total)
     weight_sum = 0
@@ -200,14 +200,15 @@ def tree_sample_by_degree(max_degree, root_degree, nodes):
     assert (nodes>0) == (root_degree>0)
     if nodes==0:         return Node()
     if root_degree==1:   return Node([tree_sample(max_degree, nodes-1)])
-    print(f'sample degree={root_degree} node={nodes}')
+    #print(f'sample degree={root_degree} node={nodes}')
     free_nodes = nodes - root_degree
     if free_nodes==0:    return Node([Node() for i in range(root_degree)])
-    combs_by_spec = [ ((left_size,left_degree),memo_count(max_degree, left_degree, left_size) *
+    combs_by_spec = [ ((0,0), memo_count(max_degree, root_degree-1, nodes-1)) ] \
+                  + [ ((left_size,left_degree),memo_count(max_degree, left_degree, left_size) *
                                                memo_count(max_degree, root_degree-1, nodes-left_size-1))
-                        for left_size in range(1,free_nodes+1)
-                        for left_degree in range(1, min(max_degree,left_size)+1)
-                    ]
+                         for left_size in range(1,free_nodes+1)
+                         for left_degree in range(1, min(max_degree,left_size)+1)
+                     ]
     left_size, left_degree = weighted_choice(combs_by_spec)
 
     first_child = tree_sample_by_degree(max_degree, left_degree, left_size)
@@ -224,10 +225,10 @@ def tree_sample(max_degree, nodes):
 
 
 d = Distribution()
-n = 3
-for i in range(10):
+n = 5
+for i in range(100000):
     #d.add( random.randrange(50) )
-    d.add( tree_sample(2,n) )
+    d.add( tree_sample(3,n) )
 d.dump()
 
 
