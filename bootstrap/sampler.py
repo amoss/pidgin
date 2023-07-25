@@ -54,9 +54,20 @@ class Sampler:
 
         return combinations
 
+    # Different lists of expansion coefficents, for terminals
+    #   exact      - terminals "just"
+    #   zeroMore   - terminals "any" -> can treat same as nonterms?
+    #   oneMore    - could put one in exact, remainder in zeroMore?
+    #   zeroOne    - combinations of 0/1 in separate generator...
+    # Then for nonterms
+    #   "just" -> existing processing
+    #   "optional" -> modify existing to count zero separately
+    #   "any" -> ? include sequences in count
+    #   "some" -> ??
+
 if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
-    for i in range(3,5):
-        print(s.count_rule('atom',i))
+    for i in range(1,5):
+        print(s.count_rule('ident',i))
 

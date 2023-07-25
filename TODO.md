@@ -1,8 +1,7 @@
 Short-term
 -----------
 
-* Fast generation of random trees.
-* Transformation of tree+grammar to language string.
+* Sampler for grammar, same basic structure as tree sampler.
 * Look at other bias parameters (e.g. fixed number of nonterminals by tag).
 * Expand the set of tests to cover the SSA generation.
 * Fill out set of operators and their implementations.
@@ -32,4 +31,5 @@ Open questions
 
 * How should the parts of the parser be structured in the language to access
   as first-class primitives?
+* How should random sampling of the grammar be exposed in the language?
 
