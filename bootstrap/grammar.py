@@ -71,6 +71,8 @@ class Grammar:
             self.modifier = modifier
             self.strength = 'greedy'
             self.original = self if original is None else original
+            self.isTerminal    = True
+            self.isNonterminal = False
 
         def __str__(self):
             tag = f",{self.tag}" if self.tag!="" else ""
@@ -89,6 +91,8 @@ class Grammar:
             self.inverse  = inverse
             self.tag      = tag
             self.original = self if original is None else original
+            self.isTerminal    = True
+            self.isNonterminal = False
 
         def __str__(self):
             if len(self.chars)<=5:
@@ -111,6 +115,8 @@ class Grammar:
             self.name     = name
             self.modifier = modifier
             self.strength = strength
+            self.isTerminal    = False
+            self.isNonterminal = True
 
         def __str__(self):
             return f"N({self.strength},{self.modifier},{self.name})"
@@ -123,6 +129,8 @@ class Grammar:
             self.position = None
             self.modifier = "just"
             self.strength = "greedy"
+            self.isTerminal    = False
+            self.isNonterminal = False
 
         def __str__(self):
             return "Glue"
@@ -134,6 +142,8 @@ class Grammar:
             self.position = None
             self.modifier = "just"
             self.strength = "greedy"
+            self.isTerminal    = False
+            self.isNonterminal = False
 
         def __str__(self):
             return "Remover"
