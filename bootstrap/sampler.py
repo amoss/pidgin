@@ -15,12 +15,23 @@ from bootstrap.interpreter import buildCommon, stage2
 def ordered_partitions_n(total, length):
     if length==0:
         yield []
-    if length==1:
+    elif length==1:
         yield [total]
     else:
         for i in range(total+1):
             for suffix in ordered_partitions_n(total-i,length-1):
                 yield [i] + suffix
+
+def ordered_binary_partitions_below_n(total, length):
+    if length==0:
+        yield []
+    elif length==1:
+        yield [min(1,total)]
+    else:
+        for i in range(min(1,total)+1):
+            for suffix in ordered_binary_partitions_below_n(total-i,length-1):
+                yield [i] + suffix
+
 
 class Sampler:
     def __init__(self, grammar):
@@ -36,23 +47,10 @@ class Sampler:
         rule = self.grammar.rules[ruleName]
         return sum( self.count_clause(clause,size) for clause in rule.clauses)
 
-    def count_clause(self, clause, size):
-        terminals = [s for s in clause.rhs if s.isTerminal ]
-        nonTerms  = [s for s in clause.rhs if s.isNonterminal ]
-        print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
-        if len(nonTerms)==0 and size==len(terminals):  return 1
-        if len(nonTerms)==0 and size!=len(terminals):  return 0
-
-        freeTerms = size - len(terminals)
-        if freeTerms<=0:  return 0
-
-        combinations = 0
-        for subsizes in ordered_partitions_n(freeTerms, len(nonTerms)):
-            print(f'  check {list(zip(nonTerms,subsizes))}')
-            combinations += math.prod([ self.count_rule(n.name, s)  for n,s in zip(nonTerms,subsizes) ])
-        print(f'  total {combinations}')
-
-        return combinations
+    def count_nonterminal(self, symbol, size):
+        if n.modifier=="just":
+            return self.count_rule(n.name,size)
+        assert False
 
     # Different lists of expansion coefficents, for terminals
     #   exact      - terminals "just"
@@ -65,9 +63,38 @@ class Sampler:
     #   "any" -> ? include sequences in count
     #   "some" -> ??
 
+    def count_clause(self, clause, size):
+        terminals = [s for s in clause.rhs if s.isTerminal ]
+        nonTerms  = [s for s in clause.rhs if s.isNonterminal ]
+        exact     = len([s for s in terminals  if s.modifier=="just" ])
+        zeroOne   = [s for s in terminals  if s.modifier=="optional" ]
+        zeroMore  = [s for s in terminals  if s.modifier=="any" ]
+        oneMore   = [s for s in terminals  if s.modifier=="some" ]
+        exact    += len(oneMore)
+        flexible  = len(nonTerms) + len(zeroMore) + len(zeroOne) + len(oneMore)
+
+        print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
+        if len(nonTerms)==0 and size==exact:  return 1
+        if flexible==0      and size!=exact:  return 0
+
+        freeTerms = size - exact
+        if freeTerms<=0:  return 0
+
+        combinations = 0
+        for optSizes in ordered_binary_partitions_below_n(freeTerms, len(zeroOne)):
+            usedTerms = sum(optSizes)
+            stillFree = freeTerms - usedTerms
+            for subsizes in ordered_partitions_n(stillFree, flexible):
+                print(f'  check {list(zip(nonTerms,subsizes))}')
+                combinations += math.prod([ self.count_nonterminal(n, s)  for n,s in zip(nonTerms,subsizes) ])
+        print(f'  total {combinations}')
+
+        return combinations
+
+
 if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     for i in range(1,5):
-        print(s.count_rule('ident',i))
+        print(s.count_rule('str_lit',i))
 
