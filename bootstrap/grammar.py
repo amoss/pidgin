@@ -118,6 +118,9 @@ class Grammar:
             self.isTerminal    = False
             self.isNonterminal = True
 
+        def copy(self):
+            return Grammar.Nonterminal(self.name, strength=self.strength, modifier=self.modifier)
+
         def __str__(self):
             return f"N({self.strength},{self.modifier},{self.name})"
 

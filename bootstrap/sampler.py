@@ -48,8 +48,25 @@ class Sampler:
         return sum( self.count_clause(clause,size) for clause in rule.clauses)
 
     def count_nonterminal(self, symbol, size):
-        if n.modifier=="just":
-            return self.count_rule(n.name,size)
+        if symbol.modifier=="just":
+            return self.count_rule(symbol.name,size)
+        if symbol.modifier=="any":
+            if size==0:  return 1
+            combinations = 0
+            for prefix in range(1,size+1):
+                combinations += self.count_rule(symbol.name,prefix) * self.count_nonterminal(symbol, size-prefix)
+            return combinations
+        if symbol.modifier=="some":
+            if size==0:  return 0
+            combinations = 0
+            suffixSymbol = symbol.copy()
+            suffixSymbol.modifier = "any"
+            for prefix in range(1,size+1):
+                combinations += self.count_rule(symbol.name,prefix) * self.count_nonterminal(suffixSymbol, size-prefix)
+            return combinations
+        if symbol.modifier=="optional":
+            if size==0:  return 1
+            return self.count_rule(symbol.name,size)
         assert False
 
     # Different lists of expansion coefficents, for terminals
@@ -96,5 +113,5 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     for i in range(1,5):
-        print(s.count_rule('str_lit',i))
+        print(s.count_rule('map',i))
 
