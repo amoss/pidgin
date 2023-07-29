@@ -120,6 +120,7 @@ class Enumerator:
         rule = self.grammar.rules[ruleName]
         for clause in rule.clauses:
             for solution in self.produce_clause(clause,size):
+                #print(f' {clause} -> {solution}')
                 yield solution
 
     def produce_clause(self, clause, size):
@@ -137,7 +138,8 @@ class Enumerator:
         #print(f'{size} of exact {p(exact)} 01 {p(zeroOne)} 0+ {p(zeroMore)} 1+ {p(oneMore)} nt {p(subTerms)}')
         freeTerms = size - len(exact) - len(oneMore)
         flexible = len(zeroMore) + len(oneMore) + len(subTerms)
-        if freeTerms == 0:
+        if freeTerms==0 and len(exact)+len(oneMore)>0 and \
+           all([] in self.nonterm_expansion(s,0) for (_,s) in subTerms):
             result = [None] * len(resultAlignment)
             for (pos,s) in exact+oneMore:
                 result[pos] = s
@@ -206,7 +208,7 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     #s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(0,5):
-        for r in e.produce('set',i):
+    for i in range(4,5):
+        for r in e.produce('binop1',i):
             print(f'Solution: {strs(r)}')
 
