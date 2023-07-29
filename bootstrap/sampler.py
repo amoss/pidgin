@@ -125,17 +125,18 @@ class Enumerator:
     def produce_clause(self, clause, size):
         resultAlignment = [s for s in clause.rhs      if s.isTerminal or s.isNonterminal]
         terminals       = [s for s in resultAlignment if s.isTerminal ]
-        nonTerms        = [s for s in resultAlignment if s.isNonterminal ]
-        exact, zeroOne, zeroMore, oneMore = [], [], [], []
+        exact, zeroOne, zeroMore, oneMore, subTerms = [], [], [], [], []
         modifierMap = { "just":exact, "optional":zeroOne, "any":zeroMore, "some":oneMore }
         for i,s in enumerate(resultAlignment):
             if s.isTerminal:
                 modifierMap[s.modifier].append((i,s))
+            if s.isNonterminal:
+                subTerms.append((i,s))
         def p(col):
             return ", ".join([str(c[1]) + '@' + str(c[0]) for c in col])
-        print(f'{size} of exact {p(exact)} 01 {p(zeroOne)} 0+ {p(zeroMore)} 1+ {p(oneMore)}')
+        print(f'{size} of exact {p(exact)} 01 {p(zeroOne)} 0+ {p(zeroMore)} 1+ {p(oneMore)} nt {p(subTerms)}')
         freeTerms = size - len(exact) - len(oneMore)
-        flexible = len(zeroMore) + len(oneMore)
+        flexible = len(zeroMore) + len(oneMore) + len(subTerms)
         if freeTerms == 0:
             result = [None] * len(resultAlignment)
             for (pos,s) in exact+oneMore:
@@ -153,7 +154,55 @@ class Enumerator:
                     for f in range(len(zeroMore)):
                         pos,symbol = zeroMore[f]
                         result[pos] = [symbol] * subsizes[f]
-                    yield list(itertools.chain.from_iterable([s for s in result if len(s)>0]))
+                    for f in range(len(zeroMore),len(zeroMore)+len(oneMore)):
+                        pos,symbol = oneMore[f-len(zeroMore)]
+                        result[pos] = [symbol] * (subsizes[f]+1)
+                    for subSolution in self.nonterm_seq_expansion(subsizes[len(zeroMore)+len(oneMore):], subTerms):
+                        for pos,terms in subSolution:
+                            result[pos] = terms
+                        yield list(itertools.chain.from_iterable([s for s in result if len(s)>0]))
+
+    def nonterm_seq_expansion(self, sizes, nonterms):
+        assert len(sizes)==len(nonterms), (sizes,nonterms)
+        if len(sizes)==0:
+            yield []
+        else:
+            pos,symbol = nonterms[0]
+            size = sizes[0]
+            for initialTerms in self.nonterm_expansion(symbol,size):
+                for rest in self.nonterm_seq_expansion(sizes[1:], nonterms[1:]):
+                    yield [(pos,initialTerms)] + rest
+
+    def nonterm_expansion(self, symbol, size):
+        if symbol.modifier=="just":
+            for result in self.produce(symbol.name,size):
+                yield result
+        elif symbol.modifier=="any":
+            if size==0:
+                yield []
+            else:
+                for i in range(1,size+1):
+                    for initTerms in self.produce(symbol.name,size):
+                        for restTerms in self.nonterm_expansion(symbol,size-i):
+                            yield initTerms + restTerms
+        elif symbol.modifier=="some":
+            if size>0:
+                suffixSymbol = symbol.copy()
+                suffixSymbol.modifier = "any"
+                for i in range(1,size+1):
+                    for initTerms in self.produce(symbol.name,size):
+                        for restTerms in self.nonterm_expansion(suffixSymbol,size-i):
+                            yield initTerms + restTerms
+        elif symbol.modifier=="optional":
+            if size==0:
+                yield []
+            for terms in self.produce(symbol.name,size):
+                yield terms
+
+                        
+                        
+
+
 
 
 
@@ -165,6 +214,6 @@ if __name__=='__main__':
     #s = Sampler(stage1g)
     e = Enumerator(stage1g)
     for i in range(0,5):
-        for r in e.produce('str_lit2',i):
+        for r in e.produce('str_lit',i):
             print(f'Solution: {strs(r)}')
 
