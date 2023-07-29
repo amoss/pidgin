@@ -134,7 +134,7 @@ class Enumerator:
                 subTerms.append((i,s))
         def p(col):
             return ", ".join([str(c[1]) + '@' + str(c[0]) for c in col])
-        print(f'{size} of exact {p(exact)} 01 {p(zeroOne)} 0+ {p(zeroMore)} 1+ {p(oneMore)} nt {p(subTerms)}')
+        #print(f'{size} of exact {p(exact)} 01 {p(zeroOne)} 0+ {p(zeroMore)} 1+ {p(oneMore)} nt {p(subTerms)}')
         freeTerms = size - len(exact) - len(oneMore)
         flexible = len(zeroMore) + len(oneMore) + len(subTerms)
         if freeTerms == 0:
@@ -147,7 +147,7 @@ class Enumerator:
                 usedTerms = sum(optSizes)
                 stillFree = freeTerms - usedTerms
                 for subsizes in ordered_partitions_n(stillFree, flexible):
-                    print(f'opt: {optSizes} flex: {subsizes}')
+                    #print(f'opt: {optSizes} flex: {subsizes}')
                     result = [(),] * len(resultAlignment)
                     for (pos,s) in exact+oneMore:
                         result[pos] = [s]
@@ -160,9 +160,11 @@ class Enumerator:
                     for subSolution in self.nonterm_seq_expansion(subsizes[len(zeroMore)+len(oneMore):], subTerms):
                         for pos,terms in subSolution:
                             result[pos] = terms
+                        #print(f' raw: {result}')
                         yield list(itertools.chain.from_iterable([s for s in result if len(s)>0]))
 
     def nonterm_seq_expansion(self, sizes, nonterms):
+        #print(f' seq_exp: {strs(sizes)} {nonterms}')
         assert len(sizes)==len(nonterms), (sizes,nonterms)
         if len(sizes)==0:
             yield []
@@ -182,7 +184,7 @@ class Enumerator:
                 yield []
             else:
                 for i in range(1,size+1):
-                    for initTerms in self.produce(symbol.name,size):
+                    for initTerms in self.produce(symbol.name,i):
                         for restTerms in self.nonterm_expansion(symbol,size-i):
                             yield initTerms + restTerms
         elif symbol.modifier=="some":
@@ -190,7 +192,7 @@ class Enumerator:
                 suffixSymbol = symbol.copy()
                 suffixSymbol.modifier = "any"
                 for i in range(1,size+1):
-                    for initTerms in self.produce(symbol.name,size):
+                    for initTerms in self.produce(symbol.name,i):
                         for restTerms in self.nonterm_expansion(suffixSymbol,size-i):
                             yield initTerms + restTerms
         elif symbol.modifier=="optional":
@@ -199,21 +201,12 @@ class Enumerator:
             for terms in self.produce(symbol.name,size):
                 yield terms
 
-                        
-                        
-
-
-
-
-
-
-
 
 if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     #s = Sampler(stage1g)
     e = Enumerator(stage1g)
     for i in range(0,5):
-        for r in e.produce('str_lit',i):
+        for r in e.produce('set',i):
             print(f'Solution: {strs(r)}')
 
