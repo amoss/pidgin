@@ -126,11 +126,10 @@ class Enumerator:
                 yield solution
 
     def produce_clause(self, clause, size):
-        resultAlignment = [s for s in clause.rhs      if s.isTerminal or s.isNonterminal]
-        terminals       = [s for s in resultAlignment if s.isTerminal ]
+        terminals       = [s for s in clause.rhs if s.isTerminal ]
         exact, zeroOne, zeroMore, oneMore, subTerms = [], [], [], [], []
         modifierMap = { "just":exact, "optional":zeroOne, "any":zeroMore, "some":oneMore }
-        for i,s in enumerate(resultAlignment):
+        for i,s in enumerate(clause.rhs):
             if s.isTerminal:
                 modifierMap[s.modifier].append((i,s))
             if s.isNonterminal:
@@ -142,9 +141,12 @@ class Enumerator:
         flexible = len(zeroMore) + len(oneMore) + len(subTerms)
         if freeTerms==0 and len(exact)+len(oneMore)>0 and \
            all([] in self.nonterm_expansion(s,0) for (_,s) in subTerms):
-            result = [None] * len(resultAlignment)
+            result = [None] * len(clause.rhs)
             for (pos,s) in exact+oneMore:
                 result[pos] = s
+            for i,s in enumerate(clause.rhs):
+                if not s.isTerminal and not s.isNonterminal:
+                    result[i] = clause.rhs[i]
             yield [s for s in result if s is not None]
         elif freeTerms>0 and flexible>0:
             for optSizes in ordered_binary_partitions_below_n(freeTerms, len(zeroOne)):
@@ -152,7 +154,10 @@ class Enumerator:
                 stillFree = freeTerms - usedTerms
                 for subsizes in ordered_partitions_n(stillFree, flexible):
                     #print(f' opt: {optSizes} flex: {subsizes}')
-                    result = [(),] * len(resultAlignment)
+                    result = [(),] * len(clause.rhs)
+                    for i,s in enumerate(clause.rhs):
+                        if not s.isTerminal and not s.isNonterminal:
+                            result[i] = [clause.rhs[i]]
                     for (pos,s) in exact+oneMore:
                         result[pos] = [s]
                     for f in range(len(zeroMore)):
@@ -206,11 +211,29 @@ class Enumerator:
                 yield terms
 
 
+def renderText(terminals):
+    spacing = True
+    texts   = []
+    for t in terminals:
+        if isinstance(t, Grammar.TermString):
+            if spacing and len(texts)>0:
+                texts.append(" ")
+            texts.append(t.string)
+        if isinstance(t, Grammar.TermSet):
+            if spacing and len(texts)>0:
+                texts.append(" ")
+            texts.append(random.choice(list(t.chars)))
+        if isinstance(t, Grammar.Glue):
+            spacing = False
+        if isinstance(t, Grammar.Remover):
+            spacing = True
+    return "".join(texts)
+
 if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     #s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(5,6):
+    for i in range(10,11):
         for r in e.produce('set',i):
-            print(f'Solution: {strs(r)}')
+            print(f'Solution: {renderText(r)}')
 
