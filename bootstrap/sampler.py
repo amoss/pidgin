@@ -94,7 +94,7 @@ class Sampler:
         exact    += len(oneMore)
         flexible  = len(nonTerms) + len(zeroMore) + len(zeroOne) + len(oneMore)
 
-        print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
+        #print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
         if len(nonTerms)==0 and size==exact:  return 1
         if flexible==0      and size!=exact:  return 0
 
@@ -106,9 +106,9 @@ class Sampler:
             usedTerms = sum(optSizes)
             stillFree = freeTerms - usedTerms
             for subsizes in ordered_partitions_n(stillFree, flexible):
-                print(f'  check {list(zip(nonTerms,subsizes))}')
+                #print(f'  check {list(zip(nonTerms,subsizes))}')
                 combinations += math.prod([ self.count_nonterminal(n, s)  for n,s in zip(nonTerms,subsizes) ])
-        print(f'  total {combinations}')
+        #print(f'  total {combinations}')
 
         return combinations
 
@@ -231,9 +231,10 @@ def renderText(terminals):
 
 if __name__=='__main__':
     stage1g, _, _ = buildCommon()
-    #s = Sampler(stage1g)
+    s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(10,11):
-        for r in e.produce('set',i):
-            print(f'Solution: {renderText(r)}')
+    for i in range(7):
+        enumerated = [renderText(r) for r in e.produce('set',i)]
+        counted = s.count_rule('set',i)
+        print(f'count: {counted}  enum: {len(enumerated)}')
 
