@@ -28,7 +28,9 @@ def ordered_binary_partitions_below_n(total, length):
     if length==0:
         yield []
     elif length==1:
-        yield [min(1,total)]
+        yield [0]
+        if total>=1:
+            yield [1]
     else:
         for i in range(min(1,total)+1):
             for suffix in ordered_binary_partitions_below_n(total-i,length-1):
@@ -149,7 +151,7 @@ class Enumerator:
                 usedTerms = sum(optSizes)
                 stillFree = freeTerms - usedTerms
                 for subsizes in ordered_partitions_n(stillFree, flexible):
-                    #print(f'opt: {optSizes} flex: {subsizes}')
+                    #print(f' opt: {optSizes} flex: {subsizes}')
                     result = [(),] * len(resultAlignment)
                     for (pos,s) in exact+oneMore:
                         result[pos] = [s]
@@ -208,7 +210,7 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     #s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(4,5):
-        for r in e.produce('binop1',i):
+    for i in range(5,6):
+        for r in e.produce('set',i):
             print(f'Solution: {strs(r)}')
 
