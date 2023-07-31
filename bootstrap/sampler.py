@@ -49,10 +49,10 @@ class Sampler:
 
     def count_rule(self, ruleName, size):
         rule = self.grammar.rules[ruleName]
-        im = [self.count_clause(clause,size) for clause in rule.clauses]
-        print(ruleName,im)
-        return sum(im)
-        #return sum( self.count_clause(clause,size) for clause in rule.clauses)
+        #im = [self.count_clause(clause,size) for clause in rule.clauses]
+        #print(ruleName,im)
+        #return sum(im)
+        return sum( self.count_clause(clause,size) for clause in rule.clauses)
 
     def count_nonterminal(self, symbol, size):
         if symbol.modifier=="just":
@@ -95,13 +95,16 @@ class Sampler:
         zeroMore  = [s for s in terminals  if s.modifier=="any" ]
         oneMore   = [s for s in terminals  if s.modifier=="some" ]
         exact    += len(oneMore)
-        flexible  = len(nonTerms) + len(zeroMore) + len(zeroOne) + len(oneMore)
+        flexible  = len(nonTerms) + len(zeroMore) + len(oneMore)
 
         #print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
         if len(nonTerms)==0 and size==exact:  return 1
         if flexible==0      and size!=exact:  return 0
 
         freeTerms = size - exact
+        if freeTerms==0 and len(oneMore)==0 and all(self.count_nonterminal(n,0)==1 for n in nonTerms):
+            return 1
+
         if freeTerms<=0:  return 0
 
         combinations = 0
@@ -237,9 +240,9 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(2,3):
-        enumerated = [renderText(r) for r in e.produce('atom',i)]
-        counted = s.count_rule('atom',i)
+    for i in range(8):
+        enumerated = [renderText(r) for r in e.produce('set',i)]
+        counted = s.count_rule('set',i)
         print(f'count: {counted}  enum: {len(enumerated)}')
-        print(enumerated)
+        #print(enumerated)
 
