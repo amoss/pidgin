@@ -49,7 +49,10 @@ class Sampler:
 
     def count_rule(self, ruleName, size):
         rule = self.grammar.rules[ruleName]
-        return sum( self.count_clause(clause,size) for clause in rule.clauses)
+        im = [self.count_clause(clause,size) for clause in rule.clauses]
+        print(ruleName,im)
+        return sum(im)
+        #return sum( self.count_clause(clause,size) for clause in rule.clauses)
 
     def count_nonterminal(self, symbol, size):
         if symbol.modifier=="just":
@@ -121,6 +124,7 @@ class Enumerator:
     def produce(self, ruleName, size):
         rule = self.grammar.rules[ruleName]
         for clause in rule.clauses:
+            #print(f'clause: {clause}')
             for solution in self.produce_clause(clause,size):
                 #print(f' {clause} -> {solution}')
                 yield solution
@@ -233,8 +237,9 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(7):
-        enumerated = [renderText(r) for r in e.produce('set',i)]
-        counted = s.count_rule('set',i)
+    for i in range(2,3):
+        enumerated = [renderText(r) for r in e.produce('atom',i)]
+        counted = s.count_rule('atom',i)
         print(f'count: {counted}  enum: {len(enumerated)}')
+        print(enumerated)
 
