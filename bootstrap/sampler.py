@@ -8,6 +8,7 @@ if rootDir not in sys.path:
 
 import itertools
 import math
+import operator
 import random
 from bootstrap.grammar import Grammar
 from bootstrap.interpreter import buildCommon, stage2
@@ -65,18 +66,21 @@ class ClauseAllocation:
                 self.zero.append( (i,symbol) )
         self.numFlexible = len(self.zeroMore) + len(self.oneMore) + len(self.nonterms)
         self.posNonterms = len(self.zeroOne) + len(self.zeroMore) + len(self.oneMore)
+        self.posOneMore  = len(self.zeroOne) + len(self.zeroMore)
         self.assignmentOrder = self.zeroOne + self.zeroMore + self.oneMore + self.nonterms
+        self.offset      = [ 1 if i>=self.posOneMore and i<self.posNonterms else 0
+                             for i in range(len(self.assignmentOrder)) ]
 
     def assignments(self, size):
         freeTerms = size - len(self.one) - len(self.oneMore)
         if freeTerms==0:
-            yield [0] * (len(self.zeroOne) + self.numFlexible)
+            #yield [0] * (len(self.zeroOne) + self.numFlexible)
+            yield self.offset   # 1 for each oneMore and 0 elsewhere
         elif freeTerms>0  and  len(self.zeroMore)+self.numFlexible>0:
             for optSizes in ordered_binary_partitions_below_n(freeTerms, len(self.zeroOne)):
                 stillFree = freeTerms - sum(optSizes)
                 for subsizes in ordered_partitions_n(stillFree, self.numFlexible):
-                    # insert +1 for oneMore here
-                    yield optSizes+subsizes
+                    yield list(map(operator.add, optSizes+subsizes, self.offset))  # insert +1 to oneMore counts
 
     def assignment_nonterms(self, assignment):
         for i in range(len(self.nonterms)):
@@ -304,9 +308,9 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(4,5):
+    for i in range(9):
         enumerated = [renderText(r) for r in e.produce('set',i)]
         counted = s.count_rule('set',i)
         print(f'count: {counted}  enum: {len(enumerated)}')
-        print(enumerated)
+        #print(enumerated)
 
