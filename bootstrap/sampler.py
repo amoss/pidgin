@@ -37,6 +37,50 @@ def ordered_binary_partitions_below_n(total, length):
                 yield [i] + suffix
 
 
+class ClauseAllocation:
+    '''In sampling, enumeration and counting we face a common sub-problem. Given a clause (i.e. the r.h.s. of
+       a production) as a sentential form we have terminals in the forms: T, T?, T*, T+ and non-terminals with
+       the same possible modifiers. If we know the total number of terminals in the final productions we must
+       decide how to partition them over the symbols in the clause in a way that respects the modifiers.
+
+       The *assignments* method generates the lists of terminal-sizes assigned to each part of the clause. The
+       caller must ensure that the assignment to each non-terminal is valid (i.e. there may not exist an
+       expansion of that non-terminal to the number of terminals). The assignments to each kind of
+       terminal-modifier are valid as the sizes of each kind of expansion is dense, i.e. 1, 0-1, 0+, 1+.
+    '''
+    def __init__(self, clause):
+        self.one       = []
+        self.zeroOne   = []
+        self.zeroMore  = []
+        self.oneMore   = []
+        self.nonterms  = []
+        self.zero      = []
+        modifierMap = { "just":self.one, "optional":self.zeroOne, "any":self.zeroMore, "some":self.oneMore }
+        for i,symbol in enumerate(clause):
+            if symbol.isTerminal:
+                modifierMap[symbol.modifier].append( (i,symbol) )
+            elif symbol.isNonterminal:
+                self.nonterms.append( (i,symbol) )
+            else:
+                self.zero.append( (i,symbol) )
+        self.numFlexible = len(self.zeroMore) + len(self.oneMore) + len(self.nonterms)
+        self.posNonterms = len(self.zeroOne) + len(self.zeroMore) + len(self.oneMore)
+
+    def assignments(self, size):
+        freeTerms = size - len(self.one) - len(self.oneMore)
+        if freeTerms==0:
+            yield [0] * (len(self.zeroOne) + self.numFlexible)
+        elif freeTerms>0  and  len(self.zeroMore)+self.numFlexible>0:
+            for optSizes in ordered_binary_partitions_below_n(freeTerms, len(self.zeroOne)):
+                stillFree = freeTerms - sum(optSizes)
+                for subsizes in ordered_partitions_n(stillFree, self.numFlexible):
+                    yield optSizes+subsizes
+
+    def assignment_nonterms(self, assignment):
+        for i in range(len(self.nonterms)):
+            yield (assignment[self.posNonterms+i], self.nonterms[i][1])
+
+
 class Sampler:
     def __init__(self, grammar):
         self.grammar = grammar
@@ -76,47 +120,48 @@ class Sampler:
             return self.count_rule(symbol.name,size)
         assert False
 
-    # Different lists of expansion coefficents, for terminals
-    #   exact      - terminals "just"
-    #   zeroMore   - terminals "any" -> can treat same as nonterms?
-    #   oneMore    - could put one in exact, remainder in zeroMore?
-    #   zeroOne    - combinations of 0/1 in separate generator...
-    # Then for nonterms
-    #   "just" -> existing processing
-    #   "optional" -> modify existing to count zero separately
-    #   "any" -> ? include sequences in count
-    #   "some" -> ??
+
 
     def count_clause(self, clause, size):
-        terminals = [s for s in clause.rhs if s.isTerminal ]
-        nonTerms  = [s for s in clause.rhs if s.isNonterminal ]
-        exact     = len([s for s in terminals  if s.modifier=="just" ])
-        zeroOne   = [s for s in terminals  if s.modifier=="optional" ]
-        zeroMore  = [s for s in terminals  if s.modifier=="any" ]
-        oneMore   = [s for s in terminals  if s.modifier=="some" ]
-        exact    += len(oneMore)
-        flexible  = len(nonTerms) + len(zeroMore) + len(oneMore)
-
-        #print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
-        if len(nonTerms)==0 and size==exact:  return 1
-        if flexible==0      and size!=exact:  return 0
-
-        freeTerms = size - exact
-        if freeTerms==0 and len(oneMore)==0 and all(self.count_nonterminal(n,0)==1 for n in nonTerms):
-            return 1
-
-        if freeTerms<=0:  return 0
+        alloc = ClauseAllocation(clause.rhs)
 
         combinations = 0
-        for optSizes in ordered_binary_partitions_below_n(freeTerms, len(zeroOne)):
-            usedTerms = sum(optSizes)
-            stillFree = freeTerms - usedTerms
-            for subsizes in ordered_partitions_n(stillFree, flexible):
-                #print(f'  check {list(zip(nonTerms,subsizes))}')
-                combinations += math.prod([ self.count_nonterminal(n, s)  for n,s in zip(nonTerms,subsizes) ])
-        #print(f'  total {combinations}')
-
+        for coefficients in alloc.assignments(size):
+            combinations += math.prod(self.count_nonterminal(nonterm,subsize)
+                                      for subsize,nonterm in alloc.assignment_nonterms(coefficients))
         return combinations
+
+
+#    def count_clause(self, clause, size):
+#        terminals = [s for s in clause.rhs if s.isTerminal ]
+#        nonTerms  = [s for s in clause.rhs if s.isNonterminal ]
+#        exact     = len([s for s in terminals  if s.modifier=="just" ])
+#        zeroOne   = [s for s in terminals  if s.modifier=="optional" ]
+#        zeroMore  = [s for s in terminals  if s.modifier=="any" ]
+#        oneMore   = [s for s in terminals  if s.modifier=="some" ]
+#        exact    += len(oneMore)
+#        flexible  = len(nonTerms) + len(zeroMore) + len(oneMore)
+#
+#        #print(f'count_clause: {clause.lhs} s={size} t={len(terminals)} n={len(nonTerms)}')
+#        if len(nonTerms)==0 and size==exact:  return 1
+#        if flexible==0      and size!=exact:  return 0
+#
+#        freeTerms = size - exact
+#        if freeTerms==0 and len(oneMore)==0 and all(self.count_nonterminal(n,0)==1 for n in nonTerms):
+#            return 1
+#
+#        if freeTerms<=0:  return 0
+#
+#        combinations = 0
+#        for optSizes in ordered_binary_partitions_below_n(freeTerms, len(zeroOne)):
+#            usedTerms = sum(optSizes)
+#            stillFree = freeTerms - usedTerms
+#            for subsizes in ordered_partitions_n(stillFree, flexible):
+#                #print(f'  check {list(zip(nonTerms,subsizes))}')
+#                combinations += math.prod([ self.count_nonterminal(n, s)  for n,s in zip(nonTerms,subsizes) ])
+#        #print(f'  total {combinations}')
+#
+#        return combinations
 
 
 class Enumerator:
@@ -240,9 +285,9 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(8):
-        enumerated = [renderText(r) for r in e.produce('set',i)]
-        counted = s.count_rule('set',i)
+    for i in range(10):
+        enumerated = [renderText(r) for r in e.produce('atom',i)]
+        counted = s.count_rule('atom',i)
         print(f'count: {counted}  enum: {len(enumerated)}')
         #print(enumerated)
 
