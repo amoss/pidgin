@@ -98,20 +98,28 @@ class Sampler:
         print(choices)
 
     def count_rule(self, ruleName, size):
+        key = (ruleName,size)
+        if key in self.memo:
+            return self.memo[key]
         rule = self.grammar.rules[ruleName]
-        #im = [self.count_clause(clause,size) for clause in rule.clauses]
-        #print(ruleName,im)
-        #return sum(im)
-        return sum( self.count_clause(clause,size) for clause in rule.clauses)
+        result = sum( self.count_clause(clause,size) for clause in rule.clauses)
+        self.memo[key] = result
+        return result
 
     def count_nonterminal(self, symbol, size):
+        key = (symbol,size)
+        if key in self.memo:
+            return self.memo[key]
         if symbol.modifier=="just":
-            return self.count_rule(symbol.name,size)
+            result = self.count_rule(symbol.name,size)
+            self.memo[key] = result
+            return result
         if symbol.modifier=="any":
             if size==0:  return 1
             combinations = 0
             for prefix in range(1,size+1):
                 combinations += self.count_rule(symbol.name,prefix) * self.count_nonterminal(symbol, size-prefix)
+            self.memo[key] = combinations
             return combinations
         if symbol.modifier=="some":
             if size==0:  return 0
@@ -120,21 +128,27 @@ class Sampler:
             suffixSymbol.modifier = "any"
             for prefix in range(1,size+1):
                 combinations += self.count_rule(symbol.name,prefix) * self.count_nonterminal(suffixSymbol, size-prefix)
+            self.memo[key] = combinations
             return combinations
         if symbol.modifier=="optional":
             if size==0:  return 1
-            return self.count_rule(symbol.name,size)
+            result = self.count_rule(symbol.name,size)
+            self.memo[key] = result
+            return result
         assert False
 
 
 
     def count_clause(self, clause, size):
+        key = (clause,size)
+        if key in self.memo:
+            return self.memo[key]
         alloc = ClauseAllocation(clause.rhs)
-
         combinations = 0
         for counts in alloc.assignments(size):
             combinations += math.prod(self.count_nonterminal(nonterm,subsize)
                                       for subsize,nonterm in alloc.assignment_nonterms(counts))
+        self.memo[key] = combinations
         return combinations
 
 
@@ -229,8 +243,9 @@ if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
     e = Enumerator(stage1g)
-    for i in range(9):
-        enumerated = [renderText(r) for r in e.produce('set',i)]
+    for i in range(99):
+        #enumerated = [renderText(r) for r in e.produce('set',i)]
+        enumerated = []
         counted = s.count_rule('set',i)
         print(f'count: {counted}  enum: {len(enumerated)}')
         #print(enumerated)
