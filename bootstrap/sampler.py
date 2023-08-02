@@ -86,16 +86,28 @@ class ClauseAllocation:
         for i in range(len(self.nonterms)):
             yield (assignment[self.posNonterms+i], self.nonterms[i][1])
 
+def weighted_choice(keys_weights):
+    if len(keys_weights)==1:   return keys_weights[0][0]
+    total = sum(w for _,w in keys_weights)
+    assert total>0, keys_weights
+    choice = random.randrange(total)
+    weight_sum = 0
+    for pos,(key,weight) in enumerate(keys_weights):
+        if choice < weight_sum+weight:
+            return key
+        weight_sum += weight
+    assert False
 
 class Sampler:
     def __init__(self, grammar):
         self.grammar = grammar
         self.memo    = {}
 
-    def uniform(self, ruleName, size):
+    def sample_rule(self, ruleName, size):
         rule = self.grammar.rules[ruleName]
         choices = [ (clause, self.count_clause(clause,size))  for clause in rule.clauses ]
-        print(choices)
+        clause = weighted_choice(choices)
+        return self.sample_clause(clause, size)
 
     def count_rule(self, ruleName, size):
         key = (ruleName,size)
@@ -137,6 +149,27 @@ class Sampler:
             return result
         assert False
 
+
+    def sample_clause(self, clause, size):
+        alloc = ClauseAllocation(clause.rhs)
+        choices = [ (counts, math.prod(self.count_nonterminal(nonterm,subsize)
+                                      for subsize,nonterm in alloc.assignment_nonterms(counts)))
+                    for counts in alloc.assignments(size) ]
+        choices = [ c for c in choices if c[1]>0 ]
+        if len(choices)==0:
+            counts = []
+        else:
+            counts = weighted_choice(choices)
+        result = [(),] * len(clause.rhs)
+        for pos,symbol in alloc.zero+alloc.one:
+            result[pos] = [symbol]
+        combined = list(zip(counts, alloc.assignmentOrder))
+        for count,(pos,symbol) in combined[:alloc.posNonterms]:
+            result[pos] = [symbol]*count
+        for count,(pos,symbol) in combined[alloc.posNonterms:]:
+            if count>0:
+                result[pos] = self.sample_rule(symbol.name,count)
+        return list(itertools.chain.from_iterable([s for s in result if len(s)>0]))
 
 
     def count_clause(self, clause, size):
@@ -242,11 +275,13 @@ def renderText(terminals):
 if __name__=='__main__':
     stage1g, _, _ = buildCommon()
     s = Sampler(stage1g)
-    e = Enumerator(stage1g)
-    for i in range(99):
-        #enumerated = [renderText(r) for r in e.produce('set',i)]
-        enumerated = []
-        counted = s.count_rule('set',i)
-        print(f'count: {counted}  enum: {len(enumerated)}')
-        #print(enumerated)
+    for i in range(20):
+        print(renderText(s.sample_rule('binop1',15)))
+    #e = Enumerator(stage1g)
+    #for i in range(99):
+    #    #enumerated = [renderText(r) for r in e.produce('set',i)]
+    #    enumerated = []
+    #    counted = s.count_rule('set',i)
+    #    print(f'count: {counted}  enum: {len(enumerated)}')
+    #    #print(enumerated)
 
