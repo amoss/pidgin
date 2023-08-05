@@ -6,6 +6,7 @@ rootDir= os.path.dirname(os.path.dirname(__file__))
 if rootDir not in sys.path:
     sys.path.append(rootDir)
 
+import argparse
 import itertools
 import math
 import operator
@@ -273,15 +274,18 @@ def renderText(terminals):
     return "".join(texts)
 
 if __name__=='__main__':
-    stage1g, _, _ = buildCommon()
-    s = Sampler(stage1g)
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("-g", "--grammar", type=str, default="bootstrap/interpreter/grammar.g")
+    argParser.add_argument("-s", "--size", type=int, default=10)
+    argParser.add_argument("-r", "--rule", type=str, default="program")
+    args = argParser.parse_args()
+    stage1g, _, stage1 = buildCommon()
+    res = next(stage1.execute( open(args.grammar).read()), None)
+    if res is None:
+        print(f"Failed to parse grammar from {args.grammar}")
+        sys.exit(-1)
+    grammar = stage2(res)
+    s = Sampler(grammar)
     for i in range(20):
-        print(renderText(s.sample_rule('binop1',15)))
-    #e = Enumerator(stage1g)
-    #for i in range(99):
-    #    #enumerated = [renderText(r) for r in e.produce('set',i)]
-    #    enumerated = []
-    #    counted = s.count_rule('set',i)
-    #    print(f'count: {counted}  enum: {len(enumerated)}')
-    #    #print(enumerated)
+        print(renderText(s.sample_rule(args.rule,args.size)))
 
