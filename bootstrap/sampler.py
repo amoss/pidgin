@@ -108,6 +108,8 @@ class Sampler:
     def sample_rule(self, ruleName, size):
         rule = self.grammar.rules[ruleName]
         choices = [ (clause, self.count_clause(clause,size))  for clause in rule.clauses ]
+        for clause,count in choices:
+            print(clause,count)
         clause = weighted_choice(choices)
         return self.sample_clause(clause, size)
 

@@ -1,8 +1,8 @@
 Short-term
 -----------
 
-* Sampler for grammar, same basic structure as tree sampler.
 * Look at other bias parameters (e.g. fixed number of nonterminals by tag).
+* Substitute small sets of strings for sub-tree expansions.
 * Expand the set of tests to cover the SSA generation.
 * Fill out set of operators and their implementations.
 * Add implicit threading of stdin/stdout to translation and type-checking.
