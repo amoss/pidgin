@@ -11,6 +11,7 @@ import itertools
 import math
 import operator
 import random
+import string
 from bootstrap.grammar import Grammar
 from bootstrap.interpreter import buildCommon, stage2
 from bootstrap.util import strs
@@ -266,7 +267,11 @@ def renderText(terminals):
         if isinstance(t, Grammar.TermSet):
             if spacing and len(texts)>0:
                 texts.append(" ")
-            texts.append(random.choice(list(t.chars)))
+            if t.inverse:
+                universe = set(string.printable).difference(t.chars)
+                texts.append(random.choice(list(universe)))
+            else:
+                texts.append(random.choice(list(t.chars)))
         if isinstance(t, Grammar.Glue):
             spacing = False
         if isinstance(t, Grammar.Remover):
