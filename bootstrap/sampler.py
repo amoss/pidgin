@@ -105,36 +105,38 @@ class Sampler:
         self.grammar = grammar
         self.memo    = {}
 
-    def sample_rule(self, ruleName, size):
+    def sample_rule(self, ruleName, size, bias=[]):
         rule = self.grammar.rules[ruleName]
-        choices = [ (clause, self.count_clause(clause,size))  for clause in rule.clauses ]
+        choices = [ (clause, self.count_clause(clause,size,bias))  for clause in rule.clauses ]
         for clause,count in choices:
             print(clause,count)
         clause = weighted_choice(choices)
         return self.sample_clause(clause, size)
 
-    def count_rule(self, ruleName, size):
+    def count_rule(self, ruleName, size, bias):
         key = (ruleName,size)
         if key in self.memo:
             return self.memo[key]
         rule = self.grammar.rules[ruleName]
-        result = sum( self.count_clause(clause,size) for clause in rule.clauses)
+        result = sum( self.count_clause(clause,size,bias) for clause in rule.clauses)
         self.memo[key] = result
         return result
 
-    def count_nonterminal(self, symbol, size):
+    def count_nonterminal(self, symbol, size, bias):
+        # TODO: consider bias in modifier expansion
         key = (symbol,size)
         if key in self.memo:
             return self.memo[key]
         if symbol.modifier=="just":
-            result = self.count_rule(symbol.name,size)
+            result = self.count_rule(symbol.name, size, bias)
             self.memo[key] = result
             return result
         if symbol.modifier=="any":
             if size==0:  return 1
             combinations = 0
             for prefix in range(1,size+1):
-                combinations += self.count_rule(symbol.name,prefix) * self.count_nonterminal(symbol, size-prefix)
+                combinations += self.count_rule(symbol.name, prefix, bias) * \
+                                self.count_nonterminal(symbol, size-prefix, bias)
             self.memo[key] = combinations
             return combinations
         if symbol.modifier=="some":
@@ -143,12 +145,13 @@ class Sampler:
             suffixSymbol = symbol.copy()
             suffixSymbol.modifier = "any"
             for prefix in range(1,size+1):
-                combinations += self.count_rule(symbol.name,prefix) * self.count_nonterminal(suffixSymbol, size-prefix)
+                combinations += self.count_rule(symbol.name, prefix, bias) * \
+                                self.count_nonterminal(suffixSymbol, size-prefix, bias)
             self.memo[key] = combinations
             return combinations
         if symbol.modifier=="optional":
             if size==0:  return 1
-            result = self.count_rule(symbol.name,size)
+            result = self.count_rule(symbol.name, size, bias)
             self.memo[key] = result
             return result
         assert False
@@ -156,7 +159,7 @@ class Sampler:
 
     def sample_clause(self, clause, size):
         alloc = ClauseAllocation(clause.rhs)
-        choices = [ (counts, math.prod(self.count_nonterminal(nonterm,subsize)
+        choices = [ (counts, math.prod(self.count_nonterminal(nonterm, subsize, bias)
                                       for subsize,nonterm in alloc.assignment_nonterms(counts)))
                     for counts in alloc.assignments(size) ]
         choices = [ c for c in choices if c[1]>0 ]
@@ -176,15 +179,30 @@ class Sampler:
         return list(itertools.chain.from_iterable([s for s in result if len(s)>0]))
 
 
-    def count_clause(self, clause, size):
+    def count_clause(self, clause, size, bias):
         key = (clause,size)
         if key in self.memo:
             return self.memo[key]
         alloc = ClauseAllocation(clause.rhs)
         combinations = 0
         for counts in alloc.assignments(size):
-            combinations += math.prod(self.count_nonterminal(nonterm,subsize)
-                                      for subsize,nonterm in alloc.assignment_nonterms(counts))
+            # If we have bias parameters then we cannot avoid the combinatorial blowup of applying the counting
+            # function while checking the distribution (via partition of the integer) of each of number of
+            # the biased non-terminal to each sub-clause (non-terminal expansion) in the clause.
+            if len(bias)>0:
+
+                nonterms = [ (numTerms,symbol) for numTerms,symbol in alloc.assignment_nonterms(counts) if numTerms>0 ]
+                biasNames, biasCounts = zip(*bias)
+                biasDists = [ ordered_partitions_n(count, len(nonterms)) for count in biasCounts ]
+                biasAssignments = list(itertools.product(*biasDists))
+                for assignment in biasAssignments:
+                    subBias = list(zip(biasNames,assignment))
+                    combinations += math.prod(self.count_nonterminal(nonterm, subsize,
+                                                                     [(sb[0],sb[1][i]) for sb in subBias])
+                                              for i,(subsize,nonterm) in enumerate(nonterms))
+            else:
+                combinations += math.prod(self.count_nonterminal(nonterm, subsize, bias)
+                                          for subsize,nonterm in alloc.assignment_nonterms(counts))
         self.memo[key] = combinations
         return combinations
 
@@ -285,7 +303,10 @@ if __name__=='__main__':
     argParser.add_argument("-g", "--grammar", type=str, default="bootstrap/interpreter/grammar.g")
     argParser.add_argument("-s", "--size", type=int, default=10)
     argParser.add_argument("-r", "--rule", type=str, default="program")
+    argParser.add_argument("-b", "--bias", action='append')
     args = argParser.parse_args()
+    bias = [] if args.bias is None else [ s.split('=') for s in args.bias ]
+    bias = [ (name,int(count)) for name,count in bias ]
     stage1g, _, stage1 = buildCommon()
     res = next(stage1.execute( open(args.grammar).read()), None)
     if res is None:
@@ -294,5 +315,5 @@ if __name__=='__main__':
     grammar = stage2(res)
     s = Sampler(grammar)
     for i in range(20):
-        print(renderText(s.sample_rule(args.rule,args.size)))
+        print(renderText(s.sample_rule(args.rule,args.size,bias=bias)))
 
