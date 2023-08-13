@@ -123,17 +123,27 @@ class Sampler:
         return result
 
     def count_nonterminal(self, symbol, size, bias):
-        # TODO: consider bias in modifier expansion
-        key = (symbol,size)
+        biasCount = None
+        for name,count in bias:
+            if name==symbol.name:
+                biasCount = count
+        if biasCount==0:
+            return 0
+        key = (symbol,size,biasCount)
         if key in self.memo:
             return self.memo[key]
         if symbol.modifier=="just":
-            result = self.count_rule(symbol.name, size, bias)
+            if biasCount is None:
+                result = self.count_rule(symbol.name, size, bias)
+            else:
+                newBias = [(name,count) if name!=symbol.name else (name,biasCount-1) for name,count in bias]
+                result = self.count_rule(symbol.name, size, newBias)
             self.memo[key] = result
             return result
         if symbol.modifier=="any":
             if size==0:  return 1
             combinations = 0
+            # Blow up as termsize * biasNum
             for prefix in range(1,size+1):
                 combinations += self.count_rule(symbol.name, prefix, bias) * \
                                 self.count_nonterminal(symbol, size-prefix, bias)
@@ -144,6 +154,7 @@ class Sampler:
             combinations = 0
             suffixSymbol = symbol.copy()
             suffixSymbol.modifier = "any"
+            # Blow up as termsize * biasNum
             for prefix in range(1,size+1):
                 combinations += self.count_rule(symbol.name, prefix, bias) * \
                                 self.count_nonterminal(suffixSymbol, size-prefix, bias)
@@ -190,16 +201,18 @@ class Sampler:
             # function while checking the distribution (via partition of the integer) of each of number of
             # the biased non-terminal to each sub-clause (non-terminal expansion) in the clause.
             if len(bias)>0:
-
                 nonterms = [ (numTerms,symbol) for numTerms,symbol in alloc.assignment_nonterms(counts) if numTerms>0 ]
-                biasNames, biasCounts = zip(*bias)
-                biasDists = [ ordered_partitions_n(count, len(nonterms)) for count in biasCounts ]
-                biasAssignments = list(itertools.product(*biasDists))
-                for assignment in biasAssignments:
-                    subBias = list(zip(biasNames,assignment))
-                    combinations += math.prod(self.count_nonterminal(nonterm, subsize,
-                                                                     [(sb[0],sb[1][i]) for sb in subBias])
-                                              for i,(subsize,nonterm) in enumerate(nonterms))
+                # If we have no nonterminal sub-productions to distribute the bias onto then there
+                # are 0 valid expansions matching the bias.
+                if len(nonterms)>0:
+                    biasNames, biasCounts = zip(*bias)
+                    biasDists = [ ordered_partitions_n(count, len(nonterms)) for count in biasCounts ]
+                    biasAssignments = list(itertools.product(*biasDists))
+                    for assignment in biasAssignments:
+                        subBias = list(zip(biasNames,assignment))
+                        combinations += math.prod(self.count_nonterminal(nonterm, subsize,
+                                                                         [(sb[0],sb[1][i]) for sb in subBias])
+                                                  for i,(subsize,nonterm) in enumerate(nonterms))
             else:
                 combinations += math.prod(self.count_nonterminal(nonterm, subsize, bias)
                                           for subsize,nonterm in alloc.assignment_nonterms(counts))
