@@ -123,20 +123,24 @@ class Sampler:
         return result
 
     def count_nonterminal(self, symbol, size, bias):
+        print(f'count_nonterminal {symbol} {size} {bias}')
         biasCount = None
         for name,count in bias:
             if name==symbol.name:
                 biasCount = count
+        print(f' biasCount={biasCount}')
         if biasCount==0:
             return 0
         key = (symbol,size,biasCount)
         if key in self.memo:
+            print(f' memo {key} <- {self.memo[key]}')
             return self.memo[key]
         if symbol.modifier=="just":
             if biasCount is None:
                 result = self.count_rule(symbol.name, size, bias)
             else:
                 newBias = [(name,count) if name!=symbol.name else (name,biasCount-1) for name,count in bias]
+                print(f'bias {biasCount} for {symbol} -> {newBias} ({size})')
                 result = self.count_rule(symbol.name, size, newBias)
             self.memo[key] = result
             return result
@@ -191,28 +195,37 @@ class Sampler:
 
 
     def count_clause(self, clause, size, bias):
+        #print(f'count_clause {clause} {size} {bias}')
         key = (clause,size)
         if key in self.memo:
             return self.memo[key]
         alloc = ClauseAllocation(clause.rhs)
         combinations = 0
         for counts in alloc.assignments(size):
+            #print(f'count_clause {clause} counts={counts} bias={bias}')
             # If we have bias parameters then we cannot avoid the combinatorial blowup of applying the counting
             # function while checking the distribution (via partition of the integer) of each of number of
             # the biased non-terminal to each sub-clause (non-terminal expansion) in the clause.
             if len(bias)>0:
                 nonterms = [ (numTerms,symbol) for numTerms,symbol in alloc.assignment_nonterms(counts) if numTerms>0 ]
+                #print(f' nonterms={nonterms}')
                 # If we have no nonterminal sub-productions to distribute the bias onto then there
                 # are 0 valid expansions matching the bias.
                 if len(nonterms)>0:
                     biasNames, biasCounts = zip(*bias)
                     biasDists = [ ordered_partitions_n(count, len(nonterms)) for count in biasCounts ]
                     biasAssignments = list(itertools.product(*biasDists))
+                    #print(f' biasAssignments={biasAssignments}')
                     for assignment in biasAssignments:
                         subBias = list(zip(biasNames,assignment))
-                        combinations += math.prod(self.count_nonterminal(nonterm, subsize,
+                        assignedCombinations = [ self.count_nonterminal(nonterm, subsize,
                                                                          [(sb[0],sb[1][i]) for sb in subBias])
-                                                  for i,(subsize,nonterm) in enumerate(nonterms))
+                                                 for i,(subsize,nonterm) in enumerate(nonterms) ]
+                        #print(f' {assignment} -> {assignedCombinations}')
+                        combinations += math.prod(assignedCombinations)
+                else:
+                    if sum(v for _,v in bias)==0:
+                        combinations += 1
             else:
                 combinations += math.prod(self.count_nonterminal(nonterm, subsize, bias)
                                           for subsize,nonterm in alloc.assignment_nonterms(counts))
@@ -317,6 +330,7 @@ if __name__=='__main__':
     argParser.add_argument("-s", "--size", type=int, default=10)
     argParser.add_argument("-r", "--rule", type=str, default="program")
     argParser.add_argument("-b", "--bias", action='append')
+    argParser.add_argument("-n", "--numresults", type=int, default=20)
     args = argParser.parse_args()
     bias = [] if args.bias is None else [ s.split('=') for s in args.bias ]
     bias = [ (name,int(count)) for name,count in bias ]
@@ -327,6 +341,6 @@ if __name__=='__main__':
         sys.exit(-1)
     grammar = stage2(res)
     s = Sampler(grammar)
-    for i in range(20):
+    for i in range(args.numresults):
         print(renderText(s.sample_rule(args.rule,args.size,bias=bias)))
 
