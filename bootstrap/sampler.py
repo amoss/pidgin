@@ -113,45 +113,47 @@ class Sampler:
         clause = weighted_choice(choices)
         return self.sample_clause(clause, size)
 
-    def count_rule(self, ruleName, size, bias):
+    def count_rule(self, ruleName, size, bias, dbgdepth=''):
         key = (ruleName,size)
         if key in self.memo:
             return self.memo[key]
         rule = self.grammar.rules[ruleName]
-        result = sum( self.count_clause(clause,size,bias) for clause in rule.clauses)
+        result = sum( self.count_clause(clause,size,bias, dbgdepth=dbgdepth+'  ') for clause in rule.clauses)
         self.memo[key] = result
         return result
 
-    def count_nonterminal(self, symbol, size, bias):
-        print(f'count_nonterminal {symbol} {size} {bias}')
+    def count_nonterminal(self, symbol, size, bias, dbgdepth=''):
+        print(f'{dbgdepth}count_nonterminal {symbol} {size} {bias}')
         biasCount = None
         for name,count in bias:
             if name==symbol.name:
                 biasCount = count
-        print(f' biasCount={biasCount}')
+        print(f'{dbgdepth} biasCount={biasCount}')
         if biasCount==0:
             return 0
-        key = (symbol,size,biasCount)
+        key = (symbol,size,tuple(bias))
         if key in self.memo:
-            print(f' memo {key} <- {self.memo[key]}')
+            print(f'{dbgdepth} memo {key} <- {self.memo[key]}')
             return self.memo[key]
         if symbol.modifier=="just":
             if biasCount is None:
-                result = self.count_rule(symbol.name, size, bias)
+                result = self.count_rule(symbol.name, size, bias, dbgdepth=dbgdepth+'  ')
             else:
                 newBias = [(name,count) if name!=symbol.name else (name,biasCount-1) for name,count in bias]
-                print(f'bias {biasCount} for {symbol} -> {newBias} ({size})')
-                result = self.count_rule(symbol.name, size, newBias)
+                print(f'{dbgdepth}bias {biasCount} for {symbol} -> {newBias} ({size})')
+                result = self.count_rule(symbol.name, size, newBias, dbgdepth=dbgdepth+'  ')
             self.memo[key] = result
+            print(f'{dbgdepth} set memo = {result} {symbol}@{size}')
             return result
         if symbol.modifier=="any":
             if size==0:  return 1
             combinations = 0
             # Blow up as termsize * biasNum
             for prefix in range(1,size+1):
-                combinations += self.count_rule(symbol.name, prefix, bias) * \
-                                self.count_nonterminal(symbol, size-prefix, bias)
+                combinations += self.count_rule(symbol.name, prefix, bias, dbgdepth=dbgdepth+'  ') * \
+                                self.count_nonterminal(symbol, size-prefix, bias, dbgdepth=dbgdepth+'  ')
             self.memo[key] = combinations
+            print(f'{dbgdepth} set memo = {combinations} {symbol}@{size}')
             return combinations
         if symbol.modifier=="some":
             if size==0:  return 0
@@ -160,14 +162,16 @@ class Sampler:
             suffixSymbol.modifier = "any"
             # Blow up as termsize * biasNum
             for prefix in range(1,size+1):
-                combinations += self.count_rule(symbol.name, prefix, bias) * \
-                                self.count_nonterminal(suffixSymbol, size-prefix, bias)
+                combinations += self.count_rule(symbol.name, prefix, bias, dbgdepth=dbgdepth+'  ') * \
+                                self.count_nonterminal(suffixSymbol, size-prefix, bias, dbgdepth=dbgdepth+'  ')
             self.memo[key] = combinations
+            print(f'{dbgdepth} set memo = {combinations} {symbol}@{size}')
             return combinations
         if symbol.modifier=="optional":
             if size==0:  return 1
-            result = self.count_rule(symbol.name, size, bias)
+            result = self.count_rule(symbol.name, size, bias, dbgdepth=dbgdepth+'  ')
             self.memo[key] = result
+            print(f'{dbgdepth} set memo = {result} {symbol}@{size}')
             return result
         assert False
 
@@ -194,15 +198,15 @@ class Sampler:
         return list(itertools.chain.from_iterable([s for s in result if len(s)>0]))
 
 
-    def count_clause(self, clause, size, bias):
-        #print(f'count_clause {clause} {size} {bias}')
-        key = (clause,size)
+    def count_clause(self, clause, size, bias, dbgdepth=''):
+        print(f'{dbgdepth}count_clause {clause} {size} {bias}')
+        key = (clause,size,tuple(bias))
         if key in self.memo:
             return self.memo[key]
         alloc = ClauseAllocation(clause.rhs)
         combinations = 0
         for counts in alloc.assignments(size):
-            #print(f'count_clause {clause} counts={counts} bias={bias}')
+            print(f'{dbgdepth} counts={counts} bias={bias}')
             # If we have bias parameters then we cannot avoid the combinatorial blowup of applying the counting
             # function while checking the distribution (via partition of the integer) of each of number of
             # the biased non-terminal to each sub-clause (non-terminal expansion) in the clause.
@@ -219,7 +223,7 @@ class Sampler:
                     for assignment in biasAssignments:
                         subBias = list(zip(biasNames,assignment))
                         assignedCombinations = [ self.count_nonterminal(nonterm, subsize,
-                                                                         [(sb[0],sb[1][i]) for sb in subBias])
+                                                                         [(sb[0],sb[1][i]) for sb in subBias], dbgdepth=dbgdepth+'  ')
                                                  for i,(subsize,nonterm) in enumerate(nonterms) ]
                         #print(f' {assignment} -> {assignedCombinations}')
                         combinations += math.prod(assignedCombinations)
@@ -227,9 +231,10 @@ class Sampler:
                     if sum(v for _,v in bias)==0:
                         combinations += 1
             else:
-                combinations += math.prod(self.count_nonterminal(nonterm, subsize, bias)
+                combinations += math.prod(self.count_nonterminal(nonterm, subsize, bias, dbgdepth=dbgdepth+'  ')
                                           for subsize,nonterm in alloc.assignment_nonterms(counts))
         self.memo[key] = combinations
+        print(f'{dbgdepth}combinations={combinations} {size}@{clause}')
         return combinations
 
 
