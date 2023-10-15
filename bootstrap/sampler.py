@@ -110,8 +110,10 @@ class Sampler:
         choices = [ (clause, self.count_clause(clause,size,bias))  for clause in rule.clauses ]
         for clause,count in choices:
             print(clause,count)
+        if sum(count for _,count in choices)==0:
+            return None
         clause = weighted_choice(choices)
-        return self.sample_clause(clause, size)
+        return self.sample_clause(clause, size, bias)
 
     def count_rule(self, ruleName, size, bias, dbgdepth=''):
         key = (ruleName,size)
@@ -176,7 +178,7 @@ class Sampler:
         assert False
 
 
-    def sample_clause(self, clause, size):
+    def sample_clause(self, clause, size, bias):
         alloc = ClauseAllocation(clause.rhs)
         choices = [ (counts, math.prod(self.count_nonterminal(nonterm, subsize, bias)
                                       for subsize,nonterm in alloc.assignment_nonterms(counts)))
@@ -211,7 +213,8 @@ class Sampler:
             # function while checking the distribution (via partition of the integer) of each of number of
             # the biased non-terminal to each sub-clause (non-terminal expansion) in the clause.
             if len(bias)>0:
-                nonterms = [ (numTerms,symbol) for numTerms,symbol in alloc.assignment_nonterms(counts) if numTerms>0 ]
+                all_nonterms = [ (numTerms,symbol) for numTerms,symbol in alloc.assignment_nonterms(counts)]
+                nonterms = [ (numTerms,symbol) for numTerms,symbol in all_nonterms if numTerms>0 ]
                 #print(f' nonterms={nonterms}')
                 # If we have no nonterminal sub-productions to distribute the bias onto then there
                 # are 0 valid expansions matching the bias.
@@ -228,8 +231,13 @@ class Sampler:
                         #print(f' {assignment} -> {assignedCombinations}')
                         combinations += math.prod(assignedCombinations)
                 else:
-                    if sum(v for _,v in bias)==0:
-                        combinations += 1
+                    if all(self.count_nonterminal(nt,0,bias,dbgdepth)>0 for _,nt in all_nonterms):   
+                        print(f'{dbgdepth} ADDONE from {all_nonterms}')
+                        # TODO: We still need to check that it is valid to count the nonterms at size zero......
+                        if sum(v for _,v in bias)==0:
+                            combinations += 1
+                    else:
+                        print(f'SKIP ADDONE from {all_nonterms}')
             else:
                 combinations += math.prod(self.count_nonterminal(nonterm, subsize, bias, dbgdepth=dbgdepth+'  ')
                                           for subsize,nonterm in alloc.assignment_nonterms(counts))
